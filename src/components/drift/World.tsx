@@ -12,7 +12,7 @@ import {
   SEA_FRAG,
   SEA_VERT,
 } from "@/game/shaders";
-import { createCloudTexture, createGlowTexture, createRayTexture } from "@/game/textures";
+import { createCloudTexture, createDotTexture, createGlowTexture, createRayTexture } from "@/game/textures";
 import { useHud } from "@/store/hud";
 import { Airplanes } from "./Airplanes";
 
@@ -20,10 +20,10 @@ export const SUN_DIR = new THREE.Vector3(1.15, 0.58, 0.42).normalize();
 
 const _dummy = new THREE.Object3D();
 const _fwd = new THREE.Vector3();
-const _clearDay = new THREE.Color(0x6eb5e0);
+const _clearDay = new THREE.Color(0x1a58b8);
 const _clearNight = new THREE.Color(0x0b1220);
-const _fogDay = new THREE.Color(0xc5def2);
-const _fogCloud = new THREE.Color(0xf2f0eb);
+const _fogDay = new THREE.Color(0x8eb8e8);
+const _fogCloud = new THREE.Color(0xf4f7fb);
 const _fogNight = new THREE.Color(0x151c2c);
 const _fogNightCloud = new THREE.Color(0x2a3144);
 const _fogSpace = new THREE.Color(0x070b14);
@@ -60,7 +60,7 @@ function Atmosphere() {
         side: THREE.BackSide,
         depthWrite: false,
         depthTest: false,
-        toneMapped: true,
+        toneMapped: false,
       }),
     [],
   );
@@ -109,6 +109,11 @@ function Stars() {
         transparent: true,
         opacity: 0,
         depthWrite: false,
+        map: (() => {
+          const t = new THREE.CanvasTexture(createDotTexture());
+          t.needsUpdate = true;
+          return t;
+        })(),
       }),
     [],
   );
@@ -116,6 +121,7 @@ function Stars() {
   useEffect(
     () => () => {
       geo.dispose();
+      mat.map?.dispose();
       mat.dispose();
     },
     [geo, mat],
@@ -243,6 +249,7 @@ function CloudSea() {
         transparent: true,
         depthWrite: false,
         side: THREE.FrontSide,
+        toneMapped: false,
       }),
     [],
   );
@@ -271,14 +278,14 @@ function CloudSea() {
       frustumCulled={false}
       renderOrder={-20}
     >
-      <planeGeometry args={[11000, 11000, 72, 72]} />
+      <planeGeometry args={[11000, 11000, 128, 128]} />
     </mesh>
   );
 }
 
 function CloudPuffs() {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const count = runtime.mobile ? 168 : 240;
+  const count = runtime.mobile ? 120 : 180;
 
   const puffs = useMemo<Puff[]>(() => {
     const list: Puff[] = [];
@@ -288,7 +295,7 @@ function CloudPuffs() {
     for (let i = 0; i < 16; i++) {
       list.push({
         x: fx * (50 + i * 48) + ((i % 2) * 2 - 1) * (28 + (i % 5) * 10),
-        y: 95 + (i % 5) * 22,
+        y: 108 + (i % 5) * 16,
         z: fz * (50 + i * 48) + (((i + 1) % 3) - 1) * 30,
         s: 72 + (i % 6) * 16,
       });
@@ -299,15 +306,15 @@ function CloudPuffs() {
       const band = Math.random();
       let y: number;
       let s: number;
-      if (band < 0.38) {
-        y = 52 + Math.random() * 48;
-        s = 70 + Math.random() * 100;
-      } else if (band < 0.82) {
-        y = 100 + Math.random() * 95;
-        s = 52 + Math.random() * 90;
+      if (band < 0.58) {
+        y = 58 + Math.random() * 52;
+        s = 78 + Math.random() * 88;
+      } else if (band < 0.9) {
+        y = 118 + Math.random() * 48;
+        s = 48 + Math.random() * 64;
       } else {
-        y = 175 + Math.random() * 95;
-        s = 88 + Math.random() * 90;
+        y = 178 + Math.random() * 36;
+        s = 52 + Math.random() * 48;
       }
       list.push({
         x: Math.cos(a) * r,
@@ -322,6 +329,12 @@ function CloudPuffs() {
   const tex = useMemo(() => {
     const t = new THREE.CanvasTexture(createCloudTexture());
     t.colorSpace = THREE.SRGBColorSpace;
+    t.premultiplyAlpha = true;
+    t.minFilter = THREE.LinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
     t.needsUpdate = true;
     return t;
   }, []);
@@ -341,6 +354,7 @@ function CloudPuffs() {
         depthWrite: false,
         premultipliedAlpha: true,
         side: THREE.DoubleSide,
+        toneMapped: false,
       }),
     [tex],
   );
@@ -396,7 +410,7 @@ function CloudPuffs() {
 
 function Mist() {
   const points = useRef<THREE.Points>(null);
-  const count = 420;
+  const count = runtime.mobile ? 180 : 280;
   const geo = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -407,33 +421,41 @@ function Mist() {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     return g;
+  }, [count]);
+  const tex = useMemo(() => {
+    const t = new THREE.CanvasTexture(createDotTexture());
+    t.needsUpdate = true;
+    return t;
   }, []);
   const mat = useMemo(
     () =>
       new THREE.PointsMaterial({
-        color: 0xf7f4ee,
-        size: 2.4,
+        color: 0xffffff,
+        size: 2.2,
         transparent: true,
         opacity: 0,
         depthWrite: false,
         sizeAttenuation: true,
+        map: tex,
+        alphaTest: 0.06,
       }),
-    [],
+    [tex],
   );
 
   useEffect(
     () => () => {
       geo.dispose();
       mat.dispose();
+      tex.dispose();
     },
-    [geo, mat],
+    [geo, mat, tex],
   );
 
   useFrame(({ camera }) => {
     if (!points.current) return;
     points.current.position.copy(camera.position);
-    mat.opacity = runtime.inCloud * (0.48 - runtime.night * 0.2);
-    mat.color.setRGB(1 - runtime.night * 0.35, 1 - runtime.night * 0.28, 1 - runtime.night * 0.12);
+    mat.opacity = runtime.inCloud * (0.28 - runtime.night * 0.1);
+    mat.color.setRGB(1, 1, 1);
   });
 
   return <points ref={points} geometry={geo} material={mat} frustumCulled={false} renderOrder={6} />;
@@ -454,7 +476,7 @@ function FogRig() {
     const space = spaceFactor(camera.position.y);
     const inside = runtime.inCloud;
     const n = runtime.night;
-    fog.density = THREE.MathUtils.lerp(0.00024, 0.022, inside) * (1 - space);
+    fog.density = THREE.MathUtils.lerp(0.00018, 0.0075, inside) * (1 - space);
     fog.color.lerpColors(_fogDay, _fogCloud, inside);
     _clearMix.copy(_fogNight).lerp(_fogNightCloud, inside);
     fog.color.lerp(_clearMix, n);
@@ -636,7 +658,7 @@ function LightRig() {
     }
     _clearMix.lerpColors(_clearDay, _clearNight, n);
     gl.setClearColor(_clearMix, 1);
-    gl.toneMappingExposure = THREE.MathUtils.lerp(1.12, 0.84, n);
+            gl.toneMappingExposure = THREE.MathUtils.lerp(1.06, 0.84, n);
   });
 
   return (

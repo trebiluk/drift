@@ -44,14 +44,15 @@ export function DriftExperience() {
         useHud.getState().patch({ cruise: runtime.cruise });
       }
     }
-    const nightSaved = window.localStorage.getItem("drift-night");
-    const prefersNight =
-      nightSaved === "1" ||
-      (nightSaved == null && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    if (prefersNight) {
+    const nightSaved = window.localStorage.getItem("drift-night-manual");
+    if (nightSaved === "1") {
       runtime.night = 1;
       runtime.nightTarget = 1;
       useHud.getState().setNightOn(true);
+    } else {
+      runtime.night = 0;
+      runtime.nightTarget = 0;
+      useHud.getState().setNightOn(false);
     }
     const reticleSaved = window.localStorage.getItem("drift-reticle");
     if (reticleSaved && (RETICLES as readonly string[]).includes(reticleSaved)) {
@@ -105,7 +106,7 @@ export function DriftExperience() {
     <main className="sky-wash relative h-dvh w-full overflow-hidden text-cloud select-none">
       <div className="absolute inset-0 touch-none">
         <Canvas
-          camera={{ fov: 72, near: 0.4, far: 7600, position: [0, 152, 0] }}
+          camera={{ fov: 72, near: 0.4, far: 7600, position: [0, 268, 0] }}
           dpr={touchMode ? [1, 1.35] : [1, 2]}
           gl={{
             antialias: !touchMode,
@@ -115,8 +116,8 @@ export function DriftExperience() {
             preserveDrawingBuffer: true,
           }}
           onCreated={({ gl, camera }) => {
-            gl.setClearColor("#6eb5e0", 1);
-            gl.toneMappingExposure = 1.12;
+            gl.setClearColor("#1a58b8", 1);
+            gl.toneMappingExposure = 1.06;
             camera.rotation.order = "YXZ";
             useHud.getState().setReady(true);
           }}

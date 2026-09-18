@@ -17,9 +17,9 @@ function drawPuff(
   rgb: [number, number, number],
   alpha: number,
 ) {
-  const g = ctx.createRadialGradient(x, y - r * 0.2, r * 0.03, x, y, r);
+  const g = ctx.createRadialGradient(x, y - r * 0.18, r * 0.02, x, y, r);
   g.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`);
-  g.addColorStop(0.36, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha * 0.58})`);
+  g.addColorStop(0.42, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha * 0.5})`);
   g.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -27,34 +27,48 @@ function drawPuff(
   ctx.fill();
 }
 
+function circleMask(ctx: CanvasRenderingContext2D, ox: number, size: number) {
+  const img = ctx.getImageData(ox, 0, size, size);
+  const data = img.data;
+  const cx = size * 0.5;
+  const cy = size * 0.52;
+  const rx = size * 0.46;
+  const ry = size * 0.4;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const nx = (x - cx) / rx;
+      const ny = (y - cy) / ry;
+      const d = Math.sqrt(nx * nx + ny * ny);
+      let m = 1;
+      if (d > 1) m = 0;
+      else if (d > 0.55) m = 1 - (d - 0.55) / 0.45;
+      m = m * m * (3 - 2 * m);
+      data[i + 3] = Math.round(data[i + 3] * m);
+      if (data[i + 3] > 0) {
+        data[i] = Math.min(255, data[i] + 28);
+        data[i + 1] = Math.min(255, data[i + 1] + 26);
+        data[i + 2] = Math.min(255, data[i + 2] + 22);
+      }
+    }
+  }
+  ctx.putImageData(img, ox, 0);
+}
+
 function paintCloud(ctx: CanvasRenderingContext2D, size: number, ox: number, seed: number) {
   const rand = mulberry32(seed);
   const cx = ox + size * 0.5;
-  const cy = size * 0.55;
+  const cy = size * 0.52;
 
-  for (let i = 0; i < 62; i++) {
+  for (let i = 0; i < 38; i++) {
     const ang = rand() * Math.PI * 2;
-    const rad = Math.pow(rand(), 0.6) * size * 0.32;
-    const x = cx + Math.cos(ang) * rad * 1.38;
-    const y = cy + Math.sin(ang) * rad * 0.66;
-    const r = size * (0.07 + rand() * 0.18);
-    const height = (cy - y) / size;
-    const warmth = Math.max(0, 0.4 + height * 1.2 + rand() * 0.12);
-    const cr = Math.round(148 + warmth * 107);
-    const cg = Math.round(156 + warmth * 96);
-    const cb = Math.round(170 + warmth * 80);
-    drawPuff(ctx, x, y, r, [cr, cg, cb], 0.26 + rand() * 0.3);
+    const rad = Math.pow(rand(), 0.55) * size * 0.28;
+    const x = cx + Math.cos(ang) * rad * 1.35;
+    const y = cy + Math.sin(ang) * rad * 0.62;
+    const r = size * (0.08 + rand() * 0.16);
+    drawPuff(ctx, x, y, r, [255, 252, 248], 0.42 + rand() * 0.38);
   }
-
-  ctx.save();
-  ctx.globalCompositeOperation = "destination-in";
-  const mask = ctx.createRadialGradient(cx, cy - size * 0.05, size * 0.05, cx, cy, size * 0.48);
-  mask.addColorStop(0, "rgba(255,255,255,1)");
-  mask.addColorStop(0.52, "rgba(255,255,255,0.94)");
-  mask.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = mask;
-  ctx.fillRect(ox, 0, size, size);
-  ctx.restore();
+  circleMask(ctx, ox, size);
 }
 
 export function createCloudTexture(seed = 21) {
@@ -62,11 +76,11 @@ export function createCloudTexture(seed = 21) {
 }
 
 export function createCloudAtlas(seed = 21) {
-  const size = 640;
+  const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = size * 2;
   canvas.height = size;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("No 2d context");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   paintCloud(ctx, size, 0, seed);
@@ -113,5 +127,21 @@ export function createRayTexture() {
   fade.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = fade;
   ctx.fillRect(0, 0, w, h);
+  return canvas;
+}
+
+export function createDotTexture() {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No 2d context");
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.45, "rgba(255,255,255,0.45)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
   return canvas;
 }

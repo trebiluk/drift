@@ -251,7 +251,7 @@ export function Overlay({ onStart, onToggleMute, onToggleNight }: OverlayProps) 
     <div className="pointer-events-none absolute inset-0 z-10 touch-none">
       <div
         className="absolute inset-0 bg-cloud transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)]"
-        style={{ opacity: inCloud * 0.46 * (1 - night) }}
+        style={{ opacity: inCloud * 0.22 * (1 - night) }}
         aria-hidden
       />
       <div
@@ -260,7 +260,7 @@ export function Overlay({ onStart, onToggleMute, onToggleNight }: OverlayProps) 
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 shadow-[inset_0_0_140px_rgba(28,40,56,0.2)]"
+        className="pointer-events-none absolute inset-0 shadow-[inset_0_0_90px_rgba(20,60,130,0.12)]"
         aria-hidden
       />
 

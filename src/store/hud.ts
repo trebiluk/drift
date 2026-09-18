@@ -34,7 +34,7 @@ export type HudState = {
 export const useHud = create<HudState>((set) => ({
   playing: false,
   ready: false,
-  altitude: 152,
+  altitude: 268,
   speed: 24,
   cruise: DEFAULT_CRUISE,
   layer: "Among the clouds",
@@ -55,7 +55,7 @@ export const useHud = create<HudState>((set) => ({
     runtime.nightTarget = nightOn ? 1 : 0;
     set({ nightOn });
     try {
-      window.localStorage.setItem("drift-night", nightOn ? "1" : "0");
+      window.localStorage.setItem("drift-night-manual", nightOn ? "1" : "0");
     } catch {
       /* ignore */
     }

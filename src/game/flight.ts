@@ -42,10 +42,10 @@ export function createCraft(): Craft {
   const sunZ = 0.42;
   return {
     x: 0,
-    y: 152,
+    y: 268,
     z: 0,
     yaw: Math.atan2(-sunX, -sunZ),
-    pitch: -0.22,
+    pitch: -0.16,
     roll: 0,
     speed: cruiseSpeed(DEFAULT_CRUISE),
   };
