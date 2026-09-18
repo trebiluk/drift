@@ -8,9 +8,9 @@
   --color-ink-soft: #3d4a5c;
   --color-cloud: #f7f4ee;
   --color-cloud-dim: #d9e4ee;
-  --color-sky-deep: #123a86;
-  --color-sky-mid: #1a58b8;
-  --color-sky-horizon: #5ea0dc;
+  --color-sky-deep: #0c4aaa;
+  --color-sky-mid: #1560c4;
+  --color-sky-horizon: #4a8ad4;
   --color-sun: #fff3c8;
   --color-space: #070b14;
   --color-panel: #f7f4eeeb;
@@ -81,6 +81,14 @@ html[data-sky="night"] .sky-wash {
   background: linear-gradient(180deg, #0b1220 0%, #152038 48%, #243044 100%);
 }
 
+html[data-sky="space"] .sky-wash {
+  background: linear-gradient(180deg, #070614 0%, #1a1030 52%, #2a1644 100%);
+}
+
+html[data-sky="reef"] .sky-wash {
+  background: linear-gradient(180deg, #041820 0%, #0a3a4a 48%, #15606a 100%);
+}
+
 .copy-touch {
   display: none;
 }
@@ -138,6 +146,49 @@ html[data-input="desk"] .throttle-slot {
   transform: translateY(-50%);
   bottom: auto;
   right: max(0.75rem, env(safe-area-inset-right));
+}
+
+.fx-panel {
+  max-height: min(36rem, calc(100dvh - 2.5rem));
+}
+
+.fx-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--color-ink) 22%, transparent);
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.fx-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--color-cloud);
+  box-shadow: 0 2px 6px rgba(28, 40, 56, 0.22);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.fx-switch-on {
+  background: var(--color-ink);
+}
+
+.fx-switch-on::after {
+  transform: translateX(18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-switch,
+  .fx-switch::after {
+    transition: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

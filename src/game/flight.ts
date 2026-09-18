@@ -1,3 +1,6 @@
+export type WorldMode = "sky" | "space" | "reef";
+export type MusicId = "off" | "haze" | "drift" | "tide" | "void";
+
 export const BASE_SPEED = 24;
 export const MIN_SPEED = 8;
 export const MAX_SPEED = 64;
@@ -6,6 +9,24 @@ export const PITCH_RATE = 0.72;
 export const FLOOR_Y = 72;
 export const CEILING_Y = 2300;
 export const DEFAULT_CRUISE = 0.32;
+
+export const WORLD_HOME: Record<WorldMode, { y: number; pitch: number }> = {
+  sky: { y: 148, pitch: -0.08 },
+  space: { y: 1680, pitch: 0.06 },
+  reef: { y: 28, pitch: -0.16 },
+};
+
+export const MUSIC_FOR_WORLD: Record<WorldMode, "haze" | "void" | "tide"> = {
+  sky: "haze",
+  space: "void",
+  reef: "tide",
+};
+
+export function worldBounds(mode: WorldMode) {
+  if (mode === "space") return { floor: 240, ceiling: 3200 };
+  if (mode === "reef") return { floor: 14, ceiling: 74 };
+  return { floor: FLOOR_Y, ceiling: CEILING_Y };
+}
 
 export type Actions = {
   /** +1 = player-visible left (A / stick left / pointer left) */
@@ -42,16 +63,16 @@ export function createCraft(): Craft {
   const sunZ = 0.42;
   return {
     x: 0,
-    y: 268,
+    y: 148,
     z: 0,
-    yaw: Math.atan2(-sunX, -sunZ),
-    pitch: -0.16,
+    yaw: Math.atan2(-sunX, -sunZ) + 0.72,
+    pitch: -0.08,
     roll: 0,
     speed: cruiseSpeed(DEFAULT_CRUISE),
   };
 }
 
-export function stepCraft(c: Craft, a: Actions, dt: number) {
+export function stepCraft(c: Craft, a: Actions, dt: number, mode: WorldMode = "sky") {
   c.yaw += a.yaw * YAW_RATE * dt;
   c.pitch += a.pitch * PITCH_RATE * dt;
   c.pitch = clamp(c.pitch, -1.18, 1.28);
@@ -78,21 +99,34 @@ export function stepCraft(c: Craft, a: Actions, dt: number) {
   c.y += fy * c.speed * dt;
   c.z += fz * c.speed * dt;
 
-  if (c.y < FLOOR_Y) {
-    c.y += (FLOOR_Y - c.y) * Math.min(1, dt * 1.4);
+  const { floor, ceiling } = worldBounds(mode);
+  if (c.y < floor) {
+    c.y += (floor - c.y) * Math.min(1, dt * 1.4);
     if (c.pitch < 0.08) c.pitch += dt * 0.18;
   }
-  if (c.y > CEILING_Y) {
-    c.y += (CEILING_Y - c.y) * Math.min(1, dt * 0.35);
+  if (c.y > ceiling) {
+    c.y += (ceiling - c.y) * Math.min(1, dt * 0.35);
     if (c.pitch > 0) c.pitch -= dt * 0.1;
   }
 }
 
-export function spaceFactor(y: number) {
+export function spaceFactor(y: number, world: WorldMode = "sky") {
+  if (world === "space") return 1;
+  if (world === "reef") return 0;
   return clamp((y - 780) / 900, 0, 1);
 }
 
-export function layerName(y: number) {
+export function layerName(y: number, world: WorldMode = "sky") {
+  if (world === "space") {
+    if (y > 2300) return "Deep space";
+    if (y > 1750) return "Among the worlds";
+    return "The outer dark";
+  }
+  if (world === "reef") {
+    if (y > 52) return "Near the surface";
+    if (y > 22) return "Above the reef";
+    return "The shallows";
+  }
   if (y > 1450) return "Open space";
   if (y > 920) return "The stratosphere";
   if (y > 240) return "Above the clouds";

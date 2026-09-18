@@ -1,4 +1,6 @@
-import { createCraft, DEFAULT_CRUISE, type Craft } from "./flight";
+import { createCraft, DEFAULT_CRUISE, type Craft, type MusicId, type WorldMode } from "./flight";
+
+export type { MusicId, WorldMode } from "./flight";
 
 export type PointerState = {
   nx: number;
@@ -15,6 +17,16 @@ export type StickState = {
   originY: number;
   x: number;
   y: number;
+};
+
+export type FxFlags = {
+  airplanes: boolean;
+  contrails: boolean;
+  sun: boolean;
+  stars: boolean;
+  haze: boolean;
+  streaks: boolean;
+  throttle: boolean;
 };
 
 export type Runtime = {
@@ -34,6 +46,11 @@ export type Runtime = {
   uiCapture: boolean;
   night: number;
   nightTarget: number;
+  fx: FxFlags;
+  world: WorldMode;
+  music: MusicId;
+  spaceAmt: number;
+  reefAmt: number;
 };
 
 export const runtime: Runtime = {
@@ -53,6 +70,19 @@ export const runtime: Runtime = {
   uiCapture: false,
   night: 0,
   nightTarget: 0,
+  fx: {
+    airplanes: true,
+    contrails: true,
+    sun: true,
+    stars: true,
+    haze: true,
+    streaks: true,
+    throttle: true,
+  },
+  world: "sky",
+  music: "haze",
+  spaceAmt: 0,
+  reefAmt: 0,
 };
 
 export type ControlsProbe = {

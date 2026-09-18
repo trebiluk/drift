@@ -225,8 +225,8 @@ export function Airplanes() {
     const { birds, crafts, trails, rngs } = pack;
     camera.getWorldDirection(_fwd);
     const facing = Math.atan2(-_fwd.x, -_fwd.z);
-    const space = spaceFactor(camera.position.y);
-    const show = space < 0.72 && camera.position.y < 1280;
+    const space = spaceFactor(camera.position.y, runtime.world);
+    const show = runtime.fx.airplanes && runtime.world === "sky" && space < 0.72 && camera.position.y < 1280;
 
     if (!seeded.current) {
       for (let i = 0; i < birds.length; i++) place(birds[i], camera.position, facing, rngs[i], i < 2);
@@ -269,12 +269,14 @@ export function Airplanes() {
       const hx = b.x + tx * b.scale * 2.8;
       const hy = b.y;
       const hz = b.z + tz * b.scale * 2.8;
-      trail.mesh.visible = true;
+      trail.mesh.visible = runtime.fx.contrails;
       trail.mesh.position.set(hx + tx * back * 0.5, hy + ty * back * 0.5, hz + tz * back * 0.5);
       trail.mesh.lookAt(hx + tx * back, hy + ty * back, hz + tz * back);
       trail.mesh.scale.set(0.45, 0.45, back);
       const dist = Math.hypot(b.x - camera.position.x, b.y - camera.position.y, b.z - camera.position.z);
-      trail.mat.opacity = THREE.MathUtils.clamp(1 - dist / 1400, 0, 1) * 0.28 * (1 - runtime.inCloud * 0.55);
+      trail.mat.opacity = runtime.fx.contrails
+        ? THREE.MathUtils.clamp(1 - dist / 1400, 0, 1) * 0.28 * (1 - runtime.inCloud * 0.55)
+        : 0;
     }
   });
 

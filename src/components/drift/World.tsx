@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { cloudImmersion, DEFAULT_CRUISE, layerName, MAX_SPEED, MIN_SPEED, spaceFactor, stepCraft } from "@/game/flight";
+import { cloudImmersion, DEFAULT_CRUISE, layerName, MAX_SPEED, MIN_SPEED, spaceFactor, stepCraft, WORLD_HOME } from "@/game/flight";
 import { sampleActions } from "@/game/input";
 import { runtime } from "@/game/runtime";
 import {
@@ -12,17 +12,19 @@ import {
   SEA_FRAG,
   SEA_VERT,
 } from "@/game/shaders";
-import { createCloudTexture, createDotTexture, createGlowTexture, createRayTexture } from "@/game/textures";
+import { createGlowTexture, createRayTexture } from "@/game/textures";
 import { useHud } from "@/store/hud";
 import { Airplanes } from "./Airplanes";
+import { ReefField } from "./ReefField";
+import { SpaceField } from "./SpaceField";
 
 export const SUN_DIR = new THREE.Vector3(1.15, 0.58, 0.42).normalize();
 
 const _dummy = new THREE.Object3D();
 const _fwd = new THREE.Vector3();
-const _clearDay = new THREE.Color(0x1a58b8);
+const _clearDay = new THREE.Color(0x0c4aaa);
 const _clearNight = new THREE.Color(0x0b1220);
-const _fogDay = new THREE.Color(0x8eb8e8);
+const _fogDay = new THREE.Color(0x6ea4dc);
 const _fogCloud = new THREE.Color(0xf4f7fb);
 const _fogNight = new THREE.Color(0x151c2c);
 const _fogNightCloud = new THREE.Color(0x2a3144);
@@ -54,6 +56,10 @@ function Atmosphere() {
           uSun: { value: SUN_DIR.clone() },
           uSpace: { value: 0 },
           uNight: { value: 0 },
+          uStars: { value: 1 },
+          uDeep: { value: 0 },
+          uReef: { value: 0 },
+          uTime: { value: 0 },
         },
         vertexShader: ATMOSPHERE_VERT,
         fragmentShader: ATMOSPHERE_FRAG,
@@ -61,16 +67,21 @@ function Atmosphere() {
         depthWrite: false,
         depthTest: false,
         toneMapped: false,
+        fog: false,
       }),
     [],
   );
 
   useEffect(() => () => mat.dispose(), [mat]);
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     mesh.current?.position.copy(camera.position);
-    mat.uniforms.uSpace.value = spaceFactor(camera.position.y);
+    mat.uniforms.uSpace.value = spaceFactor(camera.position.y, runtime.world);
     mat.uniforms.uNight.value = runtime.night;
+    mat.uniforms.uStars.value = runtime.fx.stars ? 1 : 0;
+    mat.uniforms.uDeep.value = runtime.spaceAmt;
+    mat.uniforms.uReef.value = runtime.reefAmt;
+    mat.uniforms.uTime.value = clock.elapsedTime;
   });
 
   return (
@@ -78,62 +89,6 @@ function Atmosphere() {
       <sphereGeometry args={[4200, 40, 28]} />
     </mesh>
   );
-}
-
-function Stars() {
-  const points = useRef<THREE.Points>(null);
-  const geo = useMemo(() => {
-    const count = 1800;
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const u = Math.random();
-      const v = Math.random();
-      const theta = 2 * Math.PI * u;
-      const phi = Math.acos(2 * v - 1);
-      const r = 3800;
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.cos(phi);
-      pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    return g;
-  }, []);
-
-  const mat = useMemo(
-    () =>
-      new THREE.PointsMaterial({
-        color: 0xf4f6ff,
-        size: 3.4,
-        sizeAttenuation: false,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        map: (() => {
-          const t = new THREE.CanvasTexture(createDotTexture());
-          t.needsUpdate = true;
-          return t;
-        })(),
-      }),
-    [],
-  );
-
-  useEffect(
-    () => () => {
-      geo.dispose();
-      mat.map?.dispose();
-      mat.dispose();
-    },
-    [geo, mat],
-  );
-
-  useFrame(({ camera }) => {
-    points.current?.position.copy(camera.position);
-    const space = spaceFactor(camera.position.y);
-    mat.opacity = Math.max(0, space - 0.1) * 0.98 + runtime.night * 0.84 * (1 - runtime.inCloud * 0.7);
-  });
-
-  return <points ref={points} geometry={geo} material={mat} frustumCulled={false} renderOrder={-900} />;
 }
 
 function Sun() {
@@ -151,6 +106,7 @@ function Sun() {
         depthWrite: false,
         blending: THREE.AdditiveBlending,
         opacity: 0.95,
+        fog: false,
       }),
     [tex],
   );
@@ -165,11 +121,13 @@ function Sun() {
 
   useFrame(({ camera }) => {
     if (!group.current) return;
+    group.current.visible = runtime.fx.sun && runtime.reefAmt < 0.55;
     group.current.position.copy(camera.position).addScaledVector(SUN_DIR, 2800);
     const n = runtime.night;
-    const s = (1 + spaceFactor(camera.position.y) * 0.35) * (1 - n * 0.38);
+    const s = (1 + spaceFactor(camera.position.y, runtime.world) * 0.35) * (1 - n * 0.38);
     group.current.scale.setScalar(s);
-    mat.opacity = 0.95 - n * 0.18;
+    group.current.scale.setScalar(s);
+    mat.opacity = runtime.fx.sun ? 0.95 - n * 0.18 : 0;
     mat.color.setRGB(1 - n * 0.22, 1 - n * 0.1, 1);
   });
 
@@ -197,6 +155,7 @@ function GodRays() {
         blending: THREE.AdditiveBlending,
         opacity: 0,
         rotation: 0,
+        fog: false,
       }),
     [tex],
   );
@@ -216,8 +175,11 @@ function GodRays() {
     const vis =
       toward ** 3 *
       (0.18 + runtime.inCloud * 0.55) *
-      (1 - spaceFactor(camera.position.y) * 0.7) *
-      (1 - runtime.night * 0.55);
+      (1 - spaceFactor(camera.position.y, runtime.world) * 0.7) *
+      (1 - runtime.night * 0.55) *
+      (runtime.fx.sun ? 1 : 0) *
+      (1 - runtime.reefAmt) *
+      (1 - runtime.spaceAmt);
     mat.opacity = vis;
     mat.color.setRGB(1, 1 - runtime.night * 0.15, 1 - runtime.night * 0.35);
     group.current.position.copy(camera.position).addScaledVector(SUN_DIR, 240);
@@ -250,6 +212,7 @@ function CloudSea() {
         depthWrite: false,
         side: THREE.FrontSide,
         toneMapped: false,
+        fog: false,
       }),
     [],
   );
@@ -261,9 +224,11 @@ function CloudSea() {
     (mat.uniforms.uOffset.value as THREE.Vector2).set(camera.position.x, camera.position.z);
     (mat.uniforms.uCam.value as THREE.Vector3).copy(camera.position);
     const fade = THREE.MathUtils.smoothstep(camera.position.y, 52, 108);
-    mat.uniforms.uFade.value = fade * (1 - spaceFactor(camera.position.y) * 0.12);
+    mat.uniforms.uFade.value =
+      fade * (1 - spaceFactor(camera.position.y, runtime.world) * 0.12) * (1 - runtime.spaceAmt) * (1 - runtime.reefAmt);
     mat.uniforms.uNight.value = runtime.night;
     if (mesh.current) {
+      mesh.current.visible = runtime.world === "sky";
       mesh.current.position.x = camera.position.x;
       mesh.current.position.z = camera.position.z;
     }
@@ -285,65 +250,54 @@ function CloudSea() {
 
 function CloudPuffs() {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const count = runtime.mobile ? 120 : 180;
+  const count = runtime.mobile ? 96 : 140;
 
   const puffs = useMemo<Puff[]>(() => {
     const list: Puff[] = [];
     const yaw = runtime.craft.yaw;
     const fx = -Math.sin(yaw);
     const fz = -Math.cos(yaw);
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 10; i++) {
       list.push({
-        x: fx * (50 + i * 48) + ((i % 2) * 2 - 1) * (28 + (i % 5) * 10),
-        y: 108 + (i % 5) * 16,
-        z: fz * (50 + i * 48) + (((i + 1) % 3) - 1) * 30,
-        s: 72 + (i % 6) * 16,
+        x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
+        y: 88 + (i % 5) * 14,
+        z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
+        s: 70 + (i % 5) * 18,
       });
     }
-    for (let i = list.length; i < count; i++) {
+    for (let c = 0; c < 18; c++) {
       const a = Math.random() * Math.PI * 2;
-      const r = Math.pow(Math.random(), 0.5) * WRAP;
-      const band = Math.random();
-      let y: number;
-      let s: number;
-      if (band < 0.58) {
-        y = 58 + Math.random() * 52;
-        s = 78 + Math.random() * 88;
-      } else if (band < 0.9) {
-        y = 118 + Math.random() * 48;
-        s = 48 + Math.random() * 64;
-      } else {
-        y = 178 + Math.random() * 36;
-        s = 52 + Math.random() * 48;
+      const r = 70 + Math.pow(Math.random(), 0.4) * WRAP;
+      const cx = Math.cos(a) * r;
+      const cz = Math.sin(a) * r;
+      const cy = 70 + Math.random() * 70;
+      const n = 3 + (c % 4);
+      for (let j = 0; j < n && list.length < count; j++) {
+        list.push({
+          x: cx + (Math.random() - 0.5) * 78,
+          y: cy + (Math.random() - 0.5) * 36,
+          z: cz + (Math.random() - 0.5) * 78,
+          s: 52 + Math.random() * 88,
+        });
       }
+    }
+    while (list.length < count) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 50 + Math.random() * WRAP;
       list.push({
         x: Math.cos(a) * r,
-        y,
+        y: 64 + Math.random() * 90,
         z: Math.sin(a) * r,
-        s,
+        s: 48 + Math.random() * 70,
       });
     }
     return list;
   }, [count]);
 
-  const tex = useMemo(() => {
-    const t = new THREE.CanvasTexture(createCloudTexture());
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.premultiplyAlpha = true;
-    t.minFilter = THREE.LinearFilter;
-    t.magFilter = THREE.LinearFilter;
-    t.generateMipmaps = false;
-    t.wrapS = THREE.ClampToEdgeWrapping;
-    t.wrapT = THREE.ClampToEdgeWrapping;
-    t.needsUpdate = true;
-    return t;
-  }, []);
-
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
         uniforms: {
-          uMap: { value: tex },
           uSun: { value: SUN_DIR.clone() },
           uSpace: { value: 0 },
           uNight: { value: 0 },
@@ -355,28 +309,33 @@ function CloudPuffs() {
         premultipliedAlpha: true,
         side: THREE.DoubleSide,
         toneMapped: false,
+        fog: false,
       }),
-    [tex],
+    [],
   );
 
   const geo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
 
   useEffect(
     () => () => {
-      tex.dispose();
       mat.dispose();
       geo.dispose();
     },
-    [tex, mat, geo],
+    [mat, geo],
   );
 
   useFrame(({ camera }) => {
     const inst = mesh.current;
     if (!inst) return;
+    inst.visible = runtime.world === "sky" && camera.position.y < 820;
+    if (!inst.visible) {
+      runtime.inCloud = runtime.world === "sky" ? cloudImmersion(camera.position.y) : 0;
+      return;
+    }
     const cx = camera.position.x;
     const cz = camera.position.z;
     let nearest = 1;
-    mat.uniforms.uSpace.value = spaceFactor(camera.position.y);
+    mat.uniforms.uSpace.value = spaceFactor(camera.position.y, runtime.world);
     mat.uniforms.uNight.value = runtime.night;
 
     for (let i = 0; i < puffs.length; i++) {
@@ -390,7 +349,7 @@ function CloudPuffs() {
       if (d < nearest) nearest = d;
 
       _dummy.position.set(p.x, p.y, p.z);
-      _dummy.scale.set(p.s * 1.65, p.s, i % 2 === 0 ? 1 : 0.2);
+      _dummy.scale.set(p.s * 1.55, p.s * 1.12, 1);
       _dummy.rotation.set(0, 0, 0);
       _dummy.updateMatrix();
       inst.setMatrixAt(i, _dummy.matrix);
@@ -408,59 +367,6 @@ function CloudPuffs() {
   return <instancedMesh ref={mesh} args={[geo, mat, count]} frustumCulled={false} renderOrder={2} />;
 }
 
-function Mist() {
-  const points = useRef<THREE.Points>(null);
-  const count = runtime.mobile ? 180 : 280;
-  const geo = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 90;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 46;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 90;
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    return g;
-  }, [count]);
-  const tex = useMemo(() => {
-    const t = new THREE.CanvasTexture(createDotTexture());
-    t.needsUpdate = true;
-    return t;
-  }, []);
-  const mat = useMemo(
-    () =>
-      new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 2.2,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        sizeAttenuation: true,
-        map: tex,
-        alphaTest: 0.06,
-      }),
-    [tex],
-  );
-
-  useEffect(
-    () => () => {
-      geo.dispose();
-      mat.dispose();
-      tex.dispose();
-    },
-    [geo, mat, tex],
-  );
-
-  useFrame(({ camera }) => {
-    if (!points.current) return;
-    points.current.position.copy(camera.position);
-    mat.opacity = runtime.inCloud * (0.28 - runtime.night * 0.1);
-    mat.color.setRGB(1, 1, 1);
-  });
-
-  return <points ref={points} geometry={geo} material={mat} frustumCulled={false} renderOrder={6} />;
-}
-
 function FogRig() {
   const { scene } = useThree();
   const fog = useMemo(() => new THREE.FogExp2(0xc5dff0, 0.0004), []);
@@ -473,75 +379,22 @@ function FogRig() {
   }, [scene, fog]);
 
   useFrame(({ camera }) => {
-    const space = spaceFactor(camera.position.y);
-    const inside = runtime.inCloud;
+    const space = Math.max(spaceFactor(camera.position.y, runtime.world), runtime.spaceAmt);
+    const inside = runtime.world === "sky" ? runtime.inCloud : 0;
     const n = runtime.night;
-    fog.density = THREE.MathUtils.lerp(0.00018, 0.0075, inside) * (1 - space);
-    fog.color.lerpColors(_fogDay, _fogCloud, inside);
-    _clearMix.copy(_fogNight).lerp(_fogNightCloud, inside);
-    fog.color.lerp(_clearMix, n);
-    fog.color.lerp(_fogSpace, space);
+    if (runtime.reefAmt > 0.4) {
+      fog.density = THREE.MathUtils.lerp(0.0018, 0.0036, runtime.reefAmt);
+      fog.color.setRGB(0.04, 0.18, 0.26);
+    } else {
+      fog.density = THREE.MathUtils.lerp(0.00008, 0.0055, inside) * (1 - space);
+      fog.color.lerpColors(_fogDay, _fogCloud, inside);
+      _clearMix.copy(_fogNight).lerp(_fogNightCloud, inside);
+      fog.color.lerp(_clearMix, n);
+      fog.color.lerp(_fogSpace, space);
+    }
   });
 
   return null;
-}
-
-function Streaks() {
-  const points = useRef<THREE.Points>(null);
-  const count = 90;
-  const geo = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 18;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 12;
-      pos[i * 3 + 2] = -8 - Math.random() * 42;
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    return g;
-  }, []);
-  const mat = useMemo(
-    () =>
-      new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.28,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        sizeAttenuation: true,
-      }),
-    [],
-  );
-
-  useEffect(
-    () => () => {
-      geo.dispose();
-      mat.dispose();
-    },
-    [geo, mat],
-  );
-
-  useFrame(({ camera }, dt) => {
-    if (!points.current) return;
-    const rush = THREE.MathUtils.clamp((runtime.craft.speed - 34) / 30, 0, 1);
-    mat.opacity = rush * 0.55 * (1 - runtime.inCloud * 0.5);
-    const attr = geo.getAttribute("position") as THREE.BufferAttribute;
-    const arr = attr.array as Float32Array;
-    const flow = runtime.craft.speed * dt * 1.8;
-    for (let i = 0; i < count; i++) {
-      arr[i * 3 + 2] += flow;
-      if (arr[i * 3 + 2] > 4) {
-        arr[i * 3] = (Math.random() - 0.5) * 18;
-        arr[i * 3 + 1] = (Math.random() - 0.5) * 12;
-        arr[i * 3 + 2] = -10 - Math.random() * 40;
-      }
-    }
-    attr.needsUpdate = true;
-    points.current.position.copy(camera.position);
-    points.current.quaternion.copy(camera.quaternion);
-  });
-
-  return <points ref={points} geometry={geo} material={mat} frustumCulled={false} renderOrder={7} />;
 }
 
 function FlightLoop() {
@@ -569,7 +422,7 @@ function FlightLoop() {
         if (d) runtime.cruise = THREE.MathUtils.clamp(runtime.cruise + d * dt * 0.55, 0, 1);
       }
       if (runtime.injectedKeys) {
-        stepCraft(craft, actions, dt);
+        stepCraft(craft, actions, dt, runtime.world);
         smooth.current.yaw = actions.yaw;
         smooth.current.pitch = actions.pitch;
       } else {
@@ -585,16 +438,18 @@ function FlightLoop() {
             cruise: runtime.cruise,
           },
           dt,
+          runtime.world,
         );
       }
     } else {
+      const home = WORLD_HOME[runtime.world];
       const sunX = 1.15;
       const sunZ = 0.42;
-      const home = Math.atan2(-sunX, -sunZ);
-      craft.yaw = home + Math.sin(runtime.time * 0.1) * 0.14;
-      craft.pitch = -0.22 + Math.sin(runtime.time * 0.16) * 0.045;
+      const face = Math.atan2(-sunX, -sunZ) + 0.72;
+      craft.yaw = face + Math.sin(runtime.time * 0.1) * 0.14;
+      craft.pitch = home.pitch + Math.sin(runtime.time * 0.16) * 0.04;
       craft.roll *= 0.9;
-      stepCraft(craft, { yaw: 0, pitch: 0, throttle: 0, cruise: DEFAULT_CRUISE * 0.7 }, dt);
+      stepCraft(craft, { yaw: 0, pitch: 0, throttle: 0, cruise: DEFAULT_CRUISE * 0.7 }, dt, runtime.world);
     }
 
     const bob = reduced || !runtime.playing ? 0 : Math.sin(runtime.time * 0.7) * 0.16;
@@ -605,7 +460,7 @@ function FlightLoop() {
     camera.rotation.z = craft.roll;
 
     const rush = THREE.MathUtils.clamp((craft.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0, 1);
-    const fov = reduced ? 72 : 68 + rush * 16;
+    const fov = reduced ? 72 : 68 + rush * (runtime.fx.streaks ? 16 : 7);
     const persp = camera as THREE.PerspectiveCamera;
     if (Math.abs(persp.fov - fov) > 0.08) {
       persp.fov = fov;
@@ -614,6 +469,11 @@ function FlightLoop() {
 
     const nk = reduced ? 1 : Math.min(1, dt * 1.7);
     runtime.night += (runtime.nightTarget - runtime.night) * nk;
+    const tSpace = runtime.world === "space" ? 1 : 0;
+    const tReef = runtime.world === "reef" ? 1 : 0;
+    const wk = Math.min(1, dt * 2.2);
+    runtime.spaceAmt += (tSpace - runtime.spaceAmt) * wk;
+    runtime.reefAmt += (tReef - runtime.reefAmt) * wk;
 
     hudAcc.current += dt;
     if (hudAcc.current > 0.12) {
@@ -622,9 +482,9 @@ function FlightLoop() {
         altitude: craft.y,
         speed: craft.speed,
         cruise: runtime.cruise,
-        layer: layerName(craft.y),
+        layer: layerName(craft.y, runtime.world),
         inCloud: runtime.inCloud,
-        space: spaceFactor(craft.y),
+        space: Math.max(spaceFactor(craft.y, runtime.world), runtime.spaceAmt),
         night: runtime.night,
       });
     }
@@ -640,25 +500,28 @@ function LightRig() {
 
   useFrame(() => {
     const n = runtime.night;
+    const reef = runtime.reefAmt;
+    const deep = runtime.spaceAmt;
     if (amb.current) {
-      amb.current.intensity = THREE.MathUtils.lerp(1.02, 0.34, n);
+      amb.current.intensity = THREE.MathUtils.lerp(1.02, 0.34, n) * (1 - deep * 0.25) * (1 + reef * 0.15);
       amb.current.color.setRGB(
-        THREE.MathUtils.lerp(0.86, 0.38, n),
-        THREE.MathUtils.lerp(0.91, 0.46, n),
-        THREE.MathUtils.lerp(0.96, 0.62, n),
+        THREE.MathUtils.lerp(0.86, 0.38, n) * (1 - reef * 0.45),
+        THREE.MathUtils.lerp(0.91, 0.46, n) * (1 + reef * 0.12),
+        THREE.MathUtils.lerp(0.96, 0.62, n) * (1 + reef * 0.2),
       );
     }
     if (dir.current) {
-      dir.current.intensity = THREE.MathUtils.lerp(0.55, 0.22, n);
+      dir.current.intensity = THREE.MathUtils.lerp(0.55, 0.22, n) * (1 - reef * 0.25);
       dir.current.color.setRGB(
         THREE.MathUtils.lerp(1, 0.72, n),
         THREE.MathUtils.lerp(0.96, 0.82, n),
         THREE.MathUtils.lerp(0.84, 1, n),
       );
     }
-    _clearMix.lerpColors(_clearDay, _clearNight, n);
+    if (reef > 0.5) _clearMix.setRGB(0.02, 0.12, 0.18);
+    else _clearMix.lerpColors(_clearDay, _clearNight, Math.max(n, deep));
     gl.setClearColor(_clearMix, 1);
-            gl.toneMappingExposure = THREE.MathUtils.lerp(1.06, 0.84, n);
+    gl.toneMappingExposure = 1;
   });
 
   return (
@@ -673,13 +536,12 @@ export function World() {
   return (
     <>
       <Atmosphere />
-      <Stars />
       <Sun />
       <CloudSea />
       <CloudPuffs />
       <Airplanes />
-      <Mist />
-      <Streaks />
+      <SpaceField />
+      <ReefField />
       <GodRays />
       <FogRig />
       <FlightLoop />

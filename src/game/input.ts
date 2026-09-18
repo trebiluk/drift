@@ -31,8 +31,8 @@ function radialDeadzone(x: number, y: number, dz = 0.16) {
 function inTouchChrome(e: PointerEvent) {
   if (!runtime.mobile) return false;
   const w = window.innerWidth;
-  if (e.clientX > w - 92) return true;
-  if (e.clientY < 72 && e.clientX > w - 120) return true;
+  if (runtime.fx.throttle && e.clientX > w - 92) return true;
+  if (e.clientY < 88 && e.clientX > w - 88) return true;
   return false;
 }
 
@@ -59,6 +59,10 @@ function setStickFromEvent(e: PointerEvent) {
 }
 
 function onKeyDown(e: KeyboardEvent) {
+  if (runtime.uiCapture) {
+    if (GAME_KEYS.has(e.code)) e.preventDefault();
+    return;
+  }
   runtime.keys.add(e.code);
   if (GAME_KEYS.has(e.code)) e.preventDefault();
 }
