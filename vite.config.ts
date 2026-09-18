@@ -145,7 +145,13 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+// Absolute asset URLs on Vercel so a reverse-proxied host
+// (apps.kulibert.net/drift/) does not request /assets from the portal.
+const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  || (process.env.VERCEL ? "drift-psi-two.vercel.app" : "");
+
 export default defineConfig(({ command, isPreview }) => ({
+  base: prodHost ? `https://${prodHost}/` : "/",
   server: {
     host: "0.0.0.0",
     port: 8080,
