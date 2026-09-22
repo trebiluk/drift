@@ -1,4 +1,5 @@
 import { clamp, type Actions } from "./flight";
+import { radialDeadzone, resolvePullOrigin, steerFromPull } from "./pull";
 import { runtime } from "./runtime";
 
 const GAME_KEYS = new Set([
@@ -21,28 +22,12 @@ const GAME_KEYS = new Set([
   "KeyE",
 ]);
 
-function radialDeadzone(x: number, y: number, dz = 0.16) {
-  const m = Math.hypot(x, y);
-  if (m < dz) return { x: 0, y: 0 };
-  const scale = (m - dz) / (1 - dz) / m;
-  return { x: x * scale, y: y * scale };
-}
-
 function inTouchChrome(e: PointerEvent) {
   if (!runtime.mobile) return false;
   const w = window.innerWidth;
   if (runtime.fx.throttle && e.clientX > w - 92) return true;
   if (e.clientY < 88 && e.clientX > w - 88) return true;
   return false;
-}
-
-function setMouseFromEvent(e: PointerEvent) {
-  const w = Math.max(1, window.innerWidth);
-  const h = Math.max(1, window.innerHeight);
-  runtime.pointer.nx = (e.clientX / w) * 2 - 1;
-  runtime.pointer.ny = -((e.clientY / h) * 2 - 1);
-  runtime.pointer.isMouse = true;
-  runtime.pointer.ready = true;
 }
 
 function setStickFromEvent(e: PointerEvent) {
@@ -55,7 +40,18 @@ function setStickFromEvent(e: PointerEvent) {
   runtime.pointer.ny = runtime.stick.y;
   runtime.pointer.ready = true;
   runtime.pointer.active = true;
-  runtime.pointer.isMouse = false;
+}
+
+function releasePull(pointerId: number) {
+  if (runtime.stick.pointerId !== pointerId) return;
+  runtime.stick.active = false;
+  runtime.stick.pointerId = null;
+  runtime.stick.x = 0;
+  runtime.stick.y = 0;
+  runtime.pointer.active = false;
+  runtime.pointer.ready = false;
+  runtime.pointer.nx = 0;
+  runtime.pointer.ny = 0;
 }
 
 function onKeyDown(e: KeyboardEvent) {
@@ -74,6 +70,9 @@ function onKeyUp(e: KeyboardEvent) {
 function onBlur() {
   runtime.keys.clear();
   runtime.pointer.active = false;
+  runtime.pointer.ready = false;
+  runtime.pointer.nx = 0;
+  runtime.pointer.ny = 0;
   runtime.uiCapture = false;
   runtime.uiPointers.clear();
   runtime.stick.active = false;
@@ -84,9 +83,9 @@ function onBlur() {
 
 function onPointerMove(e: PointerEvent) {
   if (runtime.uiPointers.has(e.pointerId)) return;
-  if (e.pointerType === "mouse") {
-    if (runtime.uiCapture) return;
-    setMouseFromEvent(e);
+  if (e.pointerType === "mouse" && runtime.uiCapture) return;
+  if (e.pointerType === "mouse" && runtime.stick.pointerId === e.pointerId && e.buttons === 0) {
+    releasePull(e.pointerId);
     return;
   }
   if (runtime.stick.pointerId === e.pointerId && runtime.stick.active) {
@@ -96,35 +95,39 @@ function onPointerMove(e: PointerEvent) {
 
 function onPointerDown(e: PointerEvent) {
   if (runtime.uiPointers.has(e.pointerId) || runtime.uiCapture) return;
-  if (e.pointerType === "mouse") {
-    setMouseFromEvent(e);
-    return;
-  }
   if (!runtime.playing) return;
-  if (inTouchChrome(e)) return;
+  if (e.pointerType !== "mouse" && inTouchChrome(e)) return;
   if (runtime.stick.pointerId != null) return;
+  const origin = resolvePullOrigin(
+    e.clientX,
+    e.clientY,
+    window.innerWidth,
+    window.innerHeight,
+    e.pointerType,
+  );
+  if (!origin) return;
   runtime.stick.pointerId = e.pointerId;
-  runtime.stick.originX = e.clientX;
-  runtime.stick.originY = e.clientY;
+  runtime.stick.originX = origin.x;
+  runtime.stick.originY = origin.y;
   runtime.stick.active = true;
   runtime.stick.x = 0;
   runtime.stick.y = 0;
+  runtime.pointer.isMouse = e.pointerType === "mouse";
   setStickFromEvent(e);
+  const target = e.target;
+  if (target instanceof Element) {
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      /* the canvas may already own the pointer */
+    }
+  }
 }
 
 function onPointerUp(e: PointerEvent) {
   runtime.uiPointers.delete(e.pointerId);
   if (runtime.uiPointers.size === 0) runtime.uiCapture = false;
-  if (e.pointerType === "mouse") return;
-  if (runtime.stick.pointerId === e.pointerId) {
-    runtime.stick.active = false;
-    runtime.stick.pointerId = null;
-    runtime.stick.x = 0;
-    runtime.stick.y = 0;
-    runtime.pointer.active = false;
-    runtime.pointer.nx = 0;
-    runtime.pointer.ny = 0;
-  }
+  releasePull(e.pointerId);
 }
 
 function onWheel(e: WheelEvent) {
@@ -181,27 +184,16 @@ export function sampleActions(): Actions {
   if (keys.has("KeyS") || keys.has("ArrowDown")) pitch -= 1;
   if (keys.has("ShiftLeft") || keys.has("ShiftRight") || keys.has("Space")) throttle += 1;
 
-  const pointerLive =
-    runtime.playing &&
-    runtime.pointer.ready &&
-    (runtime.pointer.isMouse || runtime.pointer.active || runtime.stick.active);
-
-  if (pointerLive) {
-    if (runtime.mobile && !runtime.pointer.isMouse) {
-      const stick = radialDeadzone(runtime.stick.x, runtime.stick.y, 0.08);
-      yaw += -stick.x;
-      pitch += stick.y;
-    } else {
-      const px = runtime.pointer.nx;
-      const py = runtime.pointer.ny;
-      const mag = Math.hypot(px, py);
-      const dz = 0.1;
-      if (mag > dz) {
-        const scale = (mag - dz) / (1 - dz);
-        yaw += -px * scale;
-        pitch += py * scale;
-      }
-    }
+  // Steer only while a pull is held. Idle mouse position never contributes.
+  if (runtime.playing) {
+    const pulled = steerFromPull(
+      runtime.stick.active,
+      runtime.stick.x,
+      runtime.stick.y,
+      runtime.pointer.isMouse,
+    );
+    yaw += pulled.yaw;
+    pitch += pulled.pitch;
   }
 
   if (typeof navigator !== "undefined" && navigator.getGamepads) {

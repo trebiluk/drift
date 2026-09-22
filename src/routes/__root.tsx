@@ -9,9 +9,16 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+      },
       { title: APP_NAME },
-      { name: "description", content: "Glide through white clouds on a bright sunny day. Steer with your mouse or finger. Climb all the way to space." },
+      {
+        name: "description",
+        content:
+          "Glide through white clouds on a bright sunny day. Click and pull the craft, or drag with a finger. Climb all the way to space.",
+      },
       { name: "theme-color", content: "#6EB5E0" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },

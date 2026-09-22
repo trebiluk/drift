@@ -1,6 +1,6 @@
 # Drift
 
-Slow flight through an endless sea of clouds. Mouse or finger to steer, throttle to set the pace, climb until the sky turns to space.
+Slow flight through an endless sea of clouds. Click and pull the craft, or drag with a finger. Throttle sets the pace. Climb until the sky turns to space.
 
 **Grok / conceptual home:** Tech 6–8 area (with Coderized / Koderized lane).
 
