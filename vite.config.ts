@@ -152,6 +152,9 @@ const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL
 
 export default defineConfig(({ command, isPreview }) => ({
   base: prodHost ? `https://${prodHost}/` : "/",
+  define: {
+    __DRIFT_CLASSROOM_DOOR__: JSON.stringify(process.env.DRIFT_BASE === "./"),
+  },
   server: {
     host: "0.0.0.0",
     port: 8080,

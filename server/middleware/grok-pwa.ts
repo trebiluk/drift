@@ -25,6 +25,8 @@ import {
   renderWebManifest,
 } from "../../scripts/grok-pwa-shared.mjs";
 
+declare const __DRIFT_CLASSROOM_DOOR__: boolean;
+
 interface GrokPwaEvent {
   url: URL;
   req: { method: string; headers: Headers };
@@ -99,6 +101,8 @@ export default async function grokPwaMiddleware(
   if (!isDocumentPath(path)) return next();
 
   const result = await next();
+  // Classroom snapshot is same-origin under /drift/. Skip the external pill.
+  if (__DRIFT_CLASSROOM_DOOR__) return result;
   if (
     result instanceof Response &&
     result.body &&
