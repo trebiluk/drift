@@ -5,6 +5,9 @@ import appCss from "../styles.css?url";
 
 const APP_NAME = "Drift";
 
+/** Classroom snapshot is built with base `./` and served under /drift/. */
+const classroomDoor = import.meta.env.BASE_URL === "./";
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -25,16 +28,34 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Outfit:wght@400;500;600&display=swap",
+        rel: "icon",
+        type: "image/svg+xml",
+        href: classroomDoor ? "./favicon.svg" : "/favicon.svg",
       },
+      { rel: "stylesheet", href: appCss },
+      {
+        rel: "manifest",
+        href: classroomDoor ? "./__grok/manifest.webmanifest" : "/__grok/manifest.webmanifest",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: classroomDoor ? "./__grok/icon-180.png" : "/__grok/icon-180.png",
+      },
+      ...(classroomDoor
+        ? [{ rel: "stylesheet", href: "/fonts/room.css" }]
+        : [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            {
+              rel: "preconnect",
+              href: "https://fonts.gstatic.com",
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "stylesheet",
+              href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Outfit:wght@400;500;600&display=swap",
+            },
+          ]),
     ],
   }),
   component: () => (

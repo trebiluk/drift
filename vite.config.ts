@@ -147,8 +147,9 @@ function authPopupPlugin(): Plugin {
 // AGENTS.md § "First scaffold".
 // Absolute asset URLs on Vercel so a reverse-proxied host
 // (apps.kulibert.net/drift/) does not request /assets from the portal.
-const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  || (process.env.VERCEL ? "drift-psi-two.vercel.app" : "");
+const prodHost =
+  process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+  (process.env.VERCEL ? "drift-psi-two.vercel.app" : "");
 
 export default defineConfig(({ command, isPreview }) => ({
   base: prodHost ? `https://${prodHost}/` : "/",
@@ -176,7 +177,9 @@ export default defineConfig(({ command, isPreview }) => ({
     ...(command === "build" || isPreview
       ? [
           nitro({
-            preset: "vercel",
+            // Classroom publish sets DRIFT_NITRO_PRESET=node-server so
+            // scripts/publish-drift.sh can render the /drift door.
+            preset: process.env.DRIFT_NITRO_PRESET || "vercel",
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
