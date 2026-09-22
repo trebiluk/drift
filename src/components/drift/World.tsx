@@ -456,7 +456,9 @@ function FlightLoop() {
     camera.position.set(craft.x, craft.y + bob, craft.z);
     camera.rotation.order = "YXZ";
     camera.rotation.y = craft.yaw;
-    camera.rotation.x = -craft.pitch;
+    // Three.js YXZ: +rotation.x looks up. +craft.pitch is climb (fy>0), so match signs —
+    // nose down (negative pitch) looks down and dives.
+    camera.rotation.x = craft.pitch;
     camera.rotation.z = craft.roll;
 
     const rush = THREE.MathUtils.clamp((craft.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0, 1);
