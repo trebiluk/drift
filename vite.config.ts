@@ -147,9 +147,8 @@ function authPopupPlugin(): Plugin {
 // AGENTS.md § "First scaffold".
 // Absolute asset URLs on Vercel so a reverse-proxied host
 // (apps.kulibert.net/drift/) does not request /assets from the portal.
-const prodHost =
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-  (process.env.VERCEL ? "drift-psi-two.vercel.app" : "");
+const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  || (process.env.VERCEL ? "drift-psi-two.vercel.app" : "");
 
 export default defineConfig(({ command, isPreview }) => ({
   base: prodHost ? `https://${prodHost}/` : "/",
