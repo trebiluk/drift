@@ -35,7 +35,12 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
 
   return (
     <div className="throttle-slot pointer-events-auto touch-auto flex flex-col items-center gap-2">
-      <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud/70" : "text-ink/60")}>
+      <p
+        className={cn(
+          "font-sans text-xs tracking-[0.18em] uppercase",
+          inky ? "text-cloud/70" : "text-ink/60",
+        )}
+      >
         Fast
       </p>
       <div
@@ -92,14 +97,19 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
           style={{ top: `${(1 - cruise) * 100}%` }}
         />
       </div>
-      <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud/70" : "text-ink/60")}>
+      <p
+        className={cn(
+          "font-sans text-xs tracking-[0.18em] uppercase",
+          inky ? "text-cloud/70" : "text-ink/60",
+        )}
+      >
         Slow
       </p>
     </div>
   );
 }
 
-function StickGhost({ inky }: { inky: boolean }) {
+function StickGhost({ inky, showCraft }: { inky: boolean; showCraft: boolean }) {
   const ring = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
 
@@ -114,7 +124,14 @@ function StickGhost({ inky }: { inky: boolean }) {
           el.style.opacity = "1";
           el.style.left = `${s.originX}px`;
           el.style.top = `${s.originY}px`;
+          k.style.opacity = "1";
           k.style.transform = `translate(calc(-50% + ${s.x * 28}px), calc(-50% + ${-s.y * 28}px))`;
+        } else if (showCraft) {
+          el.style.opacity = "0.55";
+          el.style.left = "50%";
+          el.style.top = "50%";
+          k.style.opacity = "0.9";
+          k.style.transform = "translate(-50%, -50%)";
         } else {
           el.style.opacity = "0";
         }
@@ -123,7 +140,7 @@ function StickGhost({ inky }: { inky: boolean }) {
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, []);
+  }, [showCraft]);
 
   return (
     <div
@@ -390,7 +407,9 @@ function SettingsPanel() {
               }}
             />
           ))}
-          <p className="px-1 pt-2 pb-2 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sight</p>
+          <p className="px-1 pt-2 pb-2 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">
+            Sight
+          </p>
           <SightPicker />
           <button
             type="button"
@@ -474,11 +493,11 @@ export function Overlay({ onStart }: OverlayProps) {
             </h1>
             <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">
               Three quiet worlds. Glide the clouds, drift past planets, or float above a reef. Pick
-              a calm track, then steer with the mouse.
+              a calm track, then click and pull the craft.
             </p>
             <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">
-              Three quiet worlds. Clouds, space, or a reef. Drag to steer. Slide the throttle to
-              change speed.
+              Three quiet worlds. Clouds, space, or a reef. Pull the craft, or drag, to steer. Slide
+              the throttle to change speed.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {WORLD_OPTS.map((opt) => (
@@ -521,8 +540,7 @@ export function Overlay({ onStart }: OverlayProps) {
             >
               <p className="font-display text-xl tracking-[-0.03em] italic sm:text-2xl">{layer}</p>
               <p className="mt-1 font-sans text-sm tabular-nums text-current/70">
-                {meters.toLocaleString()} m
-                <span className="mx-2 text-current/35">·</span>
+                {meters.toLocaleString()} m<span className="mx-2 text-current/35">·</span>
                 {kph.toLocaleString()} km/h
               </p>
             </div>
@@ -535,7 +553,7 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud/70" : "text-ink/65",
             )}
           >
-            Scroll or drag the throttle to change speed.
+            Click and pull the craft to steer. Scroll or drag the throttle to change speed.
           </p>
           <p
             className={cn(
@@ -544,11 +562,11 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud/70" : "text-ink/65",
             )}
           >
-            Drag to steer. Throttle is on the right.
+            Pull the craft or drag to steer. Throttle is on the right.
           </p>
 
           {fx.throttle && <ThrottleRail inky={inky} mobile={mobile} />}
-          {mobile && playing && <StickGhost inky={inky} />}
+          {playing && <StickGhost inky={inky} showCraft={!mobile} />}
         </>
       )}
 
