@@ -1,4 +1,5 @@
 import { createCraft, DEFAULT_CRUISE, type Craft, type MusicId, type WorldMode } from "./flight";
+import type { TrafficSnapshot } from "./traffic";
 
 export type { MusicId, WorldMode } from "./flight";
 
@@ -51,6 +52,11 @@ export type Runtime = {
   music: MusicId;
   spaceAmt: number;
   reefAmt: number;
+  invertLook: boolean;
+  invertTurn: boolean;
+  lookSens: number;
+  traffic: TrafficSnapshot | null;
+  lod: number;
 };
 
 export const runtime: Runtime = {
@@ -83,6 +89,11 @@ export const runtime: Runtime = {
   music: "haze",
   spaceAmt: 0,
   reefAmt: 0,
+  invertLook: false,
+  invertTurn: false,
+  lookSens: 1,
+  traffic: null,
+  lod: 0,
 };
 
 export type ControlsProbe = {

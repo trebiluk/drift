@@ -22,7 +22,7 @@ export const SUN_DIR = new THREE.Vector3(1.15, 0.58, 0.42).normalize();
 
 const _dummy = new THREE.Object3D();
 const _fwd = new THREE.Vector3();
-const _clearDay = new THREE.Color(0x0c4aaa);
+const _clearDay = new THREE.Color(0x0a3a94);
 const _clearNight = new THREE.Color(0x0b1220);
 const _fogDay = new THREE.Color(0x6ea4dc);
 const _fogCloud = new THREE.Color(0xf4f7fb);
@@ -86,7 +86,7 @@ function Atmosphere() {
 
   return (
     <mesh ref={mesh} material={mat} frustumCulled={false} renderOrder={-1000}>
-      <sphereGeometry args={[4200, 40, 28]} />
+      <sphereGeometry args={[4200, 24, 16]} />
     </mesh>
   );
 }
@@ -133,8 +133,8 @@ function Sun() {
 
   return (
     <group ref={group} renderOrder={-800}>
-      <sprite material={mat} scale={[520, 520, 1]} />
-      <sprite material={mat} scale={[170, 170, 1]} />
+      <sprite material={mat} scale={[620, 620, 1]} />
+      <sprite material={mat} scale={[210, 210, 1]} />
     </group>
   );
 }
@@ -170,6 +170,12 @@ function GodRays() {
 
   useFrame(({ camera }) => {
     if (!group.current) return;
+    if (runtime.reefAmt > 0.4 || runtime.spaceAmt > 0.55 || !runtime.fx.sun) {
+      mat.opacity = 0;
+      group.current.visible = false;
+      return;
+    }
+    group.current.visible = true;
     camera.getWorldDirection(_fwd);
     const toward = Math.max(0, _fwd.dot(SUN_DIR));
     const vis =
@@ -177,7 +183,6 @@ function GodRays() {
       (0.18 + runtime.inCloud * 0.55) *
       (1 - spaceFactor(camera.position.y, runtime.world) * 0.7) *
       (1 - runtime.night * 0.55) *
-      (runtime.fx.sun ? 1 : 0) *
       (1 - runtime.reefAmt) *
       (1 - runtime.spaceAmt);
     mat.opacity = vis;
@@ -205,6 +210,7 @@ function CloudSea() {
           uCam: { value: new THREE.Vector3() },
           uFade: { value: 1 },
           uNight: { value: 0 },
+          uLod: { value: 0 },
         },
         vertexShader: SEA_VERT,
         fragmentShader: SEA_FRAG,
@@ -220,6 +226,10 @@ function CloudSea() {
   useEffect(() => () => mat.dispose(), [mat]);
 
   useFrame(({ camera, clock }) => {
+    if (!mesh.current) return;
+    const show = runtime.world === "sky";
+    mesh.current.visible = show;
+    if (!show) return;
     mat.uniforms.uTime.value = clock.elapsedTime;
     (mat.uniforms.uOffset.value as THREE.Vector2).set(camera.position.x, camera.position.z);
     (mat.uniforms.uCam.value as THREE.Vector3).copy(camera.position);
@@ -227,11 +237,9 @@ function CloudSea() {
     mat.uniforms.uFade.value =
       fade * (1 - spaceFactor(camera.position.y, runtime.world) * 0.12) * (1 - runtime.spaceAmt) * (1 - runtime.reefAmt);
     mat.uniforms.uNight.value = runtime.night;
-    if (mesh.current) {
-      mesh.current.visible = runtime.world === "sky";
-      mesh.current.position.x = camera.position.x;
-      mesh.current.position.z = camera.position.z;
-    }
+    mat.uniforms.uLod.value = runtime.lod;
+    mesh.current.position.x = camera.position.x;
+    mesh.current.position.z = camera.position.z;
   });
 
   return (
@@ -243,14 +251,14 @@ function CloudSea() {
       frustumCulled={false}
       renderOrder={-20}
     >
-      <planeGeometry args={[11000, 11000, 128, 128]} />
+      <planeGeometry args={[9000, 9000, runtime.mobile ? 52 : 72, runtime.mobile ? 52 : 72]} />
     </mesh>
   );
 }
 
 function CloudPuffs() {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const count = runtime.mobile ? 96 : 140;
+  const count = runtime.mobile ? 110 : 180;
 
   const puffs = useMemo<Puff[]>(() => {
     const list: Puff[] = [];
@@ -260,9 +268,9 @@ function CloudPuffs() {
     for (let i = 0; i < 10; i++) {
       list.push({
         x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
-        y: 88 + (i % 5) * 14,
+        y: 72 + (i % 5) * 18,
         z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
-        s: 70 + (i % 5) * 18,
+        s: 88 + (i % 5) * 22,
       });
     }
     for (let c = 0; c < 18; c++) {
@@ -270,14 +278,14 @@ function CloudPuffs() {
       const r = 70 + Math.pow(Math.random(), 0.4) * WRAP;
       const cx = Math.cos(a) * r;
       const cz = Math.sin(a) * r;
-      const cy = 70 + Math.random() * 70;
-      const n = 3 + (c % 4);
+      const cy = 58 + Math.random() * 86;
+      const n = 5 + (c % 5);
       for (let j = 0; j < n && list.length < count; j++) {
         list.push({
-          x: cx + (Math.random() - 0.5) * 78,
-          y: cy + (Math.random() - 0.5) * 36,
-          z: cz + (Math.random() - 0.5) * 78,
-          s: 52 + Math.random() * 88,
+          x: cx + (Math.random() - 0.5) * 86,
+          y: cy + (Math.random() - 0.5) * 32,
+          z: cz + (Math.random() - 0.5) * 86,
+          s: 72 + Math.random() * 110,
         });
       }
     }
@@ -286,9 +294,9 @@ function CloudPuffs() {
       const r = 50 + Math.random() * WRAP;
       list.push({
         x: Math.cos(a) * r,
-        y: 64 + Math.random() * 90,
+        y: 52 + Math.random() * 100,
         z: Math.sin(a) * r,
-        s: 48 + Math.random() * 70,
+        s: 64 + Math.random() * 92,
       });
     }
     return list;
@@ -301,6 +309,10 @@ function CloudPuffs() {
           uSun: { value: SUN_DIR.clone() },
           uSpace: { value: 0 },
           uNight: { value: 0 },
+          uTime: { value: 0 },
+          uCamXZ: { value: new THREE.Vector2() },
+          uWrap: { value: WRAP },
+          uLod: { value: 0 },
         },
         vertexShader: PUFF_VERT,
         fragmentShader: PUFF_FRAG,
@@ -315,6 +327,7 @@ function CloudPuffs() {
   );
 
   const geo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  const laid = useRef(false);
 
   useEffect(
     () => () => {
@@ -324,7 +337,7 @@ function CloudPuffs() {
     [mat, geo],
   );
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     const inst = mesh.current;
     if (!inst) return;
     inst.visible = runtime.world === "sky" && camera.position.y < 820;
@@ -332,29 +345,41 @@ function CloudPuffs() {
       runtime.inCloud = runtime.world === "sky" ? cloudImmersion(camera.position.y) : 0;
       return;
     }
+
+    if (!laid.current) {
+      for (let i = 0; i < puffs.length; i++) {
+        const p = puffs[i];
+        _dummy.position.set(p.x, p.y, p.z);
+        _dummy.scale.set(p.s * 1.85, p.s * 1.48, 1);
+        _dummy.rotation.set(0, 0, 0);
+        _dummy.updateMatrix();
+        inst.setMatrixAt(i, _dummy.matrix);
+      }
+      inst.instanceMatrix.needsUpdate = true;
+      laid.current = true;
+    }
+
+    const lod = runtime.lod;
+    inst.count = lod > 1 ? Math.floor(count * 0.78) : count;
     const cx = camera.position.x;
     const cz = camera.position.z;
-    let nearest = 1;
+    (mat.uniforms.uCamXZ.value as THREE.Vector2).set(cx, cz);
     mat.uniforms.uSpace.value = spaceFactor(camera.position.y, runtime.world);
     mat.uniforms.uNight.value = runtime.night;
+    mat.uniforms.uTime.value = clock.elapsedTime;
+    mat.uniforms.uLod.value = lod;
 
-    for (let i = 0; i < puffs.length; i++) {
+    let nearest = 1;
+    const samples = lod > 1 ? 8 : 14;
+    const step = Math.max(1, Math.floor(puffs.length / samples));
+    for (let i = 0; i < puffs.length; i += step) {
       const p = puffs[i];
-      p.x = wrapAxis(p.x, cx, WRAP);
-      p.z = wrapAxis(p.z, cz, WRAP);
-      const dx = p.x - cx;
+      const dx = wrapAxis(p.x, cx, WRAP) - cx;
       const dy = p.y - camera.position.y;
-      const dz = p.z - cz;
+      const dz = wrapAxis(p.z, cz, WRAP) - cz;
       const d = Math.hypot(dx, dy, dz) / (p.s * 0.5);
       if (d < nearest) nearest = d;
-
-      _dummy.position.set(p.x, p.y, p.z);
-      _dummy.scale.set(p.s * 1.55, p.s * 1.12, 1);
-      _dummy.rotation.set(0, 0, 0);
-      _dummy.updateMatrix();
-      inst.setMatrixAt(i, _dummy.matrix);
     }
-    inst.instanceMatrix.needsUpdate = true;
 
     const nearCloud = THREE.MathUtils.clamp(1 - nearest, 0, 1);
     runtime.inCloud = THREE.MathUtils.clamp(
@@ -495,6 +520,38 @@ function FlightLoop() {
   return null;
 }
 
+function QualityRig() {
+  const { gl } = useThree();
+  const ema = useRef(60);
+  const cool = useRef(0);
+
+  useFrame((_, dt) => {
+    const fps = 1 / Math.max(dt, 1 / 240);
+    ema.current += (fps - ema.current) * Math.min(1, dt * 2.4);
+    cool.current += dt;
+    if (cool.current < 1.25) return;
+    cool.current = 0;
+    let lod = runtime.lod;
+    if (ema.current < 38 && lod < 2) lod += 1;
+    else if (ema.current < 48 && lod < 1) lod += 1;
+    else if (ema.current > 56 && lod > 0) lod -= 1;
+    if (lod === runtime.lod) return;
+    runtime.lod = lod;
+    const cap = runtime.mobile
+      ? lod > 0
+        ? 1
+        : 1.15
+      : lod > 1
+        ? 1
+        : lod > 0
+          ? 1.15
+          : 1.5;
+    gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+  });
+
+  return null;
+}
+
 function LightRig() {
   const amb = useRef<THREE.AmbientLight>(null);
   const dir = useRef<THREE.DirectionalLight>(null);
@@ -547,6 +604,7 @@ export function World() {
       <GodRays />
       <FogRig />
       <FlightLoop />
+      <QualityRig />
       <LightRig />
     </>
   );

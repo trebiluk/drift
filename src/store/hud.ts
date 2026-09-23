@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { DEFAULT_CRUISE, MUSIC_FOR_WORLD, WORLD_HOME, type MusicId, type WorldMode } from "@/game/flight";
+import { clamp, DEFAULT_CRUISE, MUSIC_FOR_WORLD, WORLD_HOME, type MusicId, type WorldMode } from "@/game/flight";
 import { runtime, type FxFlags } from "@/game/runtime";
 
 export const RETICLES = ["off", "dot", "plus", "ring"] as const;
@@ -7,6 +7,7 @@ export type Reticle = (typeof RETICLES)[number];
 
 export type FeatureFlags = FxFlags & {
   hud: boolean;
+  traffic: boolean;
 };
 
 export type HudState = {
@@ -26,6 +27,9 @@ export type HudState = {
   reticle: Reticle;
   world: WorldMode;
   music: MusicId;
+  invertLook: boolean;
+  invertTurn: boolean;
+  lookSens: number;
   fx: FeatureFlags;
   settingsOpen: boolean;
   setPlaying: (v: boolean) => void;
@@ -36,6 +40,9 @@ export type HudState = {
   setReticle: (v: Reticle) => void;
   setWorld: (v: WorldMode) => void;
   setMusic: (v: MusicId) => void;
+  setInvertLook: (v: boolean) => void;
+  setInvertTurn: (v: boolean) => void;
+  setLookSens: (v: number) => void;
   setFx: (key: keyof FeatureFlags, on: boolean) => void;
   setSettingsOpen: (v: boolean) => void;
   patch: (
@@ -52,6 +59,7 @@ const FX_DEFAULT: FeatureFlags = {
   streaks: true,
   throttle: true,
   hud: true,
+  traffic: true,
 };
 
 function persistAll(state: {
@@ -60,6 +68,9 @@ function persistAll(state: {
   reticle: Reticle;
   world: WorldMode;
   music: MusicId;
+  invertLook: boolean;
+  invertTurn: boolean;
+  lookSens: number;
   fx: FeatureFlags;
 }) {
   try {
@@ -71,6 +82,9 @@ function persistAll(state: {
         reticle: state.reticle,
         world: state.world,
         music: state.music,
+        invertLook: state.invertLook,
+        invertTurn: state.invertTurn,
+        lookSens: state.lookSens,
         ...state.fx,
       }),
     );
@@ -81,6 +95,15 @@ function persistAll(state: {
     /* ignore */
   }
 }
+
+function applyLook(invertLook: boolean, invertTurn: boolean, lookSens: number) {
+  runtime.invertLook = invertLook;
+  runtime.invertTurn = invertTurn;
+  runtime.lookSens = lookSens;
+}
+
+export const LOOK_SENS_MIN = 0.5;
+export const LOOK_SENS_MAX = 2;
 
 function applyFx(fx: FeatureFlags) {
   runtime.fx.airplanes = fx.airplanes;
@@ -111,6 +134,9 @@ export function loadSavedOptions() {
   let reticle: Reticle = "off";
   let world: WorldMode = "sky";
   let music: MusicId = "haze";
+  let invertLook = false;
+  let invertTurn = false;
+  let lookSens = 1;
   try {
     const raw = window.localStorage.getItem("drift-fx");
     if (raw) {
@@ -125,6 +151,11 @@ export function loadSavedOptions() {
       }
       if (typeof p.world === "string" && WORLDS.includes(p.world as WorldMode)) world = p.world as WorldMode;
       if (typeof p.music === "string" && TRACKS.includes(p.music as MusicId)) music = p.music as MusicId;
+      if (typeof p.invertLook === "boolean") invertLook = p.invertLook;
+      if (typeof p.invertTurn === "boolean") invertTurn = p.invertTurn;
+      if (typeof p.lookSens === "number" && Number.isFinite(p.lookSens)) {
+        lookSens = clamp(p.lookSens, LOOK_SENS_MIN, LOOK_SENS_MAX);
+      }
     } else {
       nightOn = window.localStorage.getItem("drift-night-manual") === "1";
       muted = window.localStorage.getItem("drift-muted") === "1";
@@ -137,24 +168,46 @@ export function loadSavedOptions() {
     /* ignore */
   }
   applyFx(fx);
+  applyLook(invertLook, invertTurn, lookSens);
   runtime.night = nightOn ? 1 : 0;
   runtime.nightTarget = nightOn ? 1 : 0;
   runtime.muted = muted;
   runtime.music = music;
   placeWorld(world);
-  useHud.setState({ fx, nightOn, muted, reticle, world, music });
+  useHud.setState({ fx, nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens });
 }
 
 export function resetOptions() {
   const fx: FeatureFlags = { ...FX_DEFAULT };
   applyFx(fx);
+  applyLook(false, false, 1);
   runtime.night = 0;
   runtime.nightTarget = 0;
   runtime.muted = false;
   runtime.music = "haze";
   placeWorld("sky");
-  useHud.setState({ fx, nightOn: false, muted: false, reticle: "off", world: "sky", music: "haze" });
-  persistAll({ nightOn: false, muted: false, reticle: "off", world: "sky", music: "haze", fx });
+  useHud.setState({
+    fx,
+    nightOn: false,
+    muted: false,
+    reticle: "off",
+    world: "sky",
+    music: "haze",
+    invertLook: false,
+    invertTurn: false,
+    lookSens: 1,
+  });
+  persistAll({
+    nightOn: false,
+    muted: false,
+    reticle: "off",
+    world: "sky",
+    music: "haze",
+    invertLook: false,
+    invertTurn: false,
+    lookSens: 1,
+    fx,
+  });
 }
 
 export const useHud = create<HudState>((set, get) => ({
@@ -173,6 +226,9 @@ export const useHud = create<HudState>((set, get) => ({
   reticle: "off",
   world: "sky",
   music: "haze",
+  invertLook: false,
+  invertTurn: false,
+  lookSens: 1,
   fx: { ...FX_DEFAULT },
   settingsOpen: false,
   reducedMotion:
@@ -209,6 +265,22 @@ export const useHud = create<HudState>((set, get) => ({
     runtime.music = music;
     set({ music });
     persistAll({ ...get(), music });
+  },
+  setInvertLook: (invertLook) => {
+    set({ invertLook });
+    applyLook(invertLook, get().invertTurn, get().lookSens);
+    persistAll({ ...get(), invertLook });
+  },
+  setInvertTurn: (invertTurn) => {
+    set({ invertTurn });
+    applyLook(get().invertLook, invertTurn, get().lookSens);
+    persistAll({ ...get(), invertTurn });
+  },
+  setLookSens: (value) => {
+    const lookSens = clamp(value, LOOK_SENS_MIN, LOOK_SENS_MAX);
+    set({ lookSens });
+    applyLook(get().invertLook, get().invertTurn, lookSens);
+    persistAll({ ...get(), lookSens });
   },
   setFx: (key, on) => {
     const fx = { ...get().fx, [key]: on };

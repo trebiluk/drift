@@ -5,7 +5,8 @@ import { clamp } from "@/game/flight";
 import { captureUiPointer, releaseUiPointer } from "@/game/input";
 import { runtime } from "@/game/runtime";
 import { cn } from "@/lib/utils";
-import { RETICLES, resetOptions, useHud, type FeatureFlags, type Reticle } from "@/store/hud";
+import { LOOK_SENS_MAX, LOOK_SENS_MIN, RETICLES, resetOptions, useHud, type FeatureFlags, type Reticle } from "@/store/hud";
+import { TrafficMap } from "./TrafficMap";
 import type { MusicId, WorldMode } from "@/game/flight";
 
 type OverlayProps = {
@@ -35,12 +36,7 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
 
   return (
     <div className="throttle-slot pointer-events-auto touch-auto flex flex-col items-center gap-2">
-      <p
-        className={cn(
-          "font-sans text-xs tracking-[0.18em] uppercase",
-          inky ? "text-cloud/70" : "text-ink/60",
-        )}
-      >
+      <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud" : "text-ink")}>
         Fast
       </p>
       <div
@@ -97,12 +93,7 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
           style={{ top: `${(1 - cruise) * 100}%` }}
         />
       </div>
-      <p
-        className={cn(
-          "font-sans text-xs tracking-[0.18em] uppercase",
-          inky ? "text-cloud/70" : "text-ink/60",
-        )}
-      >
+      <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud" : "text-ink")}>
         Slow
       </p>
     </div>
@@ -201,17 +192,15 @@ function SightPicker() {
   return (
     <div role="radiogroup" aria-label="Sight" className="flex gap-1">
       {RETICLES.map((kind) => (
-        <Button
+        <button
           key={kind}
           type="button"
-          variant="ghost"
-          size="icon"
           role="radio"
           aria-checked={reticle === kind}
           aria-label={SIGHT_LABEL[kind]}
           onClick={() => useHud.getState().setReticle(kind)}
           className={cn(
-            "size-11 bg-ink/10 text-panel-ink",
+            "inline-flex size-11 items-center justify-center rounded-[var(--radius-pill)] bg-ink/10 text-ink",
             reticle === kind ? "ring-1 ring-ink/40" : "opacity-70",
           )}
           onPointerDown={(e) => captureUiPointer(e.pointerId)}
@@ -225,7 +214,7 @@ function SightPicker() {
           ) : (
             <SightMark kind={kind} tight />
           )}
-        </Button>
+        </button>
       ))}
     </div>
   );
@@ -247,7 +236,7 @@ function FeatureSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onToggle}
-      className="flex h-10 w-full items-center justify-between gap-4 rounded-[var(--radius-sm)] px-1 text-left"
+      className="flex h-11 w-full items-center justify-between gap-4 rounded-[var(--radius-sm)] px-1 text-left"
       onPointerDown={(e) => captureUiPointer(e.pointerId)}
       onPointerUp={(e) => releaseUiPointer(e.pointerId)}
       onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
@@ -255,6 +244,75 @@ function FeatureSwitch({
       <span className="font-sans text-sm text-panel-ink">{label}</span>
       <span className={cn("fx-switch", checked && "fx-switch-on")} aria-hidden />
     </button>
+  );
+}
+
+function SensRail() {
+  const lookSens = useHud((s) => s.lookSens);
+  const rail = useRef<HTMLDivElement>(null);
+  const span = LOOK_SENS_MAX - LOOK_SENS_MIN;
+  const t = (lookSens - LOOK_SENS_MIN) / span;
+
+  const setFromX = (clientX: number) => {
+    const el = rail.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const next = LOOK_SENS_MIN + clamp((clientX - r.left) / r.width, 0, 1) * span;
+    useHud.getState().setLookSens(next);
+  };
+
+  return (
+    <div className="px-1 pt-2 pb-3">
+      <div className="flex items-center justify-between pb-2">
+        <p className="font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sensitivity</p>
+        <span className="font-sans text-xs text-ink-soft">{Math.round(lookSens * 100)}%</span>
+      </div>
+      <div
+        ref={rail}
+        role="slider"
+        aria-label="Look sensitivity"
+        aria-valuemin={Math.round(LOOK_SENS_MIN * 100)}
+        aria-valuemax={Math.round(LOOK_SENS_MAX * 100)}
+        aria-valuenow={Math.round(lookSens * 100)}
+        aria-orientation="horizontal"
+        tabIndex={0}
+        className="relative h-10 cursor-ew-resize touch-none"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          captureUiPointer(e.pointerId);
+          setFromX(e.clientX);
+        }}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromX(e.clientX);
+        }}
+        onPointerUp={(e) => releaseUiPointer(e.pointerId)}
+        onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            useHud.getState().setLookSens(lookSens + 0.1);
+          }
+          if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            useHud.getState().setLookSens(lookSens - 0.1);
+          }
+        }}
+      >
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-ink/15" />
+        <div
+          className="absolute top-1/2 left-0 h-1 -translate-y-1/2 rounded-full bg-ink/40"
+          style={{ width: `${t * 100}%` }}
+        />
+        <div
+          className="absolute top-1/2 size-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink shadow-[0_6px_16px_rgba(28,40,56,0.22)]"
+          style={{ left: `${t * 100}%` }}
+        />
+      </div>
+      <div className="mt-1 flex justify-between font-sans text-xs text-ink-soft">
+        <span>Soft</span>
+        <span>Quick</span>
+      </div>
+    </div>
   );
 }
 
@@ -282,8 +340,8 @@ function ChipPicker<T extends string>({
             aria-label={opt.name}
             onClick={() => onPick(opt.id)}
             className={cn(
-              "h-9 rounded-[var(--radius-sm)] px-3 font-sans text-sm",
-              value === opt.id ? "bg-ink/15 ring-1 ring-ink/35" : "bg-ink/5 text-ink-soft",
+              "h-11 rounded-[var(--radius-sm)] px-3 font-sans text-sm",
+              value === opt.id ? "bg-ink text-cloud" : "bg-ink/8 text-ink-soft hover:bg-ink/10",
             )}
             onPointerDown={(e) => captureUiPointer(e.pointerId)}
             onPointerUp={(e) => releaseUiPointer(e.pointerId)}
@@ -320,6 +378,7 @@ const FX_ROWS: { key: keyof FeatureFlags; label: string }[] = [
   { key: "contrails", label: "Contrails" },
   { key: "throttle", label: "Throttle" },
   { key: "hud", label: "Altimeter" },
+  { key: "traffic", label: "Live map" },
 ];
 
 function SettingsPanel() {
@@ -329,6 +388,8 @@ function SettingsPanel() {
   const fx = useHud((s) => s.fx);
   const world = useHud((s) => s.world);
   const music = useHud((s) => s.music);
+  const invertLook = useHud((s) => s.invertLook);
+  const invertTurn = useHud((s) => s.invertTurn);
 
   useEffect(() => {
     if (!open) return;
@@ -356,16 +417,14 @@ function SettingsPanel() {
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <h2 className="font-display text-xl tracking-[-0.03em] italic">Options</h2>
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
             aria-label="Close options"
-            className="size-11 bg-ink/10 text-panel-ink"
+            className="inline-flex size-11 items-center justify-center rounded-[var(--radius-pill)] bg-ink/10 text-ink hover:bg-ink/15 [&_svg]:text-ink"
             onClick={() => useHud.getState().setSettingsOpen(false)}
           >
             <X className="size-5" />
-          </Button>
+          </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <ChipPicker
@@ -380,40 +439,63 @@ function SettingsPanel() {
             options={MUSIC_OPTS}
             onPick={(id) => useHud.getState().setMusic(id)}
           />
-          <FeatureSwitch
-            label="Night"
-            checked={nightOn}
-            onToggle={() => {
-              const s = useHud.getState();
-              s.setNightOn(!s.nightOn);
-            }}
-          />
-          <FeatureSwitch
-            label="Wind"
-            checked={!muted}
-            onToggle={() => {
-              const s = useHud.getState();
-              s.setMuted(!s.muted);
-            }}
-          />
-          {FX_ROWS.map((row) => (
+          <div className="mt-2 border-t border-ink/10 pt-1">
+            <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Steer</p>
             <FeatureSwitch
-              key={row.key}
-              label={row.label}
-              checked={fx[row.key]}
+              label="Invert look"
+              checked={invertLook}
               onToggle={() => {
                 const s = useHud.getState();
-                s.setFx(row.key, !s.fx[row.key]);
+                s.setInvertLook(!s.invertLook);
               }}
             />
-          ))}
-          <p className="px-1 pt-2 pb-2 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">
-            Sight
-          </p>
-          <SightPicker />
+            <FeatureSwitch
+              label="Invert turn"
+              checked={invertTurn}
+              onToggle={() => {
+                const s = useHud.getState();
+                s.setInvertTurn(!s.invertTurn);
+              }}
+            />
+            <SensRail />
+          </div>
+          <div className="mt-1 border-t border-ink/10 pt-1">
+            <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sky</p>
+            <FeatureSwitch
+              label="Night"
+              checked={nightOn}
+              onToggle={() => {
+                const s = useHud.getState();
+                s.setNightOn(!s.nightOn);
+              }}
+            />
+            <FeatureSwitch
+              label="Wind"
+              checked={!muted}
+              onToggle={() => {
+                const s = useHud.getState();
+                s.setMuted(!s.muted);
+              }}
+            />
+            {FX_ROWS.map((row) => (
+              <FeatureSwitch
+                key={row.key}
+                label={row.label}
+                checked={fx[row.key]}
+                onToggle={() => {
+                  const s = useHud.getState();
+                  s.setFx(row.key, !s.fx[row.key]);
+                }}
+              />
+            ))}
+          </div>
+          <div className="mt-1 border-t border-ink/10 pt-1">
+            <p className="px-1 pt-2 pb-2 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sight</p>
+            <SightPicker />
+          </div>
           <button
             type="button"
-            className="mt-4 h-10 w-full rounded-[var(--radius-md)] text-sm text-ink-soft"
+            className="mt-4 h-11 w-full rounded-[var(--radius-md)] text-sm text-ink-soft hover:bg-ink/8"
             onClick={() => resetOptions()}
           >
             Reset
@@ -483,9 +565,9 @@ export function Overlay({ onStart }: OverlayProps) {
       )}
 
       {!playing && (
-        <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/40 via-ink/10 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
+        <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
-            <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud/80 uppercase">
+            <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
               Slow flight
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
@@ -506,8 +588,8 @@ export function Overlay({ onStart }: OverlayProps) {
                   type="button"
                   onClick={() => useHud.getState().setWorld(opt.id)}
                   className={cn(
-                    "h-10 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
-                    world === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud",
+                    "h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
+                    world === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
                   )}
                 >
                   {opt.name}
@@ -518,11 +600,14 @@ export function Overlay({ onStart }: OverlayProps) {
               <Button type="button" onClick={onStart} aria-label="Start drifting">
                 Start
               </Button>
-              <p className="copy-desk max-w-[16rem] text-sm text-cloud/75">
-                WASD to steer. Q and E change speed. Shift for a burst.
+              <p className="copy-desk max-w-[18rem] text-sm text-cloud">
+                Click and pull to steer. Q and E change speed.
               </p>
-              <p className="copy-touch max-w-[16rem] text-sm text-cloud/75">
-                One thumb steers. The other sets the pace.
+              <p className="copy-touch max-w-[18rem] text-sm text-cloud">
+                Pull the craft to steer. Throttle is on the right.
+              </p>
+              <p className="w-full text-sm text-cloud">
+                What’s new: clearer labels and fluffier cloud tops.
               </p>
             </div>
           </div>
@@ -534,13 +619,14 @@ export function Overlay({ onStart }: OverlayProps) {
           {fx.hud && (
             <div
               className={cn(
-                "absolute top-[max(1.25rem,env(safe-area-inset-top))] left-[max(1.25rem,env(safe-area-inset-left))] transition-colors duration-[var(--motion-fast)]",
+                "hud-mark absolute top-[max(1.25rem,env(safe-area-inset-top))] left-[max(1.25rem,env(safe-area-inset-left))] transition-colors duration-[var(--motion-fast)]",
                 inky ? "text-cloud" : "text-ink",
               )}
             >
               <p className="font-display text-xl tracking-[-0.03em] italic sm:text-2xl">{layer}</p>
-              <p className="mt-1 font-sans text-sm tabular-nums text-current/70">
-                {meters.toLocaleString()} m<span className="mx-2 text-current/35">·</span>
+              <p className="mt-1 font-sans text-sm font-medium tabular-nums text-current">
+                {meters.toLocaleString()} m
+                <span className="mx-2 text-current/45">·</span>
                 {kph.toLocaleString()} km/h
               </p>
             </div>
@@ -548,43 +634,46 @@ export function Overlay({ onStart }: OverlayProps) {
 
           <p
             className={cn(
-              "copy-desk absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 max-w-[22rem] -translate-x-1/2 px-4 text-center text-xs tracking-wide transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)] sm:text-sm",
+              "copy-desk hud-mark absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 max-w-[22rem] -translate-x-1/2 px-4 text-center text-xs tracking-wide transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)] sm:text-sm",
               hint ? "opacity-100" : "opacity-0",
-              inky ? "text-cloud/70" : "text-ink/65",
+              inky ? "text-cloud" : "text-ink",
             )}
           >
             Click and pull the craft to steer. Scroll or drag the throttle to change speed.
           </p>
           <p
             className={cn(
-              "copy-touch absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 max-w-[22rem] -translate-x-1/2 px-4 text-center text-xs tracking-wide transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)]",
+              "copy-touch hud-mark absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 max-w-[22rem] -translate-x-1/2 px-4 text-center text-xs tracking-wide transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)]",
               hint ? "opacity-100" : "opacity-0",
-              inky ? "text-cloud/70" : "text-ink/65",
+              inky ? "text-cloud" : "text-ink",
             )}
           >
             Pull the craft or drag to steer. Throttle is on the right.
           </p>
 
           {fx.throttle && <ThrottleRail inky={inky} mobile={mobile} />}
+          {fx.traffic && !settingsOpen && <TrafficMap inky={inky} />}
           {playing && <StickGhost inky={inky} showCraft={!mobile} />}
         </>
       )}
 
       <div className="pointer-events-auto absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-20">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => useHud.getState().setSettingsOpen(!settingsOpen)}
-          aria-label={settingsOpen ? "Close options" : "Open options"}
-          aria-expanded={settingsOpen}
-          className={cn(inky || !playing ? "bg-cloud/15 text-cloud" : "bg-ink/20 text-ink")}
-          onPointerDown={(e) => captureUiPointer(e.pointerId)}
-          onPointerUp={(e) => releaseUiPointer(e.pointerId)}
-          onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
-        >
-          <Settings className="size-5" />
-        </Button>
+        {!settingsOpen && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => useHud.getState().setSettingsOpen(true)}
+            aria-label="Open options"
+            aria-expanded={false}
+            className={cn(inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink")}
+            onPointerDown={(e) => captureUiPointer(e.pointerId)}
+            onPointerUp={(e) => releaseUiPointer(e.pointerId)}
+            onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
+          >
+            <Settings className="size-5" />
+          </Button>
+        )}
       </div>
 
       <SettingsPanel />

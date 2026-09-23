@@ -8,6 +8,7 @@ const SUN = new THREE.Vector3(1.15, 0.58, 0.42).normalize();
 
 type Coral = { x: number; z: number; h: number; s: number; hue: number };
 type Fish = { x: number; y: number; z: number; yaw: number; speed: number; s: number; hue: number };
+type Bubble = { x: number; y: number; z: number; s: number; v: number };
 
 const WRAP = 420;
 const _dummy = new THREE.Object3D();
@@ -26,8 +27,10 @@ export function ReefField() {
   const floor = useRef<THREE.Mesh>(null);
   const coralMesh = useRef<THREE.InstancedMesh>(null);
   const fishMesh = useRef<THREE.InstancedMesh>(null);
-  const count = runtime.mobile ? 28 : 42;
-  const fishCount = runtime.mobile ? 14 : 22;
+  const bubbleMesh = useRef<THREE.InstancedMesh>(null);
+  const count = runtime.mobile ? 28 : 48;
+  const fishCount = runtime.mobile ? 14 : 26;
+  const bubbleCount = runtime.mobile ? 10 : 18;
 
   const corals = useMemo<Coral[]>(() => {
     const list: Coral[] = [];
@@ -61,6 +64,20 @@ export function ReefField() {
     return list;
   }, [fishCount]);
 
+  const bubbles = useMemo<Bubble[]>(() => {
+    const list: Bubble[] = [];
+    for (let i = 0; i < bubbleCount; i++) {
+      list.push({
+        x: (Math.random() - 0.5) * 160,
+        y: 2 + Math.random() * 28,
+        z: (Math.random() - 0.5) * 160,
+        s: 0.12 + Math.random() * 0.28,
+        v: 1.4 + Math.random() * 2.2,
+      });
+    }
+    return list;
+  }, [bubbleCount]);
+
   const floorMat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -80,14 +97,30 @@ export function ReefField() {
     [],
   );
 
-  const coralGeo = useMemo(() => new THREE.ConeGeometry(1, 1, 6), []);
+  const coralGeo = useMemo(() => new THREE.ConeGeometry(1, 1, 7), []);
   const coralMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.05, fog: true }),
+    () => new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.08, fog: true }),
     [],
   );
-  const fishGeo = useMemo(() => new THREE.BoxGeometry(1.8, 0.55, 0.35), []);
+  const fishGeo = useMemo(() => {
+    const g = new THREE.ConeGeometry(0.38, 1.9, 5);
+    g.rotateX(Math.PI / 2);
+    return g;
+  }, []);
   const fishMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.1, fog: true }),
+    () => new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.18, fog: true }),
+    [],
+  );
+  const bubbleGeo = useMemo(() => new THREE.SphereGeometry(1, 8, 6), []);
+  const bubbleMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: 0xc8fff6,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false,
+        fog: false,
+      }),
     [],
   );
 
@@ -98,9 +131,15 @@ export function ReefField() {
       coralMat.dispose();
       fishGeo.dispose();
       fishMat.dispose();
+      bubbleGeo.dispose();
+      bubbleMat.dispose();
     },
-    [floorMat, coralGeo, coralMat, fishGeo, fishMat],
+    [floorMat, coralGeo, coralMat, fishGeo, fishMat, bubbleGeo, bubbleMat],
   );
+
+  const coralPainted = useRef(false);
+  const fishPainted = useRef(false);
+  const tick = useRef(0);
 
   useFrame(({ camera, clock }, dt) => {
     const root = group.current;
@@ -118,6 +157,8 @@ export function ReefField() {
 
     const cx = camera.position.x;
     const cz = camera.position.z;
+    tick.current += 1;
+    const skipSoft = runtime.lod > 0 && (tick.current & 1) === 1;
     if (coralMesh.current) {
       for (let i = 0; i < corals.length; i++) {
         const c = corals[i];
@@ -128,13 +169,16 @@ export function ReefField() {
         _dummy.rotation.set(0, i * 0.7, 0);
         _dummy.updateMatrix();
         coralMesh.current.setMatrixAt(i, _dummy.matrix);
-        coralMesh.current.setColorAt(i, _col.setHex(CORAL_COLORS[c.hue]));
+        if (!coralPainted.current) coralMesh.current.setColorAt(i, _col.setHex(CORAL_COLORS[c.hue]));
       }
       coralMesh.current.instanceMatrix.needsUpdate = true;
-      if (coralMesh.current.instanceColor) coralMesh.current.instanceColor.needsUpdate = true;
+      if (!coralPainted.current && coralMesh.current.instanceColor) {
+        coralMesh.current.instanceColor.needsUpdate = true;
+        coralPainted.current = true;
+      }
     }
 
-    if (fishMesh.current) {
+    if (fishMesh.current && !skipSoft) {
       for (let i = 0; i < school.length; i++) {
         const f = school[i];
         f.yaw += Math.sin(clock.elapsedTime * 0.4 + i) * dt * 0.35;
@@ -152,14 +196,38 @@ export function ReefField() {
           f.z += (dz / (flat + 0.1)) * 18 * dt;
         }
         _dummy.position.set(f.x, f.y, f.z);
-        _dummy.scale.set(f.s, f.s, f.s);
+        _dummy.scale.set(f.s, f.s * 0.7, f.s);
         _dummy.rotation.set(0, f.yaw, Math.sin(clock.elapsedTime * 6 + i) * 0.15);
         _dummy.updateMatrix();
         fishMesh.current.setMatrixAt(i, _dummy.matrix);
-        fishMesh.current.setColorAt(i, _col.setHex(FISH_COLORS[f.hue]));
+        if (!fishPainted.current) fishMesh.current.setColorAt(i, _col.setHex(FISH_COLORS[f.hue]));
       }
       fishMesh.current.instanceMatrix.needsUpdate = true;
-      if (fishMesh.current.instanceColor) fishMesh.current.instanceColor.needsUpdate = true;
+      if (!fishPainted.current && fishMesh.current.instanceColor) {
+        fishMesh.current.instanceColor.needsUpdate = true;
+        fishPainted.current = true;
+      }
+    }
+
+    if (bubbleMesh.current && !skipSoft) {
+      for (let i = 0; i < bubbles.length; i++) {
+        const b = bubbles[i];
+        b.y += b.v * dt;
+        b.x += Math.sin(clock.elapsedTime * 0.7 + i) * dt * 0.4;
+        if (b.y > 38) {
+          b.y = 1 + Math.random() * 4;
+          b.x = cx + (Math.random() - 0.5) * 80;
+          b.z = cz + (Math.random() - 0.5) * 80;
+        }
+        b.x = wrap(b.x, cx, WRAP);
+        b.z = wrap(b.z, cz, WRAP);
+        _dummy.position.set(b.x, b.y, b.z);
+        _dummy.scale.setScalar(b.s);
+        _dummy.rotation.set(0, 0, 0);
+        _dummy.updateMatrix();
+        bubbleMesh.current.setMatrixAt(i, _dummy.matrix);
+      }
+      bubbleMesh.current.instanceMatrix.needsUpdate = true;
     }
   });
 
@@ -172,10 +240,11 @@ export function ReefField() {
         material={floorMat}
         frustumCulled={false}
       >
-        <planeGeometry args={[2400, 2400, 96, 96]} />
+        <planeGeometry args={[2400, 2400, runtime.mobile ? 32 : 48, runtime.mobile ? 32 : 48]} />
       </mesh>
       <instancedMesh ref={coralMesh} args={[coralGeo, coralMat, count]} frustumCulled={false} />
       <instancedMesh ref={fishMesh} args={[fishGeo, fishMat, fishCount]} frustumCulled={false} />
+      <instancedMesh ref={bubbleMesh} args={[bubbleGeo, bubbleMat, bubbleCount]} frustumCulled={false} />
     </group>
   );
 }

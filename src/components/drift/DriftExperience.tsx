@@ -13,6 +13,7 @@ import { World } from "./World";
 function syncTouchMode() {
   const touch = detectTouchMode();
   runtime.mobile = touch;
+  if (touch && runtime.lod < 1) runtime.lod = 1;
   document.documentElement.dataset.input = touch ? "touch" : "desk";
   useHud.getState().setMobile(touch);
   return touch;
@@ -73,8 +74,12 @@ export function DriftExperience() {
   useEffect(() => {
     if (!playing) return;
     let id = 0;
-    const tick = () => {
-      audioRef.current?.update(runtime.craft.speed, runtime.inCloud, runtime.craft.y, runtime.world);
+    let last = 0;
+    const tick = (now: number) => {
+      if (now - last > 80) {
+        last = now;
+        audioRef.current?.update(runtime.craft.speed, runtime.inCloud, runtime.craft.y, runtime.world);
+      }
       id = requestAnimationFrame(tick);
     };
     id = requestAnimationFrame(tick);
@@ -95,16 +100,18 @@ export function DriftExperience() {
       <div className="absolute inset-0 touch-none">
         <Canvas
           camera={{ fov: 72, near: 0.4, far: 7600, position: [0, 148, 0] }}
-          dpr={touchMode ? [1, 1.35] : [1, 2]}
+          dpr={touchMode ? [1, 1.15] : [1, 1.5]}
           gl={{
             antialias: !touchMode,
             powerPreference: "high-performance",
             toneMapping: THREE.NoToneMapping,
             alpha: false,
-            preserveDrawingBuffer: true,
+            preserveDrawingBuffer: false,
+            stencil: false,
+            depth: true,
           }}
           onCreated={({ gl, camera }) => {
-            gl.setClearColor("#0c4aaa", 1);
+            gl.setClearColor("#0a3a94", 1);
             gl.toneMappingExposure = 1;
             camera.rotation.order = "YXZ";
             useHud.getState().setReady(true);

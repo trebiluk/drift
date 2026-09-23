@@ -203,12 +203,15 @@ export function sampleActions(): Actions {
       const lx = gp.axes[0] ?? 0;
       const ly = gp.axes[1] ?? 0;
       const stick = radialDeadzone(lx, ly);
-      yaw += -stick.x;
-      pitch += -stick.y;
+      yaw += -stick.x * runtime.lookSens;
+      pitch += -stick.y * runtime.lookSens;
       const triggers = (gp.buttons[7]?.value ?? 0) - (gp.buttons[6]?.value ?? 0);
       throttle += triggers;
     }
   }
+
+  if (runtime.invertTurn) yaw = -yaw;
+  if (runtime.invertLook) pitch = -pitch;
 
   if (runtime.steerOverride != null) yaw = runtime.steerOverride;
 

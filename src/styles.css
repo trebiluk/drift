@@ -8,8 +8,8 @@
   --color-ink-soft: #3d4a5c;
   --color-cloud: #f7f4ee;
   --color-cloud-dim: #d9e4ee;
-  --color-sky-deep: #0c4aaa;
-  --color-sky-mid: #1560c4;
+  --color-sky-deep: #0a3a94;
+  --color-sky-mid: #1258b8;
   --color-sky-horizon: #4a8ad4;
   --color-sun: #fff3c8;
   --color-space: #070b14;
@@ -116,6 +116,12 @@ html[data-input="desk"] .copy-touch {
 
 html[data-input="desk"] .copy-desk {
   display: block !important;
+}
+
+.hud-mark {
+  text-shadow:
+    0 1px 0 color-mix(in oklab, var(--color-cloud) 28%, transparent),
+    0 6px 18px color-mix(in oklab, var(--color-ink) 32%, transparent);
 }
 
 .throttle-slot {

@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { clamp, FLOOR_Y, spaceFactor } from "@/game/flight";
 import { runtime } from "@/game/runtime";
+import { deadReckon, NM_TO_WORLD, offsetNm, type LiveFlight } from "@/game/traffic";
 
 const MIN_SEP = 170;
 const ACCENTS = [0x3d6ea8, 0x8a3d44, 0x2f5a48, 0xc4a35a, 0x4a4e62];
@@ -16,6 +17,8 @@ type Bird = {
   speed: number;
   scale: number;
   phase: number;
+  id: string;
+  callsign: string;
 };
 
 const _fwd = new THREE.Vector3();
@@ -159,6 +162,79 @@ function makeAirliner(accent: number) {
   return g;
 }
 
+function makeCallsignSprite(text: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 384;
+  canvas.height = 96;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(56, 14, 1);
+  sprite.position.y = 9;
+  sprite.renderOrder = 8;
+  sprite.userData.canvas = canvas;
+  sprite.userData.tex = tex;
+  writeCallsign(sprite, text);
+  return sprite;
+}
+
+function writeCallsign(sprite: THREE.Sprite, text: string) {
+  if (sprite.userData.label === text) return;
+  sprite.userData.label = text;
+  const canvas = sprite.userData.canvas as HTMLCanvasElement;
+  const tex = sprite.userData.tex as THREE.CanvasTexture;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = "600 42px Outfit, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "rgba(18, 32, 58, 0.45)";
+  ctx.strokeText(text, 192, 50);
+  ctx.fillStyle = "rgba(248, 252, 255, 0.92)";
+  ctx.fillText(text, 192, 50);
+  tex.needsUpdate = true;
+}
+
+function livePose(f: LiveFlight, originLat: number, originLon: number) {
+  const { north, east } = offsetNm(f.lat, f.lon, originLat, originLon);
+  return {
+    x: east * NM_TO_WORLD,
+    z: -north * NM_TO_WORLD,
+    y: clamp(FLOOR_Y + 22 + f.alt * 0.026, FLOOR_Y + 18, 1180),
+    yaw: (-f.track * Math.PI) / 180,
+    speed: clamp(f.gs * 0.1, 22, 70),
+  };
+}
+
+let liveCache: { at: number; n: number; list: LiveFlight[] } = { at: 0, n: 0, list: [] };
+
+function pickLive(cam: THREE.Vector3, n: number): LiveFlight[] {
+  const feed = runtime.traffic;
+  if (!feed || feed.flights.length === 0) return [];
+  const now = performance.now();
+  if (liveCache.n === n && now - liveCache.at < 220) return liveCache.list;
+  const dt = Math.min(20, (Date.now() - feed.fetchedAt) / 1000);
+  const moved = feed.flights.map((f) => deadReckon(f, dt));
+  const list = moved
+    .map((f) => {
+      const p = livePose(f, feed.lat, feed.lon);
+      return { f, d: Math.hypot(p.x - cam.x, p.z - cam.z) };
+    })
+    .sort((a, b) => a.d - b.d)
+    .slice(0, n)
+    .map((x) => x.f);
+  liveCache = { at: now, n, list };
+  return list;
+}
+
 function makeTrail() {
   const geo = new THREE.BoxGeometry(1, 1, 1);
   const mat = new THREE.MeshBasicMaterial({
@@ -181,15 +257,31 @@ export function Airplanes() {
     const birds: Bird[] = [];
     const crafts: THREE.Group[] = [];
     const trails: ReturnType<typeof makeTrail>[] = [];
+    const signs: THREE.Sprite[] = [];
     const rngs: Array<() => number> = [];
     for (let i = 0; i < count; i++) {
       const rng = mulberry(1100 + i * 97);
       rngs.push(rng);
-      birds.push({ x: 0, y: 200, z: 400 + i * 80, yaw: 0, pitch: 0, speed: 40, scale: 24, phase: rng() * 6 });
-      crafts.push(makeAirliner(ACCENTS[i % ACCENTS.length]));
+      birds.push({
+        x: 0,
+        y: 200,
+        z: 400 + i * 80,
+        yaw: 0,
+        pitch: 0,
+        speed: 40,
+        scale: 24,
+        phase: rng() * 6,
+        id: "",
+        callsign: "",
+      });
+      const craft = makeAirliner(ACCENTS[i % ACCENTS.length]);
+      const sign = makeCallsignSprite("");
+      sign.visible = false;
+      crafts.push(craft);
+      signs.push(sign);
       trails.push(makeTrail());
     }
-    return { birds, crafts, trails, rngs };
+    return { birds, crafts, trails, signs, rngs };
   }, [count]);
 
   useEffect(() => {
@@ -198,6 +290,7 @@ export function Airplanes() {
     for (let i = 0; i < pack.crafts.length; i++) {
       parent.add(pack.crafts[i]);
       parent.add(pack.trails[i].mesh);
+      parent.add(pack.signs[i]);
     }
     return () => {
       for (const c of pack.crafts) {
@@ -215,6 +308,12 @@ export function Airplanes() {
         t.geo.dispose();
         t.mat.dispose();
       }
+      for (const s of pack.signs) {
+        parent.remove(s);
+        const tex = s.userData.tex as THREE.CanvasTexture | undefined;
+        tex?.dispose();
+        (s.material as THREE.SpriteMaterial).dispose();
+      }
     };
   }, [pack]);
 
@@ -222,15 +321,108 @@ export function Airplanes() {
 
   useFrame(({ camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
-    const { birds, crafts, trails, rngs } = pack;
+    const { birds, crafts, trails, signs, rngs } = pack;
     camera.getWorldDirection(_fwd);
     const facing = Math.atan2(-_fwd.x, -_fwd.z);
     const space = spaceFactor(camera.position.y, runtime.world);
     const show = runtime.fx.airplanes && runtime.world === "sky" && space < 0.72 && camera.position.y < 1280;
+    const liveList = show && runtime.traffic ? pickLive(camera.position, count) : [];
+    const live = liveList.length > 0;
 
     if (!seeded.current) {
       for (let i = 0; i < birds.length; i++) place(birds[i], camera.position, facing, rngs[i], i < 2);
       seeded.current = true;
+    }
+
+    if (live) {
+      const feed = runtime.traffic!;
+      for (let i = 0; i < birds.length; i++) {
+        const craft = crafts[i];
+        const trail = trails[i];
+        const sign = signs[i];
+        const f = liveList[i];
+        if (!f) {
+          craft.visible = false;
+          trail.mesh.visible = false;
+          sign.visible = false;
+          birds[i].id = "";
+          continue;
+        }
+        const pose = livePose(f, feed.lat, feed.lon);
+        const b = birds[i];
+        if (b.id !== f.id) {
+          b.id = f.id;
+          b.x = pose.x;
+          b.y = pose.y;
+          b.z = pose.z;
+          b.yaw = pose.yaw;
+          b.pitch = 0;
+          b.scale = 10.5;
+          b.phase = i;
+        } else {
+          const k = Math.min(1, dt * 1.6);
+          b.x += (pose.x - b.x) * k;
+          b.y += (pose.y - b.y) * k;
+          b.z += (pose.z - b.z) * k;
+          let dy = pose.yaw - b.yaw;
+          while (dy > Math.PI) dy -= Math.PI * 2;
+          while (dy < -Math.PI) dy += Math.PI * 2;
+          b.yaw += dy * k;
+        }
+        b.callsign = f.callsign;
+        b.speed = pose.speed;
+        const dx = b.x - camera.position.x;
+        const dz = b.z - camera.position.z;
+        const flat = Math.hypot(dx, dz);
+        if (flat < MIN_SEP) {
+          const push = (MIN_SEP - flat) * Math.min(1, dt * 4.2);
+          b.x += (dx / (flat + 0.02)) * push;
+          b.z += (dz / (flat + 0.02)) * push;
+        }
+        craft.visible = true;
+        craft.position.set(b.x, b.y, b.z);
+        craft.rotation.y = b.yaw + Math.PI;
+        craft.rotation.x = 0;
+        craft.rotation.z = 0;
+        craft.scale.setScalar(b.scale);
+        writeCallsign(sign, f.callsign);
+        sign.visible = true;
+        sign.position.set(b.x, b.y + 16, b.z);
+        const dist = Math.hypot(dx, b.y - camera.position.y, dz);
+        const s = clamp(dist * 0.055, 32, 90);
+        sign.scale.set(s, s * 0.26, 1);
+
+        const night = runtime.night;
+        b.phase += dt;
+        const blink = night > 0.25 && Math.sin(b.phase * 6) > 0.15;
+        const strobeOn = night > 0.25 && Math.sin(b.phase * 11) > 0.65;
+        const red = craft.getObjectByName("navRed") as THREE.Mesh | undefined;
+        const green = craft.getObjectByName("navGreen") as THREE.Mesh | undefined;
+        const strobe = craft.getObjectByName("strobe") as THREE.Mesh | undefined;
+        if (red) red.visible = blink;
+        if (green) green.visible = blink;
+        if (strobe) strobe.visible = strobeOn;
+
+        const back = 90 + b.scale * 5;
+        const tx = Math.sin(b.yaw);
+        const tz = Math.cos(b.yaw);
+        const hx = b.x + tx * b.scale * 2.8;
+        const hy = b.y;
+        const hz = b.z + tz * b.scale * 2.8;
+        trail.mesh.visible = runtime.fx.contrails;
+        trail.mesh.position.set(hx + tx * back * 0.5, hy, hz + tz * back * 0.5);
+        trail.mesh.lookAt(hx + tx * back, hy, hz + tz * back);
+        trail.mesh.scale.set(0.45, 0.45, back);
+        trail.mat.opacity = runtime.fx.contrails
+          ? THREE.MathUtils.clamp(1 - dist / 1400, 0, 1) * 0.28 * (1 - runtime.inCloud * 0.55)
+          : 0;
+      }
+      return;
+    }
+
+    for (let i = 0; i < birds.length; i++) {
+      signs[i].visible = false;
+      birds[i].id = "";
     }
 
     for (let i = 0; i < birds.length; i++) {
