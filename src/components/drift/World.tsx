@@ -251,7 +251,7 @@ function CloudSea() {
       frustumCulled={false}
       renderOrder={-20}
     >
-      <planeGeometry args={[9000, 9000, runtime.mobile ? 52 : 72, runtime.mobile ? 52 : 72]} />
+      <planeGeometry args={[9000, 9000, runtime.mobile ? 64 : 96, runtime.mobile ? 64 : 96]} />
     </mesh>
   );
 }

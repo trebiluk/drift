@@ -126,21 +126,27 @@ float billow(vec2 p) {
   return v;
 }
 
+float heap(vec2 p) {
+  vec2 w = p + vec2(billow(p * 1.55 + 4.1), billow(p * 1.55 + 9.7)) * 0.48;
+  float h = pow(billow(w), 1.35);
+  float heaps = pow(billow(w * 0.52 + 2.2), 1.85);
+  float nubs = pow(billow(w * 2.15 + 6.4), 2.4);
+  return (h - 0.26) * 74.0 + heaps * 42.0 + nubs * 16.0;
+}
+
 void main() {
   vec3 pos = position;
-  vec2 p = (pos.xz + vec2(uOffset.x, uOffset.y)) * 0.0038;
-  p += vec2(uTime * 0.003, uTime * 0.0016);
-  vec2 w = p + vec2(billow(p * 1.55 + 4.1), billow(p * 1.55 + 9.7)) * 0.42;
-  float h = pow(billow(w), 1.42);
-  float heaps = pow(billow(w * 0.55 + 2.2), 2.1);
-  pos.y += (h - 0.28) * 62.0 + heaps * 28.0;
-  vec3 n = vec3(0.0, 1.0, 0.0);
-  float e = 3.2;
-  float hx = pow(billow(w + vec2(e * 0.0038, 0.0)), 1.42);
-  float hz = pow(billow(w + vec2(0.0, e * 0.0038)), 1.42);
-  n = normalize(vec3((h - hx) * 22.0, 1.0, (h - hz) * 22.0));
-  vH = h;
-  vN = n;
+  // PlaneGeometry sits in XY. The mesh is turned -90° on X, so local Z is world up.
+  // Sampling pos.xz used a zero Z and shoved the height sideways, which flattened the deck.
+  vec2 wxz = vec2(pos.x, -pos.y) + uOffset;
+  vec2 p = wxz * 0.0036 + vec2(uTime * 0.003, uTime * 0.0016);
+  float h = heap(p);
+  pos.z += h;
+  float e = 5.5;
+  float hx = heap(p + vec2(e * 0.0036, 0.0));
+  float hz = heap(p + vec2(0.0, e * 0.0036));
+  vH = clamp(h / 96.0 + 0.35, 0.0, 1.0);
+  vN = normalize(vec3(h - hx, e, h - hz));
   vec4 world = modelMatrix * vec4(pos, 1.0);
   vWorld = world.xyz;
   gl_Position = projectionMatrix * viewMatrix * world;
