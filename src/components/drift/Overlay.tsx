@@ -628,7 +628,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new: the cloud deck is fluffy again. Watch still glides.
+                What’s new: fluffy clouds stay visible when you look down.
               </p>
             </div>
           </div>

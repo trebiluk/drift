@@ -252,8 +252,8 @@ varying float vDist;
 varying float vSeed;
 varying vec3 vView;
 
-float wrap1(float v, float c, float half) {
-  float span = half * 2.0;
+float wrap1(float v, float c, float halfSpan) {
+  float span = halfSpan * 2.0;
   return v - span * floor((v - c) / span + 0.5);
 }
 
@@ -265,12 +265,15 @@ void main() {
   vSeed = fract(origin.x * 0.017 + origin.z * 0.013 + origin.y * 0.009);
   vec3 worldPos = vec3(wrap1(origin.x, uCamXZ.x, uWrap), origin.y, wrap1(origin.z, uCamXZ.y, uWrap));
   vec3 toCam = cameraPosition - worldPos;
-  float topDown = abs(normalize(toCam).y);
+  vec3 toCamN = normalize(toCam);
+  float topDown = abs(toCamN.y);
   vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 camUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 up = normalize(mix(camUp, vec3(0.0, 1.0, 0.0), topDown * 0.72));
-  vec3 right = normalize(cross(up, toCam));
+  vec3 side = cross(up, toCamN);
+  vec3 right = dot(side, side) < 1e-6 ? camRight : normalize(side);
   if (dot(right, camRight) < 0.0) right = -right;
+  up = cross(toCamN, right);
   vec3 pos = worldPos + right * position.x * sx + up * position.y * sy;
   vDist = length(toCam);
   vView = toCam;
