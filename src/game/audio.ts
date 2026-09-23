@@ -79,17 +79,20 @@ export function createSoundscape(): Soundscape {
   musicFilter.frequency.value = 1400;
   musicFilter.Q.value = 0.4;
   musicBus.connect(musicFilter);
-  musicFilter.connect(master);
+  const swell = ctx.createGain();
+  swell.gain.value = 0.92;
+  musicFilter.connect(swell);
+  swell.connect(master);
 
   const pads: Voice[] = [110, 164.81, 220, 329.63].map((freq) => voice(ctx, musicBus, freq));
 
   const breathe = ctx.createOscillator();
   breathe.type = "sine";
-  breathe.frequency.value = 0.06;
+  breathe.frequency.value = 0.08;
   const breatheGain = ctx.createGain();
-  breatheGain.gain.value = 14;
+  breatheGain.gain.value = 0.07;
   breathe.connect(breatheGain);
-  breatheGain.connect(pads[2].osc.frequency);
+  breatheGain.connect(swell.gain);
 
   windSrc.start();
   rumble.start();
@@ -179,7 +182,9 @@ export function createSoundscape(): Soundscape {
     unlock,
     setMuted: (next) => {
       muted = next;
-      master.gain.setTargetAtTime(targetMaster(), ctx.currentTime, 0.05);
+      const level = targetMaster();
+      if (ctx.state === "running") master.gain.setTargetAtTime(level, ctx.currentTime, 0.05);
+      else master.gain.value = level;
     },
     setTrack: (id) => {
       track = id;
@@ -194,12 +199,13 @@ export function createSoundscape(): Soundscape {
         nextChord = ctx.currentTime + 11;
         applyTrack();
       }
+      const musicOn = track !== "off";
       const air =
-        world === "reef"
+        (world === "reef"
           ? 0.06 + speed / 180
           : world === "space"
             ? 0.03 + speed / 220
-            : 0.08 + speed / 120 + inCloud * 0.16;
+            : 0.08 + speed / 120 + inCloud * 0.16) * (musicOn ? 0.45 : 1);
       windGain.gain.setTargetAtTime(air, ctx.currentTime, 0.12);
       const f0 = world === "reef" ? 180 : world === "space" ? 140 : 240;
       windFilter.frequency.setTargetAtTime(f0 + speed * 8 + altitude * 0.02, ctx.currentTime, 0.15);

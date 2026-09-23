@@ -326,6 +326,14 @@ export function Airplanes() {
     const facing = Math.atan2(-_fwd.x, -_fwd.z);
     const space = spaceFactor(camera.position.y, runtime.world);
     const show = runtime.fx.airplanes && runtime.world === "sky" && space < 0.72 && camera.position.y < 1280;
+    if (!show) {
+      for (let i = 0; i < crafts.length; i++) {
+        crafts[i].visible = false;
+        trails[i].mesh.visible = false;
+        signs[i].visible = false;
+      }
+      return;
+    }
     const liveList = show && runtime.traffic ? pickLive(camera.position, count) : [];
     const live = liveList.length > 0;
 

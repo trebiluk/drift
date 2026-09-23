@@ -615,7 +615,7 @@ export function Overlay({ onStart }: OverlayProps) {
               {easy ? "Watch on" : "Watch"}
             </button>
             <p className="mt-2 max-w-md text-sm text-cloud">
-              Watch lets go and levels out. Pull anytime to steer.
+              Watch levels out and glides. The map stays hidden until you turn Watch off.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button type="button" onClick={onStart} aria-label="Start drifting">
@@ -628,7 +628,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new: airplanes start off, Watch glides on its own, and the music plays.
+                What’s new: Watch holds a calm glide, and the music sits above the wind.
               </p>
             </div>
           </div>
@@ -674,7 +674,7 @@ export function Overlay({ onStart }: OverlayProps) {
           </p>
 
           {fx.throttle && <ThrottleRail inky={inky} mobile={mobile} />}
-          {fx.traffic && !settingsOpen && <TrafficMap inky={inky} />}
+          {fx.traffic && !settingsOpen && !easy && <TrafficMap inky={inky} />}
           {playing && <StickGhost inky={inky} showCraft={!mobile} />}
         </>
       )}

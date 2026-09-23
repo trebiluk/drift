@@ -478,10 +478,14 @@ function FlightLoop() {
           keys.has("ArrowUp") ||
           keys.has("ArrowDown");
         if (!hands) {
-          const home = WORLD_HOME[runtime.world].pitch;
-          craft.pitch += (home - craft.pitch) * Math.min(1, dt * 0.85);
+          const home = WORLD_HOME[runtime.world];
+          craft.pitch += (home.pitch - craft.pitch) * Math.min(1, dt * 0.85);
           craft.roll += -craft.roll * Math.min(1, dt * 1.4);
-          craft.yaw += Math.sin(runtime.time * 0.07) * dt * 0.15;
+          craft.yaw += dt * 0.07;
+          const lo = home.y - 36;
+          const hi = home.y + 70;
+          if (craft.y < lo) craft.y += (lo - craft.y) * Math.min(1, dt * 0.4);
+          else if (craft.y > hi) craft.y += (hi - craft.y) * Math.min(1, dt * 0.22);
         }
       }
     } else {
