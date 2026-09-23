@@ -30,6 +30,7 @@ export type HudState = {
   invertLook: boolean;
   invertTurn: boolean;
   lookSens: number;
+  easy: boolean;
   fx: FeatureFlags;
   settingsOpen: boolean;
   setPlaying: (v: boolean) => void;
@@ -43,6 +44,7 @@ export type HudState = {
   setInvertLook: (v: boolean) => void;
   setInvertTurn: (v: boolean) => void;
   setLookSens: (v: number) => void;
+  setEasy: (v: boolean) => void;
   setFx: (key: keyof FeatureFlags, on: boolean) => void;
   setSettingsOpen: (v: boolean) => void;
   patch: (
@@ -51,7 +53,7 @@ export type HudState = {
 };
 
 const FX_DEFAULT: FeatureFlags = {
-  airplanes: true,
+  airplanes: false,
   contrails: true,
   sun: true,
   stars: true,
@@ -71,6 +73,7 @@ function persistAll(state: {
   invertLook: boolean;
   invertTurn: boolean;
   lookSens: number;
+  easy: boolean;
   fx: FeatureFlags;
 }) {
   try {
@@ -85,6 +88,7 @@ function persistAll(state: {
         invertLook: state.invertLook,
         invertTurn: state.invertTurn,
         lookSens: state.lookSens,
+        easy: state.easy,
         ...state.fx,
       }),
     );
@@ -137,6 +141,8 @@ export function loadSavedOptions() {
   let invertLook = false;
   let invertTurn = false;
   let lookSens = 1;
+  let easy = false;
+  let forcePlanesOff = false;
   try {
     const raw = window.localStorage.getItem("drift-fx");
     if (raw) {
@@ -156,6 +162,7 @@ export function loadSavedOptions() {
       if (typeof p.lookSens === "number" && Number.isFinite(p.lookSens)) {
         lookSens = clamp(p.lookSens, LOOK_SENS_MIN, LOOK_SENS_MAX);
       }
+      if (typeof p.easy === "boolean") easy = p.easy;
     } else {
       nightOn = window.localStorage.getItem("drift-night-manual") === "1";
       muted = window.localStorage.getItem("drift-muted") === "1";
@@ -163,6 +170,11 @@ export function loadSavedOptions() {
       if (reticleSaved && (RETICLES as readonly string[]).includes(reticleSaved)) {
         reticle = reticleSaved as Reticle;
       }
+    }
+    if (window.localStorage.getItem("drift-planes-off") !== "1") {
+      fx.airplanes = false;
+      forcePlanesOff = true;
+      window.localStorage.setItem("drift-planes-off", "1");
     }
   } catch {
     /* ignore */
@@ -173,8 +185,12 @@ export function loadSavedOptions() {
   runtime.nightTarget = nightOn ? 1 : 0;
   runtime.muted = muted;
   runtime.music = music;
+  runtime.easy = easy;
   placeWorld(world);
-  useHud.setState({ fx, nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens });
+  useHud.setState({ fx, nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens, easy });
+  if (forcePlanesOff) {
+    persistAll({ nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens, easy, fx });
+  }
 }
 
 export function resetOptions() {
@@ -185,6 +201,7 @@ export function resetOptions() {
   runtime.nightTarget = 0;
   runtime.muted = false;
   runtime.music = "haze";
+  runtime.easy = false;
   placeWorld("sky");
   useHud.setState({
     fx,
@@ -196,6 +213,7 @@ export function resetOptions() {
     invertLook: false,
     invertTurn: false,
     lookSens: 1,
+    easy: false,
   });
   persistAll({
     nightOn: false,
@@ -206,6 +224,7 @@ export function resetOptions() {
     invertLook: false,
     invertTurn: false,
     lookSens: 1,
+    easy: false,
     fx,
   });
 }
@@ -229,6 +248,7 @@ export const useHud = create<HudState>((set, get) => ({
   invertLook: false,
   invertTurn: false,
   lookSens: 1,
+  easy: false,
   fx: { ...FX_DEFAULT },
   settingsOpen: false,
   reducedMotion:
@@ -281,6 +301,11 @@ export const useHud = create<HudState>((set, get) => ({
     set({ lookSens });
     applyLook(get().invertLook, get().invertTurn, lookSens);
     persistAll({ ...get(), lookSens });
+  },
+  setEasy: (easy) => {
+    runtime.easy = easy;
+    set({ easy });
+    persistAll({ ...get(), easy });
   },
   setFx: (key, on) => {
     const fx = { ...get().fx, [key]: on };

@@ -390,6 +390,7 @@ function SettingsPanel() {
   const music = useHud((s) => s.music);
   const invertLook = useHud((s) => s.invertLook);
   const invertTurn = useHud((s) => s.invertTurn);
+  const easy = useHud((s) => s.easy);
 
   useEffect(() => {
     if (!open) return;
@@ -457,6 +458,11 @@ function SettingsPanel() {
                 s.setInvertTurn(!s.invertTurn);
               }}
             />
+            <FeatureSwitch
+              label="Watch"
+              checked={easy}
+              onToggle={() => useHud.getState().setEasy(!useHud.getState().easy)}
+            />
             <SensRail />
           </div>
           <div className="mt-1 border-t border-ink/10 pt-1">
@@ -518,6 +524,7 @@ export function Overlay({ onStart }: OverlayProps) {
   const reticle = useHud((s) => s.reticle);
   const fx = useHud((s) => s.fx);
   const world = useHud((s) => s.world);
+  const easy = useHud((s) => s.easy);
   const settingsOpen = useHud((s) => s.settingsOpen);
   const [hint, setHint] = useState(true);
 
@@ -596,6 +603,20 @@ export function Overlay({ onStart }: OverlayProps) {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              aria-pressed={easy}
+              onClick={() => useHud.getState().setEasy(!easy)}
+              className={cn(
+                "mt-3 h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
+                easy ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+              )}
+            >
+              {easy ? "Watch on" : "Watch"}
+            </button>
+            <p className="mt-2 max-w-md text-sm text-cloud">
+              Watch lets go and levels out. Pull anytime to steer.
+            </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button type="button" onClick={onStart} aria-label="Start drifting">
                 Start
@@ -607,7 +628,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new: clearer labels and fluffier cloud tops.
+                What’s new: airplanes start off, Watch glides on its own, and the music plays.
               </p>
             </div>
           </div>
@@ -629,6 +650,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 <span className="mx-2 text-current/45">·</span>
                 {kph.toLocaleString()} km/h
               </p>
+              {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">Watch</p>}
             </div>
           )}
 

@@ -466,6 +466,24 @@ function FlightLoop() {
           runtime.world,
         );
       }
+      if (runtime.easy && !runtime.stick.active) {
+        const keys = runtime.keys;
+        const hands =
+          keys.has("KeyA") ||
+          keys.has("KeyD") ||
+          keys.has("ArrowLeft") ||
+          keys.has("ArrowRight") ||
+          keys.has("KeyW") ||
+          keys.has("KeyS") ||
+          keys.has("ArrowUp") ||
+          keys.has("ArrowDown");
+        if (!hands) {
+          const home = WORLD_HOME[runtime.world].pitch;
+          craft.pitch += (home - craft.pitch) * Math.min(1, dt * 0.85);
+          craft.roll += -craft.roll * Math.min(1, dt * 1.4);
+          craft.yaw += Math.sin(runtime.time * 0.07) * dt * 0.15;
+        }
+      }
     } else {
       const home = WORLD_HOME[runtime.world];
       const sunX = 1.15;

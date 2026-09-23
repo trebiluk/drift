@@ -34,24 +34,16 @@ function brownNoise(ctx: AudioContext, seconds = 3) {
   return src;
 }
 
-function voice(ctx: AudioContext, dest: AudioNode, freq: number, type: OscillatorType, amp: number): Voice {
+function voice(ctx: AudioContext, dest: AudioNode, freq: number): Voice {
   const osc = ctx.createOscillator();
-  osc.type = type;
+  osc.type = "sine";
   osc.frequency.value = freq;
   const gain = ctx.createGain();
   gain.gain.value = 0;
-  const lfo = ctx.createOscillator();
-  lfo.type = "sine";
-  lfo.frequency.value = 0.05 + Math.random() * 0.04;
-  const lfoGain = ctx.createGain();
-  lfoGain.gain.value = freq * 0.012;
-  lfo.connect(lfoGain);
-  lfoGain.connect(osc.frequency);
   osc.connect(gain);
   gain.connect(dest);
   osc.start();
-  lfo.start();
-  return { osc, gain, lfo, lfoGain };
+  return { osc, gain };
 }
 
 export function createSoundscape(): Soundscape {
@@ -89,46 +81,91 @@ export function createSoundscape(): Soundscape {
   musicBus.connect(musicFilter);
   musicFilter.connect(master);
 
-  const pads: Voice[] = [
-    voice(ctx, musicBus, 110, "sine", 0),
-    voice(ctx, musicBus, 164.81, "sine", 0),
-    voice(ctx, musicBus, 220, "triangle", 0),
-    voice(ctx, musicBus, 329.63, "sine", 0),
-    voice(ctx, musicBus, 65.41, "sine", 0),
-    voice(ctx, musicBus, 392, "sine", 0),
-  ];
+  const pads: Voice[] = [110, 164.81, 220, 329.63].map((freq) => voice(ctx, musicBus, freq));
+
+  const breathe = ctx.createOscillator();
+  breathe.type = "sine";
+  breathe.frequency.value = 0.06;
+  const breatheGain = ctx.createGain();
+  breatheGain.gain.value = 14;
+  breathe.connect(breatheGain);
+  breatheGain.connect(pads[2].osc.frequency);
 
   windSrc.start();
   rumble.start();
+  breathe.start();
 
   let muted = false;
   let track: MusicId = "haze";
-  const targetMaster = () => (muted ? 0 : 0.42);
+  let chord = 0;
+  let nextChord = 0;
+  const targetMaster = () => (muted ? 0 : 0.5);
 
-  const mixFor = (id: MusicId) => {
-    // relative voice amps for [110, 165, 220, 330, 65, 392]
-    if (id === "off") return [0, 0, 0, 0, 0, 0];
-    if (id === "haze") return [0.07, 0.055, 0.04, 0.028, 0.05, 0.012];
-    if (id === "drift") return [0.02, 0.045, 0.055, 0.04, 0.03, 0.03];
-    if (id === "tide") return [0.08, 0.02, 0.03, 0.01, 0.09, 0];
-    return [0.06, 0.02, 0.018, 0.012, 0.1, 0.008];
+  const chords: Record<Exclude<MusicId, "off">, number[][]> = {
+    haze: [
+      [110, 164.81, 220, 329.63],
+      [98, 146.83, 196, 293.66],
+    ],
+    drift: [
+      [146.83, 220, 293.66, 440],
+      [130.81, 196, 261.63, 392],
+    ],
+    tide: [
+      [82.41, 123.47, 164.81, 246.94],
+      [87.31, 130.81, 174.61, 261.63],
+    ],
+    void: [
+      [65.41, 98, 130.81, 196],
+      [73.42, 110, 146.83, 220],
+    ],
   };
 
-  const applyTrack = (id: MusicId) => {
+  const mixFor = (id: MusicId) => {
+    if (id === "off") return [0, 0, 0, 0];
+    if (id === "haze") return [0.16, 0.11, 0.08, 0.05];
+    if (id === "drift") return [0.06, 0.12, 0.1, 0.07];
+    if (id === "tide") return [0.2, 0.08, 0.05, 0.02];
+    return [0.18, 0.05, 0.04, 0.03];
+  };
+
+  const applyTrack = () => {
+    const id = track;
     const mix = mixFor(id);
+    const running = ctx.state === "running";
     const t = ctx.currentTime;
-    const musicLevel = id === "off" ? 0 : 0.9;
-    musicBus.gain.setTargetAtTime(musicLevel, t, 0.6);
-    pads.forEach((p, i) => p.gain.gain.setTargetAtTime(mix[i], t, 0.8));
-    if (id === "tide") musicFilter.frequency.setTargetAtTime(680, t, 0.5);
-    else if (id === "void") musicFilter.frequency.setTargetAtTime(900, t, 0.5);
-    else musicFilter.frequency.setTargetAtTime(1600, t, 0.5);
+    const bus = id === "off" ? 0 : 0.72;
+    if (running) {
+      musicBus.gain.setTargetAtTime(bus, t, 0.35);
+      pads.forEach((p, i) => p.gain.gain.setTargetAtTime(mix[i] ?? 0, t, 0.4));
+    } else {
+      musicBus.gain.value = bus;
+      pads.forEach((p, i) => {
+        p.gain.gain.value = mix[i] ?? 0;
+      });
+    }
+    const cutoff = id === "tide" ? 720 : id === "void" ? 880 : 1800;
+    if (running) musicFilter.frequency.setTargetAtTime(cutoff, t, 0.4);
+    else musicFilter.frequency.value = cutoff;
+    if (id !== "off") {
+      const notes = chords[id][chord % 2];
+      pads.forEach((p, i) => {
+        const freq = notes[i] ?? notes[0];
+        if (running) p.osc.frequency.setTargetAtTime(freq, t, 0.45);
+        else p.osc.frequency.value = freq;
+      });
+    }
   };
 
   const unlock = () => {
-    if (ctx.state === "suspended") void ctx.resume();
-    master.gain.setTargetAtTime(targetMaster(), ctx.currentTime, 0.12);
-    applyTrack(track);
+    const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+    void resume.then(() => {
+      master.gain.setTargetAtTime(targetMaster(), ctx.currentTime, 0.08);
+      applyTrack();
+    });
+  };
+
+  ctx.onstatechange = () => {
+    if (ctx.state === "running") applyTrack();
   };
 
   const onVis = () => {
@@ -146,16 +183,23 @@ export function createSoundscape(): Soundscape {
     },
     setTrack: (id) => {
       track = id;
-      applyTrack(id);
+      chord = 0;
+      nextChord = ctx.currentTime + 9;
+      applyTrack();
     },
     update: (speed, inCloud, altitude, world) => {
       if (ctx.state !== "running") return;
+      if (track !== "off" && ctx.currentTime > nextChord) {
+        chord = (chord + 1) % 2;
+        nextChord = ctx.currentTime + 11;
+        applyTrack();
+      }
       const air =
         world === "reef"
-          ? 0.08 + speed / 140
+          ? 0.06 + speed / 180
           : world === "space"
-            ? 0.04 + speed / 180
-            : 0.12 + speed / 90 + inCloud * 0.22;
+            ? 0.03 + speed / 220
+            : 0.08 + speed / 120 + inCloud * 0.16;
       windGain.gain.setTargetAtTime(air, ctx.currentTime, 0.12);
       const f0 = world === "reef" ? 180 : world === "space" ? 140 : 240;
       windFilter.frequency.setTargetAtTime(f0 + speed * 8 + altitude * 0.02, ctx.currentTime, 0.15);
@@ -167,10 +211,8 @@ export function createSoundscape(): Soundscape {
       try {
         windSrc.stop();
         rumble.stop();
-        for (const p of pads) {
-          p.osc.stop();
-          p.lfo?.stop();
-        }
+        breathe.stop();
+        for (const p of pads) p.osc.stop();
         void ctx.close();
       } catch {
         /* already closed */

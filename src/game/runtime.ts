@@ -55,6 +55,7 @@ export type Runtime = {
   invertLook: boolean;
   invertTurn: boolean;
   lookSens: number;
+  easy: boolean;
   traffic: TrafficSnapshot | null;
   lod: number;
 };
@@ -77,7 +78,7 @@ export const runtime: Runtime = {
   night: 0,
   nightTarget: 0,
   fx: {
-    airplanes: true,
+    airplanes: false,
     contrails: true,
     sun: true,
     stars: true,
@@ -92,6 +93,7 @@ export const runtime: Runtime = {
   invertLook: false,
   invertTurn: false,
   lookSens: 1,
+  easy: false,
   traffic: null,
   lod: 0,
 };
