@@ -62,7 +62,7 @@ export type Runtime = {
 
 export const runtime: Runtime = {
   playing: false,
-  muted: false,
+  muted: true,
   mobile: false,
   craft: createCraft(),
   keys: new Set(),

@@ -58,7 +58,7 @@ export function createSoundscape(): Soundscape {
   windFilter.frequency.value = 380;
   windFilter.Q.value = 0.65;
   const windGain = ctx.createGain();
-  windGain.gain.value = 0.2;
+  windGain.gain.value = 0;
   const windSrc = brownNoise(ctx);
   windSrc.connect(windFilter);
   windFilter.connect(windGain);
@@ -68,7 +68,7 @@ export function createSoundscape(): Soundscape {
   rumble.type = "sine";
   rumble.frequency.value = 52;
   const rumbleGain = ctx.createGain();
-  rumbleGain.gain.value = 0.03;
+  rumbleGain.gain.value = 0;
   rumble.connect(rumbleGain);
   rumbleGain.connect(master);
 
@@ -98,11 +98,10 @@ export function createSoundscape(): Soundscape {
   rumble.start();
   breathe.start();
 
-  let muted = false;
+  let windOn = false;
   let track: MusicId = "haze";
   let chord = 0;
   let nextChord = 0;
-  const targetMaster = () => (muted ? 0 : 0.5);
 
   const chords: Record<Exclude<MusicId, "off">, number[][]> = {
     haze: [
@@ -162,7 +161,7 @@ export function createSoundscape(): Soundscape {
   const unlock = () => {
     const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
     void resume.then(() => {
-      master.gain.setTargetAtTime(targetMaster(), ctx.currentTime, 0.08);
+      master.gain.setTargetAtTime(0.5, ctx.currentTime, 0.08);
       applyTrack();
     });
   };
@@ -180,11 +179,17 @@ export function createSoundscape(): Soundscape {
 
   return {
     unlock,
-    setMuted: (next) => {
-      muted = next;
-      const level = targetMaster();
-      if (ctx.state === "running") master.gain.setTargetAtTime(level, ctx.currentTime, 0.05);
-      else master.gain.value = level;
+    setMuted: (windOff) => {
+      windOn = !windOff;
+      if (windOn) return;
+      const level = 0;
+      if (ctx.state === "running") {
+        windGain.gain.setTargetAtTime(level, ctx.currentTime, 0.08);
+        rumbleGain.gain.setTargetAtTime(level, ctx.currentTime, 0.08);
+      } else {
+        windGain.gain.value = level;
+        rumbleGain.gain.value = level;
+      }
     },
     setTrack: (id) => {
       track = id;
@@ -200,17 +205,18 @@ export function createSoundscape(): Soundscape {
         applyTrack();
       }
       const musicOn = track !== "off";
-      const air =
-        (world === "reef"
-          ? 0.06 + speed / 180
-          : world === "space"
-            ? 0.03 + speed / 220
-            : 0.08 + speed / 120 + inCloud * 0.16) * (musicOn ? 0.45 : 1);
+      const air = windOn
+        ? (world === "reef"
+            ? 0.06 + speed / 180
+            : world === "space"
+              ? 0.03 + speed / 220
+              : 0.08 + speed / 120 + inCloud * 0.16) * (musicOn ? 0.45 : 1)
+        : 0;
       windGain.gain.setTargetAtTime(air, ctx.currentTime, 0.12);
       const f0 = world === "reef" ? 180 : world === "space" ? 140 : 240;
       windFilter.frequency.setTargetAtTime(f0 + speed * 8 + altitude * 0.02, ctx.currentTime, 0.15);
       rumble.frequency.setTargetAtTime(40 + Math.min(altitude, 1800) * 0.01, ctx.currentTime, 0.2);
-      rumbleGain.gain.setTargetAtTime(world === "space" ? 0.018 : 0.03, ctx.currentTime, 0.2);
+      rumbleGain.gain.setTargetAtTime(windOn ? (world === "space" ? 0.018 : 0.03) : 0, ctx.currentTime, 0.2);
     },
     dispose: () => {
       document.removeEventListener("visibilitychange", onVis);

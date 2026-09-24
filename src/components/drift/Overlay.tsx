@@ -575,7 +575,7 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight
+              Slow flight · 1.1.0
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
@@ -628,7 +628,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new: fluffy clouds stay visible when you look down.
+                What’s new (Sep 24): Wind starts off. Changing worlds keeps your song.
               </p>
             </div>
           </div>

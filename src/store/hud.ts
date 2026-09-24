@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { clamp, DEFAULT_CRUISE, MUSIC_FOR_WORLD, WORLD_HOME, type MusicId, type WorldMode } from "@/game/flight";
+import { clamp, DEFAULT_CRUISE, WORLD_HOME, type MusicId, type WorldMode } from "@/game/flight";
 import { runtime, type FxFlags } from "@/game/runtime";
 
 export const RETICLES = ["off", "dot", "plus", "ring"] as const;
@@ -134,7 +134,7 @@ const TRACKS: MusicId[] = ["off", "haze", "drift", "tide", "void"];
 export function loadSavedOptions() {
   let fx: FeatureFlags = { ...FX_DEFAULT };
   let nightOn = false;
-  let muted = false;
+  let muted = true;
   let reticle: Reticle = "off";
   let world: WorldMode = "sky";
   let music: MusicId = "haze";
@@ -143,6 +143,7 @@ export function loadSavedOptions() {
   let lookSens = 1;
   let easy = false;
   let forcePlanesOff = false;
+  let forceWindOff = false;
   try {
     const raw = window.localStorage.getItem("drift-fx");
     if (raw) {
@@ -165,11 +166,17 @@ export function loadSavedOptions() {
       if (typeof p.easy === "boolean") easy = p.easy;
     } else {
       nightOn = window.localStorage.getItem("drift-night-manual") === "1";
-      muted = window.localStorage.getItem("drift-muted") === "1";
+      muted = window.localStorage.getItem("drift-muted") !== "0";
       const reticleSaved = window.localStorage.getItem("drift-reticle");
       if (reticleSaved && (RETICLES as readonly string[]).includes(reticleSaved)) {
         reticle = reticleSaved as Reticle;
       }
+    }
+    if (window.localStorage.getItem("drift-wind-off") !== "1") {
+      muted = true;
+      forceWindOff = true;
+      window.localStorage.setItem("drift-wind-off", "1");
+      window.localStorage.setItem("drift-muted", "1");
     }
     if (window.localStorage.getItem("drift-planes-off") !== "1") {
       fx.airplanes = false;
@@ -188,7 +195,7 @@ export function loadSavedOptions() {
   runtime.easy = easy;
   placeWorld(world);
   useHud.setState({ fx, nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens, easy });
-  if (forcePlanesOff) {
+  if (forcePlanesOff || forceWindOff) {
     persistAll({ nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens, easy, fx });
   }
 }
@@ -199,14 +206,14 @@ export function resetOptions() {
   applyLook(false, false, 1);
   runtime.night = 0;
   runtime.nightTarget = 0;
-  runtime.muted = false;
+  runtime.muted = true;
   runtime.music = "haze";
   runtime.easy = false;
   placeWorld("sky");
   useHud.setState({
     fx,
     nightOn: false,
-    muted: false,
+    muted: true,
     reticle: "off",
     world: "sky",
     music: "haze",
@@ -217,7 +224,7 @@ export function resetOptions() {
   });
   persistAll({
     nightOn: false,
-    muted: false,
+    muted: true,
     reticle: "off",
     world: "sky",
     music: "haze",
@@ -238,7 +245,7 @@ export const useHud = create<HudState>((set, get) => ({
   layer: "Among the clouds",
   inCloud: 0,
   space: 0,
-  muted: false,
+  muted: true,
   mobile: false,
   night: 0,
   nightOn: false,
@@ -273,13 +280,9 @@ export const useHud = create<HudState>((set, get) => ({
     persistAll({ ...get(), reticle });
   },
   setWorld: (world) => {
-    const prev = get().world;
-    const music = get().music;
     placeWorld(world);
-    const nextMusic = music === MUSIC_FOR_WORLD[prev] ? MUSIC_FOR_WORLD[world] : music;
-    runtime.music = nextMusic;
-    set({ world, music: nextMusic });
-    persistAll({ ...get(), world, music: nextMusic });
+    set({ world });
+    persistAll({ ...get(), world });
   },
   setMusic: (music) => {
     runtime.music = music;
