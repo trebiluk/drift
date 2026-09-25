@@ -1,5 +1,15 @@
 export type WorldMode = "sky" | "space" | "reef";
-export type MusicId = "off" | "haze" | "drift" | "tide" | "void";
+export type MusicId =
+  | "off"
+  | "rain"
+  | "bowls"
+  | "ocean"
+  | "focus"
+  | "keys"
+  | "haze"
+  | "drift"
+  | "tide"
+  | "void";
 
 export const BASE_SPEED = 24;
 export const MIN_SPEED = 8;

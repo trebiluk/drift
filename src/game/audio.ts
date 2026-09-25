@@ -1,13 +1,6 @@
 import type { MusicId, WorldMode } from "./flight";
 
-type Voice = {
-  osc: OscillatorNode;
-  gain: GainNode;
-  lfo?: OscillatorNode;
-  lfoGain?: GainNode;
-};
-
-export type Soundscape = {
+type Soundscape = {
   unlock: () => void;
   setMuted: (muted: boolean) => void;
   setTrack: (id: MusicId) => void;
@@ -32,18 +25,6 @@ function brownNoise(ctx: AudioContext, seconds = 3) {
   src.buffer = buffer;
   src.loop = true;
   return src;
-}
-
-function voice(ctx: AudioContext, dest: AudioNode, freq: number): Voice {
-  const osc = ctx.createOscillator();
-  osc.type = "sine";
-  osc.frequency.value = freq;
-  const gain = ctx.createGain();
-  gain.gain.value = 0;
-  osc.connect(gain);
-  gain.connect(dest);
-  osc.start();
-  return { osc, gain };
 }
 
 export function createSoundscape(): Soundscape {
@@ -72,90 +53,80 @@ export function createSoundscape(): Soundscape {
   rumble.connect(rumbleGain);
   rumbleGain.connect(master);
 
-  const musicBus = ctx.createGain();
-  musicBus.gain.value = 0;
-  const musicFilter = ctx.createBiquadFilter();
-  musicFilter.type = "lowpass";
-  musicFilter.frequency.value = 1400;
-  musicFilter.Q.value = 0.4;
-  musicBus.connect(musicFilter);
-  const swell = ctx.createGain();
-  swell.gain.value = 0.92;
-  musicFilter.connect(swell);
-  swell.connect(master);
+  const bedFilter = ctx.createBiquadFilter();
+  bedFilter.type = "lowpass";
+  bedFilter.frequency.value = 800;
+  const bedGain = ctx.createGain();
+  bedGain.gain.value = 0;
+  windSrc.connect(bedFilter);
+  bedFilter.connect(bedGain);
+  bedGain.connect(master);
 
-  const pads: Voice[] = [110, 164.81, 220, 329.63].map((freq) => voice(ctx, musicBus, freq));
-
-  const breathe = ctx.createOscillator();
-  breathe.type = "sine";
-  breathe.frequency.value = 0.08;
-  const breatheGain = ctx.createGain();
-  breatheGain.gain.value = 0.07;
-  breathe.connect(breatheGain);
-  breatheGain.connect(swell.gain);
+  const tone = (type: OscillatorType) => {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start();
+    return { osc, gain };
+  };
+  const bowl = tone("sine");
+  const bowlRing = tone("sine");
+  const key = tone("triangle");
 
   windSrc.start();
   rumble.start();
-  breathe.start();
 
   let windOn = false;
-  let track: MusicId = "haze";
-  let chord = 0;
-  let nextChord = 0;
+  let track: MusicId = "off";
+  let nextNote = 0;
+  let noteStep = 0;
+  const bowls = [174.61, 196, 220, 261.63, 329.63, 392];
+  const keys = [261.63, 293.66, 329.63, 349.23, 392, 440];
 
-  const chords: Record<Exclude<MusicId, "off">, number[][]> = {
-    haze: [
-      [110, 164.81, 220, 329.63],
-      [98, 146.83, 196, 293.66],
-    ],
-    drift: [
-      [146.83, 220, 293.66, 440],
-      [130.81, 196, 261.63, 392],
-    ],
-    tide: [
-      [82.41, 123.47, 164.81, 246.94],
-      [87.31, 130.81, 174.61, 261.63],
-    ],
-    void: [
-      [65.41, 98, 130.81, 196],
-      [73.42, 110, 146.83, 220],
-    ],
+  const hush = (node: GainNode) => {
+    if (ctx.state === "running") node.gain.setTargetAtTime(0, ctx.currentTime, 0.06);
+    else node.gain.value = 0;
   };
 
-  const mixFor = (id: MusicId) => {
-    if (id === "off") return [0, 0, 0, 0];
-    if (id === "haze") return [0.16, 0.11, 0.08, 0.05];
-    if (id === "drift") return [0.06, 0.12, 0.1, 0.07];
-    if (id === "tide") return [0.2, 0.08, 0.05, 0.02];
-    return [0.18, 0.05, 0.04, 0.03];
+  const setBed = (type: BiquadFilterType, freq: number, q: number, gain: number) => {
+    bedFilter.type = type;
+    bedFilter.Q.value = q;
+    if (ctx.state === "running") {
+      bedFilter.frequency.setTargetAtTime(freq, ctx.currentTime, 0.2);
+      bedGain.gain.setTargetAtTime(gain, ctx.currentTime, 0.3);
+    } else {
+      bedFilter.frequency.value = freq;
+      bedGain.gain.value = gain;
+    }
   };
 
   const applyTrack = () => {
-    const id = track;
-    const mix = mixFor(id);
-    const running = ctx.state === "running";
+    hush(bowl.gain);
+    hush(bowlRing.gain);
+    hush(key.gain);
+    nextNote = ctx.currentTime + 0.35;
+    if (track === "rain") setBed("bandpass", 1700, 0.5, 0.14);
+    else if (track === "ocean") setBed("lowpass", 380, 0.7, 0.2);
+    else if (track === "focus") setBed("bandpass", 620, 0.28, 0.08);
+    else setBed("lowpass", 800, 0.5, 0);
+  };
+
+  const strike = (
+    voice: { osc: OscillatorNode; gain: GainNode },
+    freq: number,
+    peak: number,
+    decay: number,
+  ) => {
     const t = ctx.currentTime;
-    const bus = id === "off" ? 0 : 0.72;
-    if (running) {
-      musicBus.gain.setTargetAtTime(bus, t, 0.35);
-      pads.forEach((p, i) => p.gain.gain.setTargetAtTime(mix[i] ?? 0, t, 0.4));
-    } else {
-      musicBus.gain.value = bus;
-      pads.forEach((p, i) => {
-        p.gain.gain.value = mix[i] ?? 0;
-      });
-    }
-    const cutoff = id === "tide" ? 720 : id === "void" ? 880 : 1800;
-    if (running) musicFilter.frequency.setTargetAtTime(cutoff, t, 0.4);
-    else musicFilter.frequency.value = cutoff;
-    if (id !== "off") {
-      const notes = chords[id][chord % 2];
-      pads.forEach((p, i) => {
-        const freq = notes[i] ?? notes[0];
-        if (running) p.osc.frequency.setTargetAtTime(freq, t, 0.45);
-        else p.osc.frequency.value = freq;
-      });
-    }
+    voice.osc.frequency.setValueAtTime(freq, t);
+    const g = voice.gain.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(0.0001, t);
+    g.linearRampToValueAtTime(peak, t + 0.03);
+    g.exponentialRampToValueAtTime(0.0001, t + decay);
   };
 
   const unlock = () => {
@@ -193,24 +164,35 @@ export function createSoundscape(): Soundscape {
     },
     setTrack: (id) => {
       track = id;
-      chord = 0;
-      nextChord = ctx.currentTime + 9;
+      noteStep = 0;
       applyTrack();
     },
     update: (speed, inCloud, altitude, world) => {
       if (ctx.state !== "running") return;
-      if (track !== "off" && ctx.currentTime > nextChord) {
-        chord = (chord + 1) % 2;
-        nextChord = ctx.currentTime + 11;
-        applyTrack();
+      if (track === "rain") {
+        bedGain.gain.setTargetAtTime(0.07 + Math.random() * 0.16, ctx.currentTime, 0.05);
+      } else if (track === "ocean") {
+        const wave = 0.1 + (0.5 + 0.5 * Math.sin(ctx.currentTime * 0.17)) * 0.16;
+        bedGain.gain.setTargetAtTime(wave, ctx.currentTime, 0.45);
+      } else if (track === "bowls" && ctx.currentTime >= nextNote) {
+        const freq = bowls[noteStep % bowls.length] ?? 220;
+        noteStep += 1;
+        nextNote = ctx.currentTime + 8;
+        strike(bowl, freq, 0.1, 6.4);
+        strike(bowlRing, freq * 2, 0.03, 4);
+      } else if (track === "keys" && ctx.currentTime >= nextNote) {
+        const freq = keys[noteStep % keys.length] ?? 330;
+        noteStep += 1;
+        nextNote = ctx.currentTime + 5;
+        strike(key, freq, 0.055, 1.7);
       }
-      const musicOn = track !== "off";
+      const calm = track === "rain" || track === "ocean" || track === "focus" || track === "bowls" || track === "keys";
       const air = windOn
         ? (world === "reef"
             ? 0.06 + speed / 180
             : world === "space"
               ? 0.03 + speed / 220
-              : 0.08 + speed / 120 + inCloud * 0.16) * (musicOn ? 0.45 : 1)
+              : 0.08 + speed / 120 + inCloud * 0.16) * (calm ? 0.45 : 1)
         : 0;
       windGain.gain.setTargetAtTime(air, ctx.currentTime, 0.12);
       const f0 = world === "reef" ? 180 : world === "space" ? 140 : 240;
@@ -223,8 +205,9 @@ export function createSoundscape(): Soundscape {
       try {
         windSrc.stop();
         rumble.stop();
-        breathe.stop();
-        for (const p of pads) p.osc.stop();
+        bowl.osc.stop();
+        bowlRing.osc.stop();
+        key.osc.stop();
         void ctx.close();
       } catch {
         /* already closed */

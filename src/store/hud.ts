@@ -61,7 +61,7 @@ const FX_DEFAULT: FeatureFlags = {
   streaks: true,
   throttle: true,
   hud: true,
-  traffic: true,
+  traffic: false,
 };
 
 function persistAll(state: {
@@ -129,7 +129,7 @@ function placeWorld(mode: WorldMode) {
 }
 
 const WORLDS: WorldMode[] = ["sky", "space", "reef"];
-const TRACKS: MusicId[] = ["off", "haze", "drift", "tide", "void"];
+const TRACKS: MusicId[] = ["off", "rain", "bowls", "ocean", "focus", "keys"];
 
 export function loadSavedOptions() {
   let fx: FeatureFlags = { ...FX_DEFAULT };
@@ -137,13 +137,14 @@ export function loadSavedOptions() {
   let muted = true;
   let reticle: Reticle = "off";
   let world: WorldMode = "sky";
-  let music: MusicId = "haze";
+  let music: MusicId = "off";
   let invertLook = false;
   let invertTurn = false;
   let lookSens = 1;
   let easy = false;
   let forcePlanesOff = false;
   let forceWindOff = false;
+  let forceMapOff = false;
   try {
     const raw = window.localStorage.getItem("drift-fx");
     if (raw) {
@@ -178,6 +179,11 @@ export function loadSavedOptions() {
       window.localStorage.setItem("drift-wind-off", "1");
       window.localStorage.setItem("drift-muted", "1");
     }
+    if (window.localStorage.getItem("drift-map-off") !== "1") {
+      fx.traffic = false;
+      forceMapOff = true;
+      window.localStorage.setItem("drift-map-off", "1");
+    }
     if (window.localStorage.getItem("drift-planes-off") !== "1") {
       fx.airplanes = false;
       forcePlanesOff = true;
@@ -195,7 +201,7 @@ export function loadSavedOptions() {
   runtime.easy = easy;
   placeWorld(world);
   useHud.setState({ fx, nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens, easy });
-  if (forcePlanesOff || forceWindOff) {
+  if (forcePlanesOff || forceWindOff || forceMapOff) {
     persistAll({ nightOn, muted, reticle, world, music, invertLook, invertTurn, lookSens, easy, fx });
   }
 }
@@ -207,7 +213,7 @@ export function resetOptions() {
   runtime.night = 0;
   runtime.nightTarget = 0;
   runtime.muted = true;
-  runtime.music = "haze";
+  runtime.music = "off";
   runtime.easy = false;
   placeWorld("sky");
   useHud.setState({
@@ -216,7 +222,7 @@ export function resetOptions() {
     muted: true,
     reticle: "off",
     world: "sky",
-    music: "haze",
+    music: "off",
     invertLook: false,
     invertTurn: false,
     lookSens: 1,
@@ -227,7 +233,7 @@ export function resetOptions() {
     muted: true,
     reticle: "off",
     world: "sky",
-    music: "haze",
+    music: "off",
     invertLook: false,
     invertTurn: false,
     lookSens: 1,
@@ -251,7 +257,7 @@ export const useHud = create<HudState>((set, get) => ({
   nightOn: false,
   reticle: "off",
   world: "sky",
-  music: "haze",
+  music: "off",
   invertLook: false,
   invertTurn: false,
   lookSens: 1,

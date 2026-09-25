@@ -87,7 +87,7 @@ export const runtime: Runtime = {
     throttle: true,
   },
   world: "sky",
-  music: "haze",
+  music: "off",
   spaceAmt: 0,
   reefAmt: 0,
   invertLook: false,

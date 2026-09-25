@@ -363,10 +363,11 @@ const WORLD_OPTS: { id: WorldMode; name: string }[] = [
 
 const MUSIC_OPTS: { id: MusicId; name: string }[] = [
   { id: "off", name: "Off" },
-  { id: "haze", name: "Haze" },
-  { id: "drift", name: "Drift" },
-  { id: "tide", name: "Tide" },
-  { id: "void", name: "Void" },
+  { id: "rain", name: "Rain" },
+  { id: "bowls", name: "Bowls" },
+  { id: "ocean", name: "Ocean" },
+  { id: "focus", name: "Focus" },
+  { id: "keys", name: "Keys" },
 ];
 
 const FX_ROWS: { key: keyof FeatureFlags; label: string }[] = [
@@ -435,11 +436,14 @@ function SettingsPanel() {
             onPick={(id) => useHud.getState().setWorld(id)}
           />
           <ChipPicker
-            label="Music"
-            value={music}
+            label="Sound"
+            value={music === "haze" || music === "drift" || music === "tide" || music === "void" ? "off" : music}
             options={MUSIC_OPTS}
             onPick={(id) => useHud.getState().setMusic(id)}
           />
+          <p className="px-1 pb-2 font-sans text-sm text-ink-soft">
+            Rain, bowls, and ocean are calm. Focus and keys are for quiet work.
+          </p>
           <div className="mt-2 border-t border-ink/10 pt-1">
             <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Steer</p>
             <FeatureSwitch
@@ -575,7 +579,7 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.1.0
+              Slow flight · 1.2.0
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
@@ -628,7 +632,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 24): Wind starts off. Changing worlds keeps your song.
+                What’s new (Sep 24): Map and sound start off. Pick rain, bowls, ocean, focus, or keys.
               </p>
             </div>
           </div>
