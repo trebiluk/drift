@@ -265,38 +265,50 @@ function CloudPuffs() {
     const yaw = runtime.craft.yaw;
     const fx = -Math.sin(yaw);
     const fz = -Math.cos(yaw);
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 8; i++) {
       list.push({
-        x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
-        y: 72 + (i % 5) * 18,
-        z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
-        s: 88 + (i % 5) * 22,
+        x: fx * (36 + i * 48) + ((i % 2) * 2 - 1) * (16 + (i % 3) * 12),
+        y: 78 + (i % 4) * 16,
+        z: fz * (36 + i * 48) + (((i + 1) % 3) - 1) * 18,
+        s: 96 + (i % 4) * 18,
       });
     }
-    for (let c = 0; c < 18; c++) {
+    const towers = runtime.mobile ? 8 : 12;
+    for (let c = 0; c < towers && list.length < count; c++) {
       const a = Math.random() * Math.PI * 2;
-      const r = 70 + Math.pow(Math.random(), 0.4) * WRAP;
+      const r = 80 + Math.pow(Math.random(), 0.45) * WRAP;
       const cx = Math.cos(a) * r;
       const cz = Math.sin(a) * r;
-      const cy = 58 + Math.random() * 86;
-      const n = 5 + (c % 5);
-      for (let j = 0; j < n && list.length < count; j++) {
+      const cy = 64 + Math.random() * 48;
+      const scale = 0.82 + Math.random() * 0.55;
+      list.push({ x: cx, y: cy, z: cz, s: 128 * scale });
+      for (let k = 0; k < 4 && list.length < count; k++) {
+        const ang = k * 1.57 + c * 0.4;
         list.push({
-          x: cx + (Math.random() - 0.5) * 86,
-          y: cy + (Math.random() - 0.5) * 32,
-          z: cz + (Math.random() - 0.5) * 86,
-          s: 72 + Math.random() * 110,
+          x: cx + Math.cos(ang) * 44 * scale,
+          y: cy + 6 * scale,
+          z: cz + Math.sin(ang) * 38 * scale,
+          s: (68 + (k % 2) * 16) * scale,
+        });
+      }
+      for (let k = 0; k < 3 && list.length < count; k++) {
+        const ang = k * 2.09 + 0.6;
+        list.push({
+          x: cx + Math.cos(ang) * 16 * scale,
+          y: cy + (26 + k * 12) * scale,
+          z: cz + Math.sin(ang) * 14 * scale,
+          s: (46 - k * 6) * scale,
         });
       }
     }
     while (list.length < count) {
       const a = Math.random() * Math.PI * 2;
-      const r = 50 + Math.random() * WRAP;
+      const r = 90 + Math.random() * WRAP;
       list.push({
         x: Math.cos(a) * r,
-        y: 52 + Math.random() * 100,
+        y: 70 + Math.random() * 70,
         z: Math.sin(a) * r,
-        s: 64 + Math.random() * 92,
+        s: 48 + Math.random() * 54,
       });
     }
     return list;
@@ -350,7 +362,7 @@ function CloudPuffs() {
       for (let i = 0; i < puffs.length; i++) {
         const p = puffs[i];
         _dummy.position.set(p.x, p.y, p.z);
-        _dummy.scale.set(p.s * 1.85, p.s * 1.48, 1);
+        _dummy.scale.set(p.s * 2.2, p.s * 1.78, 1);
         _dummy.rotation.set(0, 0, 0);
         _dummy.updateMatrix();
         inst.setMatrixAt(i, _dummy.matrix);
