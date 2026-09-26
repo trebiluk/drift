@@ -479,8 +479,8 @@ void main() {
   vec3 n = normalize(mix(vec3(0.0, 1.0, 0.0), vN, 0.45));
   float ndotl = max(dot(n, normalize(uSun)), 0.0);
   float patch = noise(vWorld.xz * 0.035);
-  vec3 sand = vec3(0.78, 0.66, 0.42);
-  vec3 teal = vec3(0.08, 0.46, 0.44);
+  vec3 sand = vec3(0.86, 0.74, 0.46);
+  vec3 teal = vec3(0.05, 0.42, 0.46);
   vec3 coral = vec3(0.92, 0.36, 0.4);
   vec3 violet = vec3(0.48, 0.2, 0.56);
   vec3 albedo = mix(sand, teal, smoothstep(0.28, 0.62, vH));

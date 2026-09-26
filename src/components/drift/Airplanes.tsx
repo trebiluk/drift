@@ -86,6 +86,52 @@ function stepBird(b: Bird, cam: THREE.Vector3, facing: number, dt: number, rng: 
   if (dist > 1550 || dist < 55 || b.y > 1480) place(b, cam, facing, rng, false);
 }
 
+function flatShape(points: Array<[number, number]>) {
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) shape.lineTo(points[i][0], points[i][1]);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.07, bevelEnabled: false, curveSegments: 2 });
+  geo.translate(0, 0, -0.035);
+  geo.rotateX(Math.PI / 2);
+  return geo;
+}
+
+function wingGeo() {
+  return flatShape([
+    [0, 0.62],
+    [4.2, 0.1],
+    [4.05, -0.16],
+    [0.2, -0.48],
+    [-0.2, -0.48],
+    [-4.05, -0.16],
+    [-4.2, 0.1],
+  ]);
+}
+
+function stabGeo() {
+  return flatShape([
+    [0, 0.22],
+    [1.28, 0.04],
+    [1.12, -0.16],
+    [0, -0.2],
+    [-1.12, -0.16],
+    [-1.28, 0.04],
+  ]);
+}
+
+function finGeo() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(0.95, 0.2);
+  shape.lineTo(0.15, 1.25);
+  shape.lineTo(-0.08, 0.15);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.07, bevelEnabled: false, curveSegments: 2 });
+  geo.translate(0, 0, -0.035);
+  return geo;
+}
+
 function makeMats(accent: number) {
   const body = new THREE.MeshStandardMaterial({
     color: 0xd8e0ea,
@@ -122,20 +168,23 @@ function makeAirliner(accent: number) {
   nose.scale.set(1, 0.85, 1.1);
   g.add(nose);
 
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.09, 1.35), mats.body);
-  wing.position.set(0, -0.14, 0.15);
+  const wing = new THREE.Mesh(wingGeo(), mats.body);
+  wing.position.set(0, -0.12, 0.15);
   g.add(wing);
 
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 4.6), mats.paint);
-  stripe.position.set(0.4, 0.02, 0);
-  g.add(stripe);
+  for (let i = 0; i < 6; i++) {
+    const window = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), mats.dark);
+    window.position.set(0.36, 0.12, -1.35 + i * 0.42);
+    window.scale.set(0.7, 0.85, 1);
+    g.add(window);
+  }
 
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.25, 0.85), mats.paint);
-  fin.position.set(0, 0.62, 2.25);
+  const fin = new THREE.Mesh(finGeo(), mats.paint);
+  fin.position.set(0, 0.42, 2.05);
   g.add(fin);
 
-  const stab = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.07, 0.55), mats.body);
-  stab.position.set(0, 0.16, 2.2);
+  const stab = new THREE.Mesh(stabGeo(), mats.body);
+  stab.position.set(0, 0.18, 2.15);
   g.add(stab);
 
   for (const x of [-1.85, 1.85]) {
@@ -420,7 +469,7 @@ export function Airplanes() {
         trail.mesh.visible = runtime.fx.contrails;
         trail.mesh.position.set(hx + tx * back * 0.5, hy, hz + tz * back * 0.5);
         trail.mesh.lookAt(hx + tx * back, hy, hz + tz * back);
-        trail.mesh.scale.set(0.45, 0.45, back);
+        trail.mesh.scale.set(1.8, 0.08, back);
         trail.mat.opacity = runtime.fx.contrails
           ? THREE.MathUtils.clamp(1 - dist / 1400, 0, 1) * 0.28 * (1 - runtime.inCloud * 0.55)
           : 0;
@@ -472,7 +521,7 @@ export function Airplanes() {
       trail.mesh.visible = runtime.fx.contrails;
       trail.mesh.position.set(hx + tx * back * 0.5, hy + ty * back * 0.5, hz + tz * back * 0.5);
       trail.mesh.lookAt(hx + tx * back, hy + ty * back, hz + tz * back);
-      trail.mesh.scale.set(0.45, 0.45, back);
+      trail.mesh.scale.set(1.8, 0.08, back);
       const dist = Math.hypot(b.x - camera.position.x, b.y - camera.position.y, b.z - camera.position.z);
       trail.mat.opacity = runtime.fx.contrails
         ? THREE.MathUtils.clamp(1 - dist / 1400, 0, 1) * 0.28 * (1 - runtime.inCloud * 0.55)

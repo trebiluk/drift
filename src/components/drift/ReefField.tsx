@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as THREE from "three";
 import { runtime } from "@/game/runtime";
 import { REEF_FRAG, REEF_VERT } from "@/game/shaders";
@@ -20,6 +21,43 @@ function wrap(v: number, c: number, h: number) {
   while (v - c > h) v -= span;
   while (v - c < -h) v += span;
   return v;
+}
+
+function makeFishGeo() {
+  const body = new THREE.SphereGeometry(0.42, 12, 8);
+  body.scale(0.7, 0.46, 1.35);
+  const tail = new THREE.SphereGeometry(0.32, 8, 6);
+  tail.scale(0.1, 0.9, 0.48);
+  tail.translate(0, 0.02, 1.2);
+  const fin = new THREE.SphereGeometry(0.2, 6, 5);
+  fin.scale(0.08, 0.55, 0.32);
+  fin.translate(0, 0.34, -0.1);
+  const geo = mergeGeometries([body, tail, fin]);
+  body.dispose();
+  tail.dispose();
+  fin.dispose();
+  if (!geo) throw new Error("fish");
+  return geo;
+}
+
+function makeCoralGeo() {
+  const parts: THREE.BufferGeometry[] = [];
+  const trunk = new THREE.ConeGeometry(0.36, 1.15, 7);
+  trunk.translate(0, 0.58, 0);
+  parts.push(trunk);
+  for (let i = 0; i < 5; i++) {
+    const arm = new THREE.ConeGeometry(0.15, 0.7, 6);
+    const a = (i / 5) * Math.PI * 2;
+    arm.translate(0, 0.35, 0);
+    arm.rotateZ(0.62);
+    arm.rotateY(a);
+    arm.translate(Math.cos(a) * 0.1, 0.78, Math.sin(a) * 0.1);
+    parts.push(arm);
+  }
+  const geo = mergeGeometries(parts);
+  for (const part of parts) part.dispose();
+  if (!geo) throw new Error("coral");
+  return geo;
 }
 
 export function ReefField() {
@@ -97,16 +135,12 @@ export function ReefField() {
     [],
   );
 
-  const coralGeo = useMemo(() => new THREE.ConeGeometry(1, 1, 7), []);
+  const coralGeo = useMemo(() => makeCoralGeo(), []);
   const coralMat = useMemo(
     () => new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.08, fog: true }),
     [],
   );
-  const fishGeo = useMemo(() => {
-    const g = new THREE.ConeGeometry(0.38, 1.9, 5);
-    g.rotateX(Math.PI / 2);
-    return g;
-  }, []);
+  const fishGeo = useMemo(() => makeFishGeo(), []);
   const fishMat = useMemo(
     () => new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.18, fog: true }),
     [],
@@ -181,7 +215,9 @@ export function ReefField() {
     if (fishMesh.current && !skipSoft) {
       for (let i = 0; i < school.length; i++) {
         const f = school[i];
-        f.yaw += Math.sin(clock.elapsedTime * 0.4 + i) * dt * 0.35;
+        f.yaw += Math.sin(clock.elapsedTime * 0.35 + i * 0.7) * dt * 0.22;
+        const heading = Math.sin(clock.elapsedTime * 0.12) * 0.9;
+        f.yaw += (heading - f.yaw) * dt * 0.35;
         f.x += -Math.sin(f.yaw) * f.speed * dt;
         f.z += -Math.cos(f.yaw) * f.speed * dt;
         f.y += Math.sin(clock.elapsedTime * 0.8 + i) * dt * 0.4;
@@ -196,7 +232,7 @@ export function ReefField() {
           f.z += (dz / (flat + 0.1)) * 18 * dt;
         }
         _dummy.position.set(f.x, f.y, f.z);
-        _dummy.scale.set(f.s, f.s * 0.7, f.s);
+        _dummy.scale.setScalar(f.s * 1.45);
         _dummy.rotation.set(0, f.yaw, Math.sin(clock.elapsedTime * 6 + i) * 0.15);
         _dummy.updateMatrix();
         fishMesh.current.setMatrixAt(i, _dummy.matrix);
