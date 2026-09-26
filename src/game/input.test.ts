@@ -2,21 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolvePullOrigin, steerFromPull } from "./pull.ts";
 
-test("desk mouse away from the craft does not start a pull", () => {
-  assert.equal(resolvePullOrigin(24, 24, 1280, 720, "mouse"), null);
+test("mouse, pen, and touch can all start a pull away from the craft", () => {
+  assert.deepEqual(resolvePullOrigin(24, 24, 1280, 720, "mouse"), { x: 24, y: 24 });
+  assert.deepEqual(resolvePullOrigin(24, 24, 1280, 720, "pen"), { x: 24, y: 24 });
+  assert.deepEqual(resolvePullOrigin(40, 500, 390, 844, "touch"), { x: 40, y: 500 });
 });
 
-test("desk mouse on the center craft grabs that point", () => {
+test("a press on the craft still starts at that point", () => {
   assert.deepEqual(resolvePullOrigin(640, 360, 1280, 720, "mouse"), { x: 640, y: 360 });
-});
-
-test("desk mouse near the craft still grabs", () => {
-  // radius = max(100, min(1280, 720) * 0.2) = 144
-  assert.deepEqual(resolvePullOrigin(640 + 140, 360, 1280, 720, "mouse"), { x: 780, y: 360 });
-});
-
-test("desk mouse just outside the craft does not grab", () => {
-  assert.equal(resolvePullOrigin(640 + 170, 360, 1280, 720, "mouse"), null);
 });
 
 test("touch keeps an origin at the finger, on or off the craft", () => {

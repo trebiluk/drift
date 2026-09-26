@@ -88,7 +88,7 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
         <div
           className={cn(
             "absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_6px_16px_rgba(28,40,56,0.22)]",
-            mobile ? "size-11" : "size-7",
+            mobile ? "size-11" : "size-7 throttle-knob",
             inky ? "bg-cloud" : "bg-ink",
           )}
           style={{ top: `${(1 - cruise) * 100}%` }}
@@ -586,14 +586,14 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.5.0
+              Slow flight · 1.6.0
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
             </h1>
             <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">
               Three quiet worlds. Glide the clouds, drift past planets, or float above a reef. Pick
-              a calm track, then click and pull the craft.
+              a calm track, then click and drag to steer.
             </p>
             <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">
               Three quiet worlds. Clouds, space, or a reef. Pull the craft, or drag, to steer. Slide
@@ -654,13 +654,13 @@ export function Overlay({ onStart }: OverlayProps) {
                 Start
               </Button>
               <p className="copy-desk max-w-[18rem] text-sm text-cloud">
-                Click and pull to steer. Q and E change speed.
+                Click and drag to steer. Scroll or Q and E change speed.
               </p>
               <p className="copy-touch max-w-[18rem] text-sm text-cloud">
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 26): Airplanes have swept wings. Reef fish are rounded, and the coral branches.
+                What’s new (Sep 26): Drag anywhere to steer. A touch screen gets a bigger speed control.
               </p>
             </div>
           </div>
@@ -698,7 +698,7 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud" : "text-ink",
             )}
           >
-            Click and pull the craft to steer. Scroll or drag the throttle to change speed.
+            Click and drag to steer. Scroll or drag the throttle to change speed.
           </p>
           <p
             className={cn(

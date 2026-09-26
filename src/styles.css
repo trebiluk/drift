@@ -147,6 +147,11 @@ html[data-input="touch"] .throttle-slot {
   bottom: max(5.5rem, env(safe-area-inset-bottom));
 }
 
+html[data-touch="1"] .throttle-knob {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
 html[data-input="desk"] .throttle-slot {
   top: 50%;
   transform: translateY(-50%);

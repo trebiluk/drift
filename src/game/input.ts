@@ -23,10 +23,10 @@ const GAME_KEYS = new Set([
 ]);
 
 function inTouchChrome(e: PointerEvent) {
-  if (!runtime.mobile) return false;
+  if (e.pointerType === "mouse") return false;
   const w = window.innerWidth;
-  if (runtime.fx.throttle && e.clientX > w - 92) return true;
-  if (e.clientY < 88 && e.clientX > w - 88) return true;
+  if (runtime.fx.throttle && e.clientX > w - 96) return true;
+  if (e.clientY < 96 && e.clientX > w - 96) return true;
   return false;
 }
 
@@ -55,6 +55,10 @@ function releasePull(pointerId: number) {
 }
 
 function onKeyDown(e: KeyboardEvent) {
+  const target = e.target;
+  if (target instanceof HTMLElement && target.closest("button, a, input, textarea, select, [role='slider']")) {
+    return;
+  }
   if (runtime.uiCapture) {
     if (GAME_KEYS.has(e.code)) e.preventDefault();
     return;
@@ -131,9 +135,14 @@ function onPointerUp(e: PointerEvent) {
 }
 
 function onWheel(e: WheelEvent) {
-  if (!runtime.playing || runtime.uiCapture || runtime.mobile) return;
+  if (!runtime.playing || runtime.uiCapture) return;
+  if (e.ctrlKey || e.metaKey) return;
+  const target = e.target;
+  if (target instanceof HTMLElement && target.closest("[role='slider'], button, a")) return;
+  const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
+  const step = clamp(px * 0.0004, -0.035, 0.035);
+  if (Math.abs(step) < 0.002) return;
   e.preventDefault();
-  const step = clamp(e.deltaY * 0.0012, -0.08, 0.08);
   runtime.cruise = clamp(runtime.cruise - step, 0, 1);
 }
 
@@ -192,8 +201,8 @@ export function sampleActions(): Actions {
       runtime.stick.y,
       runtime.pointer.isMouse,
     );
-    yaw += pulled.yaw;
-    pitch += pulled.pitch;
+    yaw += pulled.yaw * runtime.lookSens;
+    pitch += pulled.pitch * runtime.lookSens;
   }
 
   if (typeof navigator !== "undefined" && navigator.getGamepads) {
@@ -207,6 +216,10 @@ export function sampleActions(): Actions {
       pitch += -stick.y * runtime.lookSens;
       const triggers = (gp.buttons[7]?.value ?? 0) - (gp.buttons[6]?.value ?? 0);
       throttle += triggers;
+      if (gp.buttons[14]?.pressed) yaw += runtime.lookSens;
+      if (gp.buttons[15]?.pressed) yaw -= runtime.lookSens;
+      if (gp.buttons[12]?.pressed) pitch += runtime.lookSens;
+      if (gp.buttons[13]?.pressed) pitch -= runtime.lookSens;
     }
   }
 

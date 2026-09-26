@@ -1,3 +1,9 @@
+export function detectTouchScreen() {
+  if (typeof window === "undefined") return false;
+  const anyCoarse = window.matchMedia("(any-pointer: coarse)").matches;
+  return anyCoarse || navigator.maxTouchPoints > 0;
+}
+
 export function detectTouchMode() {
   if (typeof window === "undefined") return false;
   const coarse = window.matchMedia("(pointer: coarse)").matches;

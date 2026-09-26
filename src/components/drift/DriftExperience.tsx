@@ -2,7 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { sharedSoundscape } from "@/game/audio";
-import { detectTouchMode } from "@/game/device";
+import { detectTouchMode, detectTouchScreen } from "@/game/device";
 import { clamp } from "@/game/flight";
 import { attachInput, detachInput } from "@/game/input";
 import { installControlsTest, runtime, startFlight } from "@/game/runtime";
@@ -15,6 +15,7 @@ function syncTouchMode() {
   runtime.mobile = touch;
   if (touch && runtime.lod < 1) runtime.lod = 1;
   document.documentElement.dataset.input = touch ? "touch" : "desk";
+  document.documentElement.dataset.touch = detectTouchScreen() ? "1" : "0";
   useHud.getState().setMobile(touch);
   return touch;
 }

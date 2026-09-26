@@ -7,24 +7,17 @@ export function radialDeadzone(x: number, y: number, dz = 0.16) {
 
 /**
  * Where a pull starts.
- * Mouse only grabs on or near the center craft — idle motion elsewhere is ignored.
- * Touch keeps an origin-relative stick at the finger. A touch on the craft uses
- * that same point, so it feels like pulling the craft.
+ * Mouse, trackpad, finger, and pen all steer from the press point.
+ * Idle motion never starts a pull. The caller skips the speed control and buttons.
  */
 export function resolvePullOrigin(
   clientX: number,
   clientY: number,
   width: number,
   height: number,
-  pointerType: string,
+  _pointerType: string,
 ): { x: number; y: number } | null {
-  const w = Math.max(1, width);
-  const h = Math.max(1, height);
-  const cx = w * 0.5;
-  const cy = h * 0.5;
-  const radius = Math.max(100, Math.min(w, h) * 0.2);
-  const nearCraft = Math.hypot(clientX - cx, clientY - cy) <= radius;
-  if (pointerType === "mouse" && !nearCraft) return null;
+  if (width < 1 || height < 1) return null;
   return { x: clientX, y: clientY };
 }
 
