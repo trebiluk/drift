@@ -528,6 +528,7 @@ export function Overlay({ onStart }: OverlayProps) {
   const reticle = useHud((s) => s.reticle);
   const fx = useHud((s) => s.fx);
   const world = useHud((s) => s.world);
+  const music = useHud((s) => s.music);
   const easy = useHud((s) => s.easy);
   const settingsOpen = useHud((s) => s.settingsOpen);
   const [hint, setHint] = useState(true);
@@ -543,6 +544,8 @@ export function Overlay({ onStart }: OverlayProps) {
 
   const meters = Math.round(altitude);
   const kph = Math.round(speed * 3.6);
+  const sound =
+    music === "haze" || music === "drift" || music === "tide" || music === "void" ? "off" : music;
   const inky = space > 0.55 || night > 0.42 || world !== "sky";
 
   return (
@@ -579,7 +582,7 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.2.0
+              Slow flight · 1.2.1
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
@@ -607,6 +610,24 @@ export function Overlay({ onStart }: OverlayProps) {
                 </button>
               ))}
             </div>
+            <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">Sound</p>
+            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Sound">
+              {MUSIC_OPTS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={sound === opt.id}
+                  onClick={() => useHud.getState().setMusic(opt.id)}
+                  className={cn(
+                    "h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
+                    sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+                  )}
+                >
+                  {opt.name}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               aria-pressed={easy}
@@ -621,7 +642,7 @@ export function Overlay({ onStart }: OverlayProps) {
             <p className="mt-2 max-w-md text-sm text-cloud">
               Watch levels out and glides. The map stays hidden until you turn Watch off.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-5 flex flex-wrap items-center gap-4">
               <Button type="button" onClick={onStart} aria-label="Start drifting">
                 Start
               </Button>
@@ -632,7 +653,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 24): Map and sound start off. Pick rain, bowls, ocean, focus, or keys.
+                What’s new (Sep 26): Sound choices are on the start screen. They still start off.
               </p>
             </div>
           </div>
