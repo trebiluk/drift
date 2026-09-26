@@ -27,6 +27,28 @@ function brownNoise(ctx: AudioContext, seconds = 3) {
   return src;
 }
 
+function clipUrl(file: string) {
+  const path = window.location.pathname;
+  const dir = path.endsWith("/") ? path : `${path}/`;
+  return `${dir}sounds/${file}`;
+}
+
+const CLIPS: Partial<Record<MusicId, string>> = {
+  rain: "rain.mp3",
+  ocean: "ocean.mp3",
+  bowls: "bowls.mp3",
+  focus: "focus.mp3",
+  keys: "keys.mp3",
+};
+
+const CLIP_VOLUME: Partial<Record<MusicId, number>> = {
+  rain: 0.72,
+  ocean: 0.8,
+  bowls: 0.9,
+  focus: 0.66,
+  keys: 0.74,
+};
+
 export function createSoundscape(): Soundscape {
   const Ctor = ctxCtor();
   const ctx = new Ctor({ latencyHint: "playback" });
@@ -53,140 +75,84 @@ export function createSoundscape(): Soundscape {
   rumble.connect(rumbleGain);
   rumbleGain.connect(master);
 
-  const bedFilter = ctx.createBiquadFilter();
-  bedFilter.type = "lowpass";
-  bedFilter.frequency.value = 800;
-  const bedGain = ctx.createGain();
-  bedGain.gain.value = 0;
-  windSrc.connect(bedFilter);
-  bedFilter.connect(bedGain);
-  bedGain.connect(master);
-
-  const tone = (type: OscillatorType) => {
-    const osc = ctx.createOscillator();
-    osc.type = type;
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start();
-    return { osc, gain };
-  };
-  const bowl = tone("sine");
-  const bowlRing = tone("sine");
-  const key = tone("triangle");
-
   windSrc.start();
   rumble.start();
 
   let windOn = false;
   let track: MusicId = "off";
-  let nextNote = 0;
-  let noteStep = 0;
-  const bowls = [174.61, 196, 220, 261.63, 329.63, 392];
-  const keys = [261.63, 293.66, 329.63, 349.23, 392, 440];
+  let heard = false;
+  let clip: HTMLAudioElement | null = null;
 
-  const hush = (node: GainNode) => {
-    if (ctx.state === "running") node.gain.setTargetAtTime(0, ctx.currentTime, 0.06);
-    else node.gain.value = 0;
+  const stopClip = () => {
+    if (!clip) return;
+    clip.pause();
+    clip.src = "";
+    clip = null;
   };
 
-  const setBed = (type: BiquadFilterType, freq: number, q: number, gain: number) => {
-    bedFilter.type = type;
-    bedFilter.Q.value = q;
-    if (ctx.state === "running") {
-      bedFilter.frequency.setTargetAtTime(freq, ctx.currentTime, 0.2);
-      bedGain.gain.setTargetAtTime(gain, ctx.currentTime, 0.3);
-    } else {
-      bedFilter.frequency.value = freq;
-      bedGain.gain.value = gain;
+  const startClip = () => {
+    const file = CLIPS[track];
+    if (!file) {
+      stopClip();
+      return;
     }
-  };
-
-  const applyTrack = () => {
-    hush(bowl.gain);
-    hush(bowlRing.gain);
-    hush(key.gain);
-    nextNote = ctx.currentTime + 0.35;
-    if (track === "rain") setBed("bandpass", 1700, 0.5, 0.14);
-    else if (track === "ocean") setBed("lowpass", 380, 0.7, 0.2);
-    else if (track === "focus") setBed("bandpass", 620, 0.28, 0.08);
-    else setBed("lowpass", 800, 0.5, 0);
-  };
-
-  const strike = (
-    voice: { osc: OscillatorNode; gain: GainNode },
-    freq: number,
-    peak: number,
-    decay: number,
-  ) => {
-    const t = ctx.currentTime;
-    voice.osc.frequency.setValueAtTime(freq, t);
-    const g = voice.gain.gain;
-    g.cancelScheduledValues(t);
-    g.setValueAtTime(0.0001, t);
-    g.linearRampToValueAtTime(peak, t + 0.03);
-    g.exponentialRampToValueAtTime(0.0001, t + decay);
-  };
-
-  const unlock = () => {
-    const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
-    void resume.then(() => {
-      master.gain.setTargetAtTime(0.5, ctx.currentTime, 0.08);
-      applyTrack();
+    if (clip?.dataset.track === track && !clip.paused) return;
+    stopClip();
+    const el = new Audio(clipUrl(file));
+    el.loop = true;
+    el.preload = "auto";
+    el.volume = CLIP_VOLUME[track] ?? 0.7;
+    el.dataset.track = track;
+    clip = el;
+    void el.play().catch(() => {
+      /* the next tap will try again */
     });
   };
 
-  ctx.onstatechange = () => {
-    if (ctx.state === "running") applyTrack();
+  const unlock = () => {
+    heard = true;
+    master.gain.value = 0.55;
+    const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+    void resume.then(() => {
+      if (ctx.state === "running") master.gain.setTargetAtTime(0.55, ctx.currentTime, 0.08);
+    });
+    if (CLIPS[track]) startClip();
   };
 
   const onVis = () => {
-    if (document.visibilityState === "visible" && ctx.state === "suspended") {
-      void ctx.resume();
+    if (document.visibilityState !== "visible") {
+      clip?.pause();
+      return;
     }
+    if (heard && CLIPS[track]) startClip();
+    if (ctx.state === "suspended") void ctx.resume();
   };
   document.addEventListener("visibilitychange", onVis);
 
-  return {
+  const api: Soundscape = {
     unlock,
     setMuted: (windOff) => {
       windOn = !windOff;
       if (windOn) return;
-      const level = 0;
       if (ctx.state === "running") {
-        windGain.gain.setTargetAtTime(level, ctx.currentTime, 0.08);
-        rumbleGain.gain.setTargetAtTime(level, ctx.currentTime, 0.08);
+        windGain.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+        rumbleGain.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
       } else {
-        windGain.gain.value = level;
-        rumbleGain.gain.value = level;
+        windGain.gain.value = 0;
+        rumbleGain.gain.value = 0;
       }
     },
     setTrack: (id) => {
       track = id;
-      noteStep = 0;
-      applyTrack();
+      if (!CLIPS[id]) {
+        stopClip();
+        return;
+      }
+      if (heard) startClip();
     },
     update: (speed, inCloud, altitude, world) => {
       if (ctx.state !== "running") return;
-      if (track === "rain") {
-        bedGain.gain.setTargetAtTime(0.07 + Math.random() * 0.16, ctx.currentTime, 0.05);
-      } else if (track === "ocean") {
-        const wave = 0.1 + (0.5 + 0.5 * Math.sin(ctx.currentTime * 0.17)) * 0.16;
-        bedGain.gain.setTargetAtTime(wave, ctx.currentTime, 0.45);
-      } else if (track === "bowls" && ctx.currentTime >= nextNote) {
-        const freq = bowls[noteStep % bowls.length] ?? 220;
-        noteStep += 1;
-        nextNote = ctx.currentTime + 8;
-        strike(bowl, freq, 0.1, 6.4);
-        strike(bowlRing, freq * 2, 0.03, 4);
-      } else if (track === "keys" && ctx.currentTime >= nextNote) {
-        const freq = keys[noteStep % keys.length] ?? 330;
-        noteStep += 1;
-        nextNote = ctx.currentTime + 5;
-        strike(key, freq, 0.055, 1.7);
-      }
-      const calm = track === "rain" || track === "ocean" || track === "focus" || track === "bowls" || track === "keys";
+      const calm = Boolean(CLIPS[track]);
       const air = windOn
         ? (world === "reef"
             ? 0.06 + speed / 180
@@ -202,20 +168,29 @@ export function createSoundscape(): Soundscape {
     },
     dispose: () => {
       document.removeEventListener("visibilitychange", onVis);
+      stopClip();
       try {
         windSrc.stop();
         rumble.stop();
-        bowl.osc.stop();
-        bowlRing.osc.stop();
-        key.osc.stop();
         void ctx.close();
       } catch {
         /* already closed */
       }
+      if (active === api) active = null;
     },
   };
+  return api;
 }
 
-export function createWindAudio(): Soundscape {
-  return createSoundscape();
+let active: Soundscape | null = null;
+
+export function sharedSoundscape() {
+  if (!active) active = createSoundscape();
+  return active;
+}
+
+export function previewSound(id: MusicId) {
+  const audio = sharedSoundscape();
+  audio.setTrack(id);
+  if (CLIPS[id]) audio.unlock();
 }

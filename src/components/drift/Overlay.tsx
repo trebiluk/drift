@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clamp } from "@/game/flight";
+import { previewSound } from "@/game/audio";
 import { captureUiPointer, releaseUiPointer } from "@/game/input";
 import { runtime } from "@/game/runtime";
 import { cn } from "@/lib/utils";
@@ -439,10 +440,13 @@ function SettingsPanel() {
             label="Sound"
             value={music === "haze" || music === "drift" || music === "tide" || music === "void" ? "off" : music}
             options={MUSIC_OPTS}
-            onPick={(id) => useHud.getState().setMusic(id)}
+            onPick={(id) => {
+              useHud.getState().setMusic(id);
+              previewSound(id);
+            }}
           />
           <p className="px-1 pb-2 font-sans text-sm text-ink-soft">
-            Rain, bowls, and ocean are calm. Focus and keys are for quiet work.
+            Rain, waves, and a bowl are calm. Focus and keys are quiet piano.
           </p>
           <div className="mt-2 border-t border-ink/10 pt-1">
             <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Steer</p>
@@ -582,7 +586,7 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.2.1
+              Slow flight · 1.3.0
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
@@ -618,7 +622,10 @@ export function Overlay({ onStart }: OverlayProps) {
                   type="button"
                   role="radio"
                   aria-checked={sound === opt.id}
-                  onClick={() => useHud.getState().setMusic(opt.id)}
+                  onClick={() => {
+                    useHud.getState().setMusic(opt.id);
+                    previewSound(opt.id);
+                  }}
                   className={cn(
                     "h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
                     sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
@@ -653,7 +660,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 26): Sound choices are on the start screen. They still start off.
+                What’s new (Sep 26): Sound choices are real recordings now. They still start off.
               </p>
             </div>
           </div>
@@ -676,6 +683,11 @@ export function Overlay({ onStart }: OverlayProps) {
                 {kph.toLocaleString()} km/h
               </p>
               {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">Watch</p>}
+              {sound !== "off" && (
+                <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">
+                  {MUSIC_OPTS.find((opt) => opt.id === sound)?.name}
+                </p>
+              )}
             </div>
           )}
 

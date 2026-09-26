@@ -1,7 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { createSoundscape } from "@/game/audio";
+import { sharedSoundscape } from "@/game/audio";
 import { detectTouchMode } from "@/game/device";
 import { clamp } from "@/game/flight";
 import { attachInput, detachInput } from "@/game/input";
@@ -20,7 +20,7 @@ function syncTouchMode() {
 }
 
 export function DriftExperience() {
-  const audioRef = useRef<ReturnType<typeof createSoundscape> | null>(null);
+  const audioRef = useRef<ReturnType<typeof sharedSoundscape> | null>(null);
   const muted = useHud((s) => s.muted);
   const playing = useHud((s) => s.playing);
   const music = useHud((s) => s.music);
@@ -87,7 +87,7 @@ export function DriftExperience() {
   }, [playing]);
 
   const handleStart = () => {
-    if (!audioRef.current) audioRef.current = createSoundscape();
+    if (!audioRef.current) audioRef.current = sharedSoundscape();
     audioRef.current.unlock();
     audioRef.current.setMuted(useHud.getState().muted);
     audioRef.current.setTrack(useHud.getState().music);
