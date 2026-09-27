@@ -26,21 +26,21 @@ void main() {
   vec3 sun = normalize(uSun);
   float mu = max(dot(dir, sun), 0.0);
 
-  vec3 zenith = mix(vec3(0.012, 0.11, 0.48), vec3(0.015, 0.03, 0.09), uNight);
-  vec3 horizon = mix(vec3(0.42, 0.66, 0.96), vec3(0.12, 0.16, 0.32), uNight);
-  vec3 below = mix(vec3(0.18, 0.42, 0.78), vec3(0.04, 0.06, 0.12), uNight);
+  vec3 zenith = mix(vec3(0.36, 0.58, 0.86), vec3(0.015, 0.03, 0.09), uNight);
+  vec3 horizon = mix(vec3(0.74, 0.84, 0.95), vec3(0.12, 0.16, 0.32), uNight);
+  vec3 below = mix(vec3(0.55, 0.72, 0.9), vec3(0.04, 0.06, 0.12), uNight);
   vec3 sky = mix(below, horizon, smoothstep(-0.22, 0.06, h));
   sky = mix(sky, zenith, smoothstep(0.02, 0.62, h));
 
-  float disc = pow(mu, mix(420.0, 560.0, uNight));
-  float corona = pow(mu, mix(22.0, 32.0, uNight));
-  float haze = pow(mu, 4.8);
-  vec3 warm = vec3(1.0, 0.97, 0.88);
+  float disc = pow(mu, mix(900.0, 1100.0, uNight));
+  float corona = pow(mu, mix(64.0, 80.0, uNight));
+  float haze = pow(mu, 8.0);
+  vec3 warm = vec3(1.0, 0.96, 0.86);
   vec3 cool = vec3(0.82, 0.90, 1.0);
   vec3 lamp = mix(warm, cool, uNight);
-  sky += lamp * disc * mix(4.2, 2.1, uNight);
-  sky += mix(vec3(1.0, 0.88, 0.58), vec3(0.55, 0.68, 1.0), uNight) * corona * mix(0.85, 0.4, uNight);
-  sky += mix(vec3(1.0, 0.78, 0.48), vec3(0.25, 0.32, 0.55), uNight) * haze * mix(0.18, 0.1, uNight);
+  sky += lamp * disc * mix(0.85, 0.45, uNight);
+  sky += mix(vec3(1.0, 0.94, 0.78), vec3(0.55, 0.68, 1.0), uNight) * corona * mix(0.28, 0.14, uNight);
+  sky += mix(vec3(1.0, 0.9, 0.72), vec3(0.25, 0.32, 0.55), uNight) * haze * mix(0.06, 0.03, uNight);
 
   vec3 space = vec3(0.004, 0.006, 0.018);
   float limb = pow(1.0 - abs(h), 7.2);
@@ -212,26 +212,26 @@ void main() {
   vec3 sun = normalize(uSun);
   float ndotl = max(dot(n, sun), 0.0);
 
-  vec3 crease = mix(vec3(0.22, 0.42, 0.78), vec3(0.12, 0.16, 0.28), uNight);
-  vec3 valley = mix(vec3(0.78, 0.86, 0.96), vec3(0.22, 0.28, 0.42), uNight);
-  vec3 peak = mix(vec3(1.0, 1.0, 1.0), vec3(0.9, 0.93, 1.0), uNight);
-  float ht = clamp(vH * 0.28 + cauliflower * 0.95, 0.0, 1.0);
-  vec3 albedo = mix(crease, valley, smoothstep(0.08, 0.34, ht));
-  albedo = mix(albedo, peak, smoothstep(0.28, 0.72, ht));
+  vec3 crease = mix(vec3(0.68, 0.78, 0.9), vec3(0.12, 0.16, 0.28), uNight);
+  vec3 valley = mix(vec3(0.86, 0.9, 0.95), vec3(0.22, 0.28, 0.42), uNight);
+  vec3 peak = mix(vec3(0.96, 0.97, 0.98), vec3(0.86, 0.9, 0.96), uNight);
+  float ht = clamp(vH * 0.34 + cauliflower * 0.7, 0.0, 1.0);
+  vec3 albedo = mix(crease, valley, smoothstep(0.12, 0.46, ht));
+  albedo = mix(albedo, peak, smoothstep(0.42, 0.88, ht));
 
-  vec3 col = albedo * mix(0.78 + 0.28 * ndotl, 0.55 + 0.42 * ndotl, uNight);
-  col += mix(vec3(1.0, 0.97, 0.9), vec3(0.78, 0.86, 1.0), uNight) * pow(ndotl, 5.0) * mix(0.5, 0.28, uNight);
-  col += peak * pow(cauliflower, 3.2) * 0.22;
+  vec3 col = albedo * mix(0.9 + 0.12 * ndotl, 0.55 + 0.42 * ndotl, uNight);
+  col += mix(vec3(1.0, 0.97, 0.9), vec3(0.78, 0.86, 1.0), uNight) * pow(ndotl, 8.0) * mix(0.08, 0.05, uNight);
+  col += peak * pow(cauliflower, 3.2) * 0.06;
 
   vec3 view = normalize(uCam - vWorld);
   float rim = pow(1.0 - max(dot(view, vec3(0.0, 1.0, 0.0)), 0.0), 2.2);
   col += mix(vec3(0.96, 0.98, 1.0), vec3(0.55, 0.68, 0.95), uNight) * rim * 0.16;
-  float silver = pow(max(dot(reflect(-sun, n), view), 0.0), 4.2) * mix(0.28, 0.4, uNight);
+  float silver = pow(max(dot(reflect(-sun, n), view), 0.0), 8.0) * mix(0.08, 0.16, uNight);
   col += mix(vec3(1.0, 0.97, 0.9), vec3(0.82, 0.9, 1.0), uNight) * silver;
 
   float dist = length(uCam.xz - vWorld.xz);
   float haze = smoothstep(1400.0, 4800.0, dist);
-  vec3 fogCol = mix(vec3(0.32, 0.56, 0.9), vec3(0.07, 0.11, 0.26), uNight);
+  vec3 fogCol = mix(vec3(0.62, 0.76, 0.92), vec3(0.07, 0.11, 0.26), uNight);
   col = mix(col, fogCol, haze * 0.62);
 
   float alpha = uFade * (1.0 - haze * 0.22);
@@ -353,18 +353,18 @@ void main() {
   if (dens < 0.025) discard;
 
   float ht = clamp(0.22 + w.y * 0.95 + nA * 0.08, 0.0, 1.0);
-  vec3 under = mix(vec3(0.5, 0.66, 0.9), vec3(0.22, 0.3, 0.48), uNight);
-  vec3 top = vec3(1.0, 1.0, 1.0);
-  vec3 shade = mix(under, top, smoothstep(0.08, 0.62, ht));
-  shade = mix(shade, vec3(1.0), dens * ht * 0.72);
+  vec3 under = mix(vec3(0.74, 0.82, 0.92), vec3(0.22, 0.3, 0.48), uNight);
+  vec3 top = vec3(0.97, 0.98, 0.99);
+  vec3 shade = mix(under, top, smoothstep(0.18, 0.78, ht));
+  shade = mix(shade, top, dens * ht * 0.22);
 
   vec3 view = normalize(vView);
   vec3 sun = normalize(uSun);
-  float backlit = pow(max(dot(view, sun), 0.0), 2.4);
-  float cotton = smoothstep(0.12, 0.48, dens) * (1.0 - smoothstep(0.62, 1.0, dens));
-  vec3 col = shade * mix(vLight, vLight * 0.7 + 0.22, uNight);
-  col += vec3(1.0, 0.99, 0.96) * cotton * (0.55 + backlit * 0.8);
-  col += mix(vec3(1.0, 0.97, 0.88), vec3(0.75, 0.84, 1.0), uNight) * backlit * mix(0.42, 0.2, uNight);
+  float backlit = pow(max(dot(view, sun), 0.0), 6.0);
+  float cotton = smoothstep(0.2, 0.55, dens) * (1.0 - smoothstep(0.7, 1.0, dens));
+  vec3 col = shade * mix(min(vLight, 1.05), vLight * 0.7 + 0.22, uNight);
+  col += vec3(1.0, 0.98, 0.94) * cotton * 0.16;
+  col += mix(vec3(1.0, 0.97, 0.9), vec3(0.75, 0.84, 1.0), uNight) * backlit * mix(0.1, 0.06, uNight);
 
   float fade = smoothstep(1900.0, 70.0, vDist);
   float alpha = dens * fade * (1.0 - uSpace * 0.85);
