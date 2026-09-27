@@ -86,7 +86,8 @@ export function SpaceField() {
   const clouds = useMemo(makeClouds, []);
   const geo = useMemo(() => new THREE.SphereGeometry(1, 24, 16), []);
   const glowGeo = useMemo(() => new THREE.SphereGeometry(1.12, 16, 12), []);
-  const ringGeo = useMemo(() => new THREE.RingGeometry(1.42, 2.28, 40), []);
+  const ringGeo = useMemo(() => new THREE.RingGeometry(1.35, 1.85, 40), []);
+  const ringOuter = useMemo(() => new THREE.RingGeometry(2.05, 2.55, 40), []);
   const planeGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
   const mats = useMemo(
     () =>
@@ -124,9 +125,21 @@ export function SpaceField() {
   const ringMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: 0xd2c09a,
+        color: 0xe6d3ae,
         transparent: true,
-        opacity: 0.62,
+        opacity: 0.7,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        fog: false,
+      }),
+    [],
+  );
+  const ringOuterMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: 0xa89070,
+        transparent: true,
+        opacity: 0.38,
         side: THREE.DoubleSide,
         depthWrite: false,
         fog: false,
@@ -162,13 +175,15 @@ export function SpaceField() {
       geo.dispose();
       glowGeo.dispose();
       ringGeo.dispose();
+      ringOuter.dispose();
       planeGeo.dispose();
       ringMat.dispose();
+      ringOuterMat.dispose();
       mats.forEach((m) => m.dispose());
       glowMats.forEach((m) => m.dispose());
       nebMats.forEach((m) => m.dispose());
     },
-    [geo, glowGeo, ringGeo, planeGeo, ringMat, mats, glowMats, nebMats],
+    [geo, glowGeo, ringGeo, ringOuter, planeGeo, ringMat, ringOuterMat, mats, glowMats, nebMats],
   );
 
   useFrame(({ camera, clock }, dt) => {
@@ -205,15 +220,17 @@ export function SpaceField() {
     <group>
       <group ref={group}>
         {bodies.map((b, i) => (
-          <group key={i} position={[b.x, b.y, b.z]} scale={b.r}>
+          <group key={i} position={[b.x, b.y, b.z]} scale={[b.r, b.r * (b.rings ? 0.82 : 1), b.r]}>
             <mesh geometry={geo} material={mats[i]} />
             <mesh geometry={glowGeo} material={glowMats[i]} />
             {b.rings && (
-              <mesh
-                geometry={ringGeo}
-                material={ringMat}
-                rotation={[Math.PI / 2.6, 0.2, 0.15]}
-              />
+              <>
+                <mesh geometry={ringGeo} material={ringMat} rotation={[Math.PI / 2.5, 0.15, 0.1]} />
+                <mesh geometry={ringOuter} material={ringOuterMat} rotation={[Math.PI / 2.5, 0.15, 0.1]} />
+              </>
+            )}
+            {(i === 0 || i === 3) && (
+              <mesh geometry={geo} material={mats[(i + 1) % mats.length]} position={[1.85, 0.3, 0.15]} scale={0.2} />
             )}
           </group>
         ))}

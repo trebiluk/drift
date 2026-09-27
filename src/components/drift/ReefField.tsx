@@ -15,6 +15,7 @@ const WRAP = 420;
 const _dummy = new THREE.Object3D();
 const FISH_COLORS = [0xf2c14e, 0x4ecdc4, 0xff6b6b, 0xffe66d, 0x7bdff2, 0xf7a072];
 const CORAL_COLORS = [0xe07a5f, 0xf2cc8f, 0x81b29a, 0xc77dff, 0xffb4a2, 0x83c5be];
+const KELP_COLORS = [0x1f6b45, 0x2a8f5a, 0x146b52];
 
 function wrap(v: number, c: number, h: number) {
   const span = h * 2;
@@ -32,11 +33,48 @@ function makeFishGeo() {
   const fin = new THREE.SphereGeometry(0.2, 6, 5);
   fin.scale(0.08, 0.55, 0.32);
   fin.translate(0, 0.34, -0.1);
-  const geo = mergeGeometries([body, tail, fin]);
+  const pec = new THREE.SphereGeometry(0.16, 6, 4);
+  pec.scale(0.22, 0.5, 0.7);
+  pec.translate(0.3, -0.02, 0.05);
+  const eye = new THREE.SphereGeometry(0.06, 6, 5);
+  eye.translate(0.2, 0.12, -0.62);
+  const geo = mergeGeometries([body, tail, fin, pec, eye]);
   body.dispose();
   tail.dispose();
   fin.dispose();
+  pec.dispose();
+  eye.dispose();
   if (!geo) throw new Error("fish");
+  const pos = geo.getAttribute("position");
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const eyeBit = pos.getZ(i) < -0.45 && pos.getX(i) > 0.1;
+    colors[i * 3] = eyeBit ? 0.08 : 1;
+    colors[i * 3 + 1] = eyeBit ? 0.08 : 1;
+    colors[i * 3 + 2] = eyeBit ? 0.1 : 1;
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return geo;
+}
+
+function makeFanGeo() {
+  const parts: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 5; i++) {
+    const blade = new THREE.SphereGeometry(0.34, 6, 5);
+    blade.scale(0.14, 1.15, 0.5);
+    blade.translate((i - 2) * 0.16, 0.75, 0);
+    blade.rotateZ((i - 2) * 0.16);
+    parts.push(blade);
+  }
+  const geo = mergeGeometries(parts);
+  for (const part of parts) part.dispose();
+  if (!geo) throw new Error("fan");
+  return geo;
+}
+
+function makeKelpGeo() {
+  const geo = new THREE.ConeGeometry(0.16, 1, 5);
+  geo.translate(0, 0.5, 0);
   return geo;
 }
 
@@ -64,9 +102,13 @@ export function ReefField() {
   const group = useRef<THREE.Group>(null);
   const floor = useRef<THREE.Mesh>(null);
   const coralMesh = useRef<THREE.InstancedMesh>(null);
+  const fanMesh = useRef<THREE.InstancedMesh>(null);
+  const kelpMesh = useRef<THREE.InstancedMesh>(null);
   const fishMesh = useRef<THREE.InstancedMesh>(null);
   const bubbleMesh = useRef<THREE.InstancedMesh>(null);
-  const count = runtime.mobile ? 28 : 48;
+  const count = runtime.mobile ? 22 : 36;
+  const fanCount = runtime.mobile ? 8 : 14;
+  const kelpCount = runtime.mobile ? 10 : 16;
   const fishCount = runtime.mobile ? 14 : 26;
   const bubbleCount = runtime.mobile ? 10 : 18;
 
@@ -85,6 +127,38 @@ export function ReefField() {
     }
     return list;
   }, [count]);
+
+  const fans = useMemo<Coral[]>(() => {
+    const list: Coral[] = [];
+    for (let i = 0; i < fanCount; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 24 + Math.random() * WRAP;
+      list.push({
+        x: Math.cos(a) * r,
+        z: Math.sin(a) * r,
+        h: 1.4 + Math.random() * 2.2,
+        s: 1.1 + Math.random() * 1.4,
+        hue: Math.floor(Math.random() * CORAL_COLORS.length),
+      });
+    }
+    return list;
+  }, [fanCount]);
+
+  const kelps = useMemo<Coral[]>(() => {
+    const list: Coral[] = [];
+    for (let i = 0; i < kelpCount; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 16 + Math.random() * WRAP;
+      list.push({
+        x: Math.cos(a) * r,
+        z: Math.sin(a) * r,
+        h: 3.5 + Math.random() * 5,
+        s: 0.7 + Math.random() * 0.6,
+        hue: i % KELP_COLORS.length,
+      });
+    }
+    return list;
+  }, [kelpCount]);
 
   const school = useMemo<Fish[]>(() => {
     const list: Fish[] = [];
@@ -136,13 +210,19 @@ export function ReefField() {
   );
 
   const coralGeo = useMemo(() => makeCoralGeo(), []);
+  const fanGeo = useMemo(() => makeFanGeo(), []);
+  const kelpGeo = useMemo(() => makeKelpGeo(), []);
   const coralMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.08, fog: true }),
+    () => new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0.04, fog: true }),
+    [],
+  );
+  const kelpMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ roughness: 0.84, metalness: 0.02, fog: true }),
     [],
   );
   const fishGeo = useMemo(() => makeFishGeo(), []);
   const fishMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.18, fog: true }),
+    () => new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.04, fog: true, vertexColors: true }),
     [],
   );
   const bubbleGeo = useMemo(() => new THREE.SphereGeometry(1, 8, 6), []);
@@ -162,16 +242,21 @@ export function ReefField() {
     () => () => {
       floorMat.dispose();
       coralGeo.dispose();
+      fanGeo.dispose();
+      kelpGeo.dispose();
       coralMat.dispose();
+      kelpMat.dispose();
       fishGeo.dispose();
       fishMat.dispose();
       bubbleGeo.dispose();
       bubbleMat.dispose();
     },
-    [floorMat, coralGeo, coralMat, fishGeo, fishMat, bubbleGeo, bubbleMat],
+    [floorMat, coralGeo, fanGeo, kelpGeo, coralMat, kelpMat, fishGeo, fishMat, bubbleGeo, bubbleMat],
   );
 
   const coralPainted = useRef(false);
+  const fanPainted = useRef(false);
+  const kelpPainted = useRef(false);
   const fishPainted = useRef(false);
   const tick = useRef(0);
 
@@ -209,6 +294,44 @@ export function ReefField() {
       if (!coralPainted.current && coralMesh.current.instanceColor) {
         coralMesh.current.instanceColor.needsUpdate = true;
         coralPainted.current = true;
+      }
+    }
+
+    if (fanMesh.current) {
+      for (let i = 0; i < fans.length; i++) {
+        const c = fans[i];
+        c.x = wrap(c.x, cx, WRAP);
+        c.z = wrap(c.z, cz, WRAP);
+        _dummy.position.set(c.x, 0.2, c.z);
+        _dummy.scale.set(c.s, c.h, c.s * 0.45);
+        _dummy.rotation.set(0, i * 0.9, 0);
+        _dummy.updateMatrix();
+        fanMesh.current.setMatrixAt(i, _dummy.matrix);
+        if (!fanPainted.current) fanMesh.current.setColorAt(i, _col.setHex(CORAL_COLORS[c.hue]));
+      }
+      fanMesh.current.instanceMatrix.needsUpdate = true;
+      if (!fanPainted.current && fanMesh.current.instanceColor) {
+        fanMesh.current.instanceColor.needsUpdate = true;
+        fanPainted.current = true;
+      }
+    }
+
+    if (kelpMesh.current) {
+      for (let i = 0; i < kelps.length; i++) {
+        const c = kelps[i];
+        c.x = wrap(c.x, cx, WRAP);
+        c.z = wrap(c.z, cz, WRAP);
+        _dummy.position.set(c.x, 0, c.z);
+        _dummy.scale.set(c.s, c.h, c.s);
+        _dummy.rotation.set(Math.sin(clock.elapsedTime * 0.6 + i) * 0.18, i, 0);
+        _dummy.updateMatrix();
+        kelpMesh.current.setMatrixAt(i, _dummy.matrix);
+        if (!kelpPainted.current) kelpMesh.current.setColorAt(i, _col.setHex(KELP_COLORS[c.hue]));
+      }
+      kelpMesh.current.instanceMatrix.needsUpdate = true;
+      if (!kelpPainted.current && kelpMesh.current.instanceColor) {
+        kelpMesh.current.instanceColor.needsUpdate = true;
+        kelpPainted.current = true;
       }
     }
 
@@ -279,6 +402,8 @@ export function ReefField() {
         <planeGeometry args={[2400, 2400, runtime.mobile ? 32 : 48, runtime.mobile ? 32 : 48]} />
       </mesh>
       <instancedMesh ref={coralMesh} args={[coralGeo, coralMat, count]} frustumCulled={false} />
+      <instancedMesh ref={fanMesh} args={[fanGeo, coralMat, fanCount]} frustumCulled={false} />
+      <instancedMesh ref={kelpMesh} args={[kelpGeo, kelpMat, kelpCount]} frustumCulled={false} />
       <instancedMesh ref={fishMesh} args={[fishGeo, fishMat, fishCount]} frustumCulled={false} />
       <instancedMesh ref={bubbleMesh} args={[bubbleGeo, bubbleMat, bubbleCount]} frustumCulled={false} />
     </group>

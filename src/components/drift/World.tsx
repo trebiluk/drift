@@ -420,8 +420,8 @@ function FogRig() {
     const inside = runtime.world === "sky" ? runtime.inCloud : 0;
     const n = runtime.night;
     if (runtime.reefAmt > 0.4) {
-      fog.density = THREE.MathUtils.lerp(0.0018, 0.0036, runtime.reefAmt);
-      fog.color.setRGB(0.04, 0.18, 0.26);
+      fog.density = THREE.MathUtils.lerp(0.0012, 0.0024, runtime.reefAmt);
+      fog.color.setRGB(0.08, 0.32, 0.4);
     } else {
       fog.density = THREE.MathUtils.lerp(0.00008, 0.0055, inside) * (1 - space);
       fog.color.lerpColors(_fogDay, _fogCloud, inside);

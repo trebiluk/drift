@@ -73,12 +73,14 @@ void main() {
     col += vec3(0.55, 0.62, 1.0) * dust * starAmt;
   }
 
-  vec3 waterDown = vec3(0.01, 0.07, 0.14);
-  vec3 waterUp = vec3(0.08, 0.38, 0.52);
+  vec3 waterDown = vec3(0.03, 0.16, 0.24);
+  vec3 waterUp = vec3(0.22, 0.58, 0.66);
   vec3 water = mix(waterDown, waterUp, smoothstep(-0.35, 0.72, h));
-  water += vec3(0.25, 0.7, 0.62) * pow(max(h, 0.0), 2.6) * 0.55;
+  water += vec3(0.35, 0.78, 0.7) * pow(max(h, 0.0), 2.2) * 0.4;
   float caust = pow(0.5 + 0.5 * sin(dir.x * 18.0 + uTime * 0.7) * sin(dir.z * 14.0 - uTime * 0.5), 3.0);
-  water += vec3(0.2, 0.55, 0.48) * caust * max(h, 0.0) * 0.22;
+  water += vec3(0.25, 0.65, 0.55) * caust * max(h, 0.0) * 0.16;
+  float shaft = pow(max(0.5 + 0.5 * sin(dir.x * 5.5 + dir.z * 1.8), 0.0), 10.0);
+  water += vec3(0.55, 0.9, 0.82) * shaft * max(h, 0.15) * 0.22;
   col = mix(col, water, uReef);
 
   gl_FragColor = vec4(col, 1.0);
@@ -398,7 +400,12 @@ void main() {
   float storm = fract(sin(dot(vP, vec3(12.1, 4.2, 7.3))) * 43758.5453);
   float swirl = 0.5 + 0.5 * sin(length(vP.xz) * 9.0 - vP.y * 4.0 + uSeed);
   vec3 col = mix(uA, uB, clamp(bands, 0.0, 1.0));
-  col = mix(col, uA * 0.68, storm * 0.22);
+  float blot = fract(sin(dot(floor(vP * 2.6 + uSeed), vec3(12.9, 78.2, 37.7))) * 43758.5);
+  col = mix(col, uB * 1.25, smoothstep(0.55, 0.82, blot) * 0.4);
+  col = mix(col, uA * 0.72, smoothstep(0.2, 0.4, blot) * 0.25);
+  float pole = smoothstep(0.62, 0.92, abs(normalize(vP).y));
+  col = mix(col, vec3(0.9, 0.94, 0.98), pole * 0.5);
+  col = mix(col, uA * 0.68, storm * 0.18);
   col = mix(col, uB * 1.15, swirl * 0.12);
   float ndl = 0.16 + 0.84 * max(dot(n, normalize(vec3(0.55, 0.42, 0.32))), 0.0);
   col *= ndl;
@@ -484,8 +491,11 @@ void main() {
   vec3 coral = vec3(0.92, 0.36, 0.4);
   vec3 violet = vec3(0.48, 0.2, 0.56);
   vec3 albedo = mix(sand, teal, smoothstep(0.28, 0.62, vH));
-  albedo = mix(albedo, coral, smoothstep(0.62, 0.86, patch) * 0.75);
+  albedo = mix(albedo, vec3(0.12, 0.48, 0.3), smoothstep(0.58, 0.86, noise(vWorld.xz * 0.07)) * 0.62);
+  albedo = mix(albedo, coral, smoothstep(0.62, 0.86, patch) * 0.65);
   albedo = mix(albedo, violet, smoothstep(0.78, 0.96, noise(vWorld.xz * 0.02)));
+  float rip = 0.5 + 0.5 * sin(vWorld.x * 0.42 + vWorld.z * 0.18);
+  albedo = mix(albedo, sand * 1.05, rip * 0.12);
   float c1 = sin(vWorld.x * 0.14 + uTime * 0.95) * sin(vWorld.z * 0.11 - uTime * 0.62);
   float c2 = sin((vWorld.x + vWorld.z) * 0.07 - uTime * 0.38);
   float caust = pow(0.5 + 0.5 * c1, 2.2) * (0.55 + 0.45 * c2);
@@ -541,11 +551,11 @@ float fbm(vec2 p) {
 void main() {
   vec2 p = vUv * 2.0 - 1.0;
   float r = length(p);
-  if (r > 1.0) discard;
+  if (r > 1.02) discard;
   float n = fbm(p * 2.4 + vec2(uSeed, uTime * 0.018));
   float n2 = fbm(p * 4.1 - vec2(uTime * 0.012, uSeed));
-  float mask = pow(1.0 - r, 1.35);
-  float dens = pow(n * 0.65 + n2 * 0.35, 1.35) * mask;
+  float mask = pow(1.0 - smoothstep(0.05, 1.0, r), 1.2);
+  float dens = pow(n * 0.62 + n2 * 0.38, 1.2) * mask;
   if (dens < 0.03) discard;
   vec3 col = mix(uA, uB, n2);
   col = mix(col, vec3(1.0, 0.82, 0.62), pow(n, 3.0) * 0.35);
