@@ -22,7 +22,7 @@ export const SUN_DIR = new THREE.Vector3(1.15, 0.58, 0.42).normalize();
 
 const _dummy = new THREE.Object3D();
 const _fwd = new THREE.Vector3();
-const _clearDay = new THREE.Color(0x0a3a94);
+const _clearDay = new THREE.Color(0x7eb0e4);
 const _clearNight = new THREE.Color(0x0b1220);
 const _fogDay = new THREE.Color(0x6ea4dc);
 const _fogCloud = new THREE.Color(0xe4edf6);

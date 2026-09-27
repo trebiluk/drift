@@ -122,7 +122,7 @@ function StickGhost({ inky, showCraft }: { inky: boolean; showCraft: boolean }) 
           el.style.opacity = "0.55";
           el.style.left = "50%";
           el.style.top = "50%";
-          k.style.opacity = "0.9";
+          k.style.opacity = "0.55";
           k.style.transform = "translate(-50%, -50%)";
         } else {
           el.style.opacity = "0";
@@ -145,7 +145,7 @@ function StickGhost({ inky, showCraft }: { inky: boolean; showCraft: boolean }) 
         ref={knob}
         className={cn(
           "absolute top-1/2 left-1/2 size-11 -translate-x-1/2 -translate-y-1/2 rounded-full",
-          inky ? "bg-cloud/70" : "bg-ink/55",
+          inky ? "bg-cloud/70" : "bg-white/40",
         )}
       />
     </div>
