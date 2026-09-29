@@ -535,7 +535,26 @@ export function Overlay({ onStart }: OverlayProps) {
   const music = useHud((s) => s.music);
   const easy = useHud((s) => s.easy);
   const settingsOpen = useHud((s) => s.settingsOpen);
+  const [fps, setFps] = useState(0);
   const [hint, setHint] = useState(true);
+
+  useEffect(() => {
+    if (!playing) return;
+    let frames = 0;
+    let last = performance.now();
+    let id = 0;
+    const tick = (now: number) => {
+      frames += 1;
+      if (now - last >= 500) {
+        setFps(Math.round((frames * 1000) / (now - last)));
+        frames = 0;
+        last = now;
+      }
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [playing]);
 
   useEffect(() => {
     if (!playing) {
@@ -555,8 +574,8 @@ export function Overlay({ onStart }: OverlayProps) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 touch-none">
       <div
-        className="absolute inset-0 bg-cloud transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)]"
-        style={{ opacity: fx.haze ? inCloud * 0.22 * (1 - night) : 0 }}
+        className="absolute inset-0 bg-white transition-opacity duration-200 ease-out"
+        style={{ opacity: fx.haze ? Math.min(0.82, inCloud * inCloud * 0.95) * (1 - night) : 0 }}
         aria-hidden
       />
       <div
@@ -586,7 +605,7 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.8.0
+              Slow flight · 1.9.0
             </p>
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
@@ -660,7 +679,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 27): Space has moons and ringed worlds. The reef has fans, kelp, and lighter water.
+                What’s new (Sep 29): Clouds are separate and sunny, with blue sky between them.
               </p>
             </div>
           </div>
@@ -681,6 +700,8 @@ export function Overlay({ onStart }: OverlayProps) {
                 {meters.toLocaleString()} m
                 <span className="mx-2 text-current/45">·</span>
                 {kph.toLocaleString()} km/h
+                <span className="mx-2 text-current/45">·</span>
+                {fps} fps
               </p>
               {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">Watch</p>}
               {sound !== "off" && (

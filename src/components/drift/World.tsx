@@ -258,57 +258,56 @@ function CloudSea() {
 
 function CloudPuffs() {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const count = runtime.mobile ? 110 : 180;
+  const count = runtime.mobile ? 36 : 52;
 
   const puffs = useMemo<Puff[]>(() => {
     const list: Puff[] = [];
     const yaw = runtime.craft.yaw;
     const fx = -Math.sin(yaw);
     const fz = -Math.cos(yaw);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 5; i++) {
       list.push({
-        x: fx * (36 + i * 48) + ((i % 2) * 2 - 1) * (16 + (i % 3) * 12),
-        y: 78 + (i % 4) * 16,
-        z: fz * (36 + i * 48) + (((i + 1) % 3) - 1) * 18,
-        s: 96 + (i % 4) * 18,
+        x: fx * (80 + i * 110) + ((i % 2) * 2 - 1) * 40,
+        y: 96 + (i % 3) * 14,
+        z: fz * (80 + i * 110) + (((i + 1) % 3) - 1) * 36,
+        s: 62 + (i % 3) * 10,
       });
     }
-    const towers = runtime.mobile ? 8 : 12;
+    const towers = runtime.mobile ? 5 : 7;
     for (let c = 0; c < towers && list.length < count; c++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 80 + Math.pow(Math.random(), 0.45) * WRAP;
+      const a = (c / towers) * Math.PI * 2 + 0.4;
+      const r = 220 + (c % 3) * 140;
       const cx = Math.cos(a) * r;
       const cz = Math.sin(a) * r;
-      const cy = 64 + Math.random() * 48;
-      const scale = 0.82 + Math.random() * 0.55;
-      list.push({ x: cx, y: cy, z: cz, s: 128 * scale });
+      const cy = 88 + (c % 4) * 10;
+      const scale = 0.85 + (c % 3) * 0.12;
+      list.push({ x: cx, y: cy, z: cz, s: 86 * scale });
       for (let k = 0; k < 4 && list.length < count; k++) {
-        const ang = k * 1.57 + c * 0.4;
+        const ang = k * 1.57 + c;
         list.push({
-          x: cx + Math.cos(ang) * 44 * scale,
-          y: cy + 6 * scale,
-          z: cz + Math.sin(ang) * 38 * scale,
-          s: (68 + (k % 2) * 16) * scale,
+          x: cx + Math.cos(ang) * 28 * scale,
+          y: cy + 4 * scale,
+          z: cz + Math.sin(ang) * 24 * scale,
+          s: (46 + (k % 2) * 8) * scale,
         });
       }
-      for (let k = 0; k < 3 && list.length < count; k++) {
-        const ang = k * 2.09 + 0.6;
+      for (let k = 0; k < 2 && list.length < count; k++) {
         list.push({
-          x: cx + Math.cos(ang) * 16 * scale,
-          y: cy + (26 + k * 12) * scale,
-          z: cz + Math.sin(ang) * 14 * scale,
-          s: (46 - k * 6) * scale,
+          x: cx + (k - 0.5) * 16 * scale,
+          y: cy + (22 + k * 12) * scale,
+          z: cz,
+          s: (34 - k * 6) * scale,
         });
       }
     }
     while (list.length < count) {
       const a = Math.random() * Math.PI * 2;
-      const r = 90 + Math.random() * WRAP;
+      const r = 260 + Math.random() * (WRAP - 80);
       list.push({
         x: Math.cos(a) * r,
-        y: 70 + Math.random() * 70,
+        y: 100 + Math.random() * 36,
         z: Math.sin(a) * r,
-        s: 48 + Math.random() * 54,
+        s: 28 + Math.random() * 22,
       });
     }
     return list;
@@ -362,7 +361,7 @@ function CloudPuffs() {
       for (let i = 0; i < puffs.length; i++) {
         const p = puffs[i];
         _dummy.position.set(p.x, p.y, p.z);
-        _dummy.scale.set(p.s * 2.2, p.s * 1.78, 1);
+        _dummy.scale.set(p.s * 1.45, p.s * 1.12, 1);
         _dummy.rotation.set(0, 0, 0);
         _dummy.updateMatrix();
         inst.setMatrixAt(i, _dummy.matrix);
@@ -381,24 +380,19 @@ function CloudPuffs() {
     mat.uniforms.uTime.value = clock.elapsedTime;
     mat.uniforms.uLod.value = lod;
 
-    let nearest = 1;
-    const samples = lod > 1 ? 8 : 14;
-    const step = Math.max(1, Math.floor(puffs.length / samples));
-    for (let i = 0; i < puffs.length; i += step) {
+    let nearest = 4;
+    for (let i = 0; i < puffs.length; i++) {
       const p = puffs[i];
       const dx = wrapAxis(p.x, cx, WRAP) - cx;
       const dy = p.y - camera.position.y;
       const dz = wrapAxis(p.z, cz, WRAP) - cz;
-      const d = Math.hypot(dx, dy, dz) / (p.s * 0.5);
+      const d = Math.hypot(dx, dy, dz) / (p.s * 0.55);
       if (d < nearest) nearest = d;
     }
 
     const nearCloud = THREE.MathUtils.clamp(1 - nearest, 0, 1);
-    runtime.inCloud = THREE.MathUtils.clamp(
-      cloudImmersion(camera.position.y) * 0.55 + nearCloud * 0.7,
-      0,
-      1,
-    );
+    const punch = nearCloud > 0.7 ? (nearCloud - 0.7) / 0.3 : 0;
+    runtime.inCloud = THREE.MathUtils.clamp(cloudImmersion(camera.position.y) * 0.12 + punch, 0, 1);
   });
 
   return <instancedMesh ref={mesh} args={[geo, mat, count]} frustumCulled={false} renderOrder={2} />;
@@ -423,7 +417,7 @@ function FogRig() {
       fog.density = THREE.MathUtils.lerp(0.0012, 0.0024, runtime.reefAmt);
       fog.color.setRGB(0.08, 0.32, 0.4);
     } else {
-      fog.density = THREE.MathUtils.lerp(0.00008, 0.0055, inside) * (1 - space);
+      fog.density = THREE.MathUtils.lerp(0.00003, 0.0009, inside) * (1 - space);
       fog.color.lerpColors(_fogDay, _fogCloud, inside);
       _clearMix.copy(_fogNight).lerp(_fogNightCloud, inside);
       fog.color.lerp(_clearMix, n);
