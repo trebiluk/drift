@@ -6,6 +6,7 @@ import { detectTouchMode, detectTouchScreen } from "@/game/device";
 import { clamp } from "@/game/flight";
 import { attachInput, detachInput } from "@/game/input";
 import { installControlsTest, runtime, startFlight } from "@/game/runtime";
+import { markFlight } from "@/game/who";
 import { loadSavedOptions, useHud } from "@/store/hud";
 import { Overlay } from "./Overlay";
 import { World } from "./World";
@@ -93,6 +94,7 @@ export function DriftExperience() {
     audioRef.current.setMuted(useHud.getState().muted);
     audioRef.current.setTrack(useHud.getState().music);
     startFlight();
+    markFlight("Flying");
     useHud.getState().setPlaying(true);
   };
 

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { clamp } from "@/game/flight";
+import { clamp, type MusicId, type WorldMode } from "@/game/flight";
+import { signedAlias } from "@/game/who";
 import { previewSound } from "@/game/audio";
 import { captureUiPointer, releaseUiPointer } from "@/game/input";
 import { runtime } from "@/game/runtime";
 import { cn } from "@/lib/utils";
 import { LOOK_SENS_MAX, LOOK_SENS_MIN, RETICLES, resetOptions, useHud, type FeatureFlags, type Reticle } from "@/store/hud";
 import { TrafficMap } from "./TrafficMap";
-import type { MusicId, WorldMode } from "@/game/flight";
 
 type OverlayProps = {
   onStart: () => void;
@@ -537,6 +537,7 @@ export function Overlay({ onStart }: OverlayProps) {
   const settingsOpen = useHud((s) => s.settingsOpen);
   const [fps, setFps] = useState(0);
   const [hint, setHint] = useState(true);
+  const [alias, setAlias] = useState("");
 
   useEffect(() => {
     if (!playing) return;
@@ -555,6 +556,19 @@ export function Overlay({ onStart }: OverlayProps) {
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
   }, [playing]);
+
+  useEffect(() => {
+    const read = () => setAlias(signedAlias());
+    read();
+    window.addEventListener("kw-mark", read);
+    window.addEventListener("storage", read);
+    const id = window.setInterval(read, 1200);
+    return () => {
+      window.removeEventListener("kw-mark", read);
+      window.removeEventListener("storage", read);
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     if (!playing) {
@@ -605,8 +619,9 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.9.0
+              Slow flight · 1.10.0
             </p>
+            {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
               Drift
             </h1>
@@ -679,7 +694,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 Pull the craft to steer. Throttle is on the right.
               </p>
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 29): Clouds are separate and sunny, with blue sky between them.
+                What’s new (Sep 29): Sign in is the Hub button. Drift does not ask for a name.
               </p>
             </div>
           </div>
@@ -696,6 +711,7 @@ export function Overlay({ onStart }: OverlayProps) {
               )}
             >
               <p className="font-display text-xl tracking-[-0.03em] italic sm:text-2xl">{layer}</p>
+              {alias ? <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">{alias}</p> : null}
               <p className="mt-1 font-sans text-sm font-medium tabular-nums text-current">
                 {meters.toLocaleString()} m
                 <span className="mx-2 text-current/45">·</span>

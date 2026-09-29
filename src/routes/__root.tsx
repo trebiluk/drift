@@ -66,6 +66,7 @@ export const Route = createRootRoute({
             __html: `(function(){try{var t=window.innerWidth<720||/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(matchMedia("(pointer: coarse)").matches&&matchMedia("(hover: none)").matches);document.documentElement.dataset.input=t?"touch":"desk";}catch(e){}})();`,
           }}
         />
+        {classroomDoor ? <script src="/shared/kw-who.js?v=2026-09-29-hub-return" /> : null}
         <HeadContent />
       </head>
       <body className="overflow-hidden bg-sky-deep text-cloud">
