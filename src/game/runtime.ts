@@ -58,6 +58,8 @@ export type Runtime = {
   easy: boolean;
   traffic: TrafficSnapshot | null;
   lod: number;
+  frozen: boolean;
+  wind: number;
 };
 
 export const runtime: Runtime = {
@@ -96,6 +98,8 @@ export const runtime: Runtime = {
   easy: false,
   traffic: null,
   lod: 0,
+  frozen: false,
+  wind: 2.5,
 };
 
 export type ControlsProbe = {
@@ -106,6 +110,8 @@ export type ControlsProbe = {
   setSteer?: (v: number) => void;
   setKeys?: (codes: string[]) => void;
   setCruise?: (v: number) => void;
+  setFreeze?: (frozen: boolean) => void;
+  setWind?: (speed: number) => void;
   isMobile?: () => boolean;
 };
 
@@ -133,6 +139,12 @@ export function installControlsTest() {
     },
     setCruise: (v: number) => {
       runtime.cruise = v;
+    },
+    setFreeze: (frozen: boolean) => {
+      runtime.frozen = frozen;
+    },
+    setWind: (speed: number) => {
+      runtime.wind = speed;
     },
     isMobile: () => runtime.mobile,
   };

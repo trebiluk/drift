@@ -88,203 +88,27 @@ void main() {
 }
 `;
 
-export const SEA_VERT = /* glsl */ `
-uniform float uTime;
-uniform vec2 uOffset;
-uniform float uLod;
-varying vec3 vWorld;
-varying float vH;
-varying vec3 vN;
-
-float hash(vec2 p) {
-  p = mod(p, 289.0);
-  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
-}
-
-float noise(vec2 x) {
-  vec2 i = floor(x);
-  vec2 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  float a = hash(i);
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
-float billow(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  int oct = uLod > 1.4 ? 3 : (uLod > 0.5 ? 4 : 6);
-  for (int i = 0; i < 6; i++) {
-    if (i >= oct) break;
-    float n = noise(p);
-    n = 1.0 - abs(n * 2.0 - 1.0);
-    v += a * n;
-    p *= 2.05;
-    a *= 0.5;
-  }
-  return v;
-}
-
-float heap(vec2 p) {
-  vec2 w = p + vec2(billow(p * 1.55 + 4.1), billow(p * 1.55 + 9.7)) * 0.48;
-  float h = pow(billow(w), 1.35);
-  float heaps = pow(billow(w * 0.52 + 2.2), 1.85);
-  float nubs = pow(billow(w * 2.15 + 6.4), 2.4);
-  return (h - 0.22) * 78.0 + heaps * 48.0 + nubs * 22.0;
-}
-
-void main() {
-  vec3 pos = position;
-  // PlaneGeometry sits in XY. The mesh is turned -90° on X, so local Z is world up.
-  // Sampling pos.xz used a zero Z and shoved the height sideways, which flattened the deck.
-  vec2 wxz = vec2(pos.x, -pos.y) + uOffset;
-  vec2 p = wxz * 0.0036 + vec2(uTime * 0.003, uTime * 0.0016);
-  float h = heap(p);
-  pos.z += h;
-  float e = 5.5;
-  float hx = heap(p + vec2(e * 0.0036, 0.0));
-  float hz = heap(p + vec2(0.0, e * 0.0036));
-  vH = clamp(h / 96.0 + 0.35, 0.0, 1.0);
-  vN = normalize(vec3(h - hx, e, h - hz));
-  vec4 world = modelMatrix * vec4(pos, 1.0);
-  vWorld = world.xyz;
-  gl_Position = projectionMatrix * viewMatrix * world;
-}
-`;
-
-export const SEA_FRAG = /* glsl */ `
-uniform vec3 uSun;
-uniform vec3 uCam;
-uniform float uFade;
-uniform float uNight;
-uniform float uLod;
-varying vec3 vWorld;
-varying float vH;
-varying vec3 vN;
-
-float hash(vec2 p) {
-  p = mod(p, 289.0);
-  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
-}
-
-float noise(vec2 x) {
-  vec2 i = floor(x);
-  vec2 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  float a = hash(i);
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 0.0) + vec2(0.0, 1.0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
-float billow(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  int oct = uLod > 1.4 ? 3 : 4;
-  for (int i = 0; i < 4; i++) {
-    if (i >= oct) break;
-    float n = 1.0 - abs(noise(p) * 2.0 - 1.0);
-    v += a * n;
-    p *= 2.13;
-    a *= 0.5;
-  }
-  return v;
-}
-
-void main() {
-  vec2 uv = vWorld.xz * 0.019;
-  float cell = billow(uv);
-  float nub = billow(uv * 2.6 + 13.0);
-  float cauliflower = pow(cell, 1.35) * 0.68 + pow(nub, 2.4) * 0.4;
-
-  vec3 nTex = vec3(0.0, 1.0, 0.0);
-  if (uLod < 1.5) {
-    float e = 1.6;
-    float cx = billow(uv + vec2(e * 0.019, 0.0));
-    float cz = billow(uv + vec2(0.0, e * 0.019));
-    nTex = normalize(vec3((cell - cx) * 4.4, 1.0, (cell - cz) * 4.4));
-  }
-  vec3 n = normalize(mix(normalize(vN), nTex, 0.62));
-  vec3 sun = normalize(uSun);
-  float ndotl = max(dot(n, sun), 0.0);
-
-  vec3 crease = mix(vec3(0.35, 0.55, 0.86), vec3(0.12, 0.16, 0.28), uNight);
-  vec3 valley = mix(vec3(0.72, 0.8, 0.9), vec3(0.22, 0.28, 0.42), uNight);
-  vec3 peak = mix(vec3(0.98, 0.97, 0.94), vec3(0.86, 0.9, 0.96), uNight);
-  float ht = clamp(vH * 0.45 + cauliflower * 0.55, 0.0, 1.0);
-  vec3 albedo = mix(crease, valley, smoothstep(0.18, 0.48, ht));
-  albedo = mix(albedo, peak, smoothstep(0.48, 0.86, ht));
-
-  vec3 col = albedo * mix(0.9 + 0.12 * ndotl, 0.55 + 0.42 * ndotl, uNight);
-  col += mix(vec3(1.0, 0.97, 0.9), vec3(0.78, 0.86, 1.0), uNight) * pow(ndotl, 8.0) * mix(0.08, 0.05, uNight);
-  col += peak * pow(cauliflower, 3.2) * 0.06;
-
-  vec3 view = normalize(uCam - vWorld);
-  float rim = pow(1.0 - max(dot(view, vec3(0.0, 1.0, 0.0)), 0.0), 2.2);
-  col += mix(vec3(0.96, 0.98, 1.0), vec3(0.55, 0.68, 0.95), uNight) * rim * 0.16;
-  float silver = pow(max(dot(reflect(-sun, n), view), 0.0), 8.0) * mix(0.08, 0.16, uNight);
-  col += mix(vec3(1.0, 0.97, 0.9), vec3(0.82, 0.9, 1.0), uNight) * silver;
-
-  float dist = length(uCam.xz - vWorld.xz);
-  float haze = smoothstep(1400.0, 4800.0, dist);
-  vec3 fogCol = mix(vec3(0.62, 0.76, 0.92), vec3(0.07, 0.11, 0.26), uNight);
-  col = mix(col, fogCol, haze * 0.45);
-  col = min(col, vec3(0.97));
-
-  float alpha = uFade * (1.0 - haze * 0.35);
-  float form = smoothstep(0.16, 0.5, ht);
-  alpha *= 0.15 + 0.85 * form;
-  float dy = uCam.y - vWorld.y;
-  alpha *= smoothstep(18.0, 64.0, dy);
-  if (alpha < 0.02) discard;
-  gl_FragColor = vec4(col, alpha);
-}
-`;
-
 export const PUFF_VERT = /* glsl */ `
 uniform vec3 uSun;
-uniform vec2 uCamXZ;
-uniform float uWrap;
 varying vec2 vLocal;
 varying float vLight;
 varying float vDist;
 varying float vSeed;
 varying vec3 vView;
 
-float wrap1(float v, float c, float halfSpan) {
-  float span = halfSpan * 2.0;
-  return v - span * floor((v - c) / span + 0.5);
-}
-
 void main() {
-  vec3 origin = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vec3 worldPos = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   float sx = length(instanceMatrix[0].xyz);
   float sy = length(instanceMatrix[1].xyz);
   vLocal = uv;
-  vSeed = fract(origin.x * 0.017 + origin.z * 0.013 + origin.y * 0.009);
-  vec3 worldPos = vec3(wrap1(origin.x, uCamXZ.x, uWrap), origin.y, wrap1(origin.z, uCamXZ.y, uWrap));
-  vec3 toCam = cameraPosition - worldPos;
-  vec3 toCamN = normalize(toCam);
-  float topDown = abs(toCamN.y);
+  vSeed = fract(worldPos.x * 0.017 + worldPos.z * 0.013 + worldPos.y * 0.009);
   vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 camUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-  vec3 up = normalize(mix(camUp, vec3(0.0, 1.0, 0.0), topDown * 0.72));
-  vec3 side = cross(up, toCamN);
-  vec3 right = dot(side, side) < 1e-6 ? camRight : normalize(side);
-  if (dot(right, camRight) < 0.0) right = -right;
-  up = cross(toCamN, right);
-  vec3 pos = worldPos + right * position.x * sx + up * position.y * sy;
-  vDist = length(toCam);
-  vView = toCam;
-  float sunSide = 0.5 + 0.5 * dot(normalize(uSun.xz), normalize(right.xz + vec2(0.0001)));
-  vLight = 0.9 + sunSide * 0.16 + uv.y * 0.28;
+  vec3 pos = worldPos + camRight * position.x * sx + camUp * position.y * sy;
+  vDist = length(cameraPosition - worldPos);
+  vView = cameraPosition - worldPos;
+  float sunSide = 0.5 + 0.5 * dot(normalize(uSun.xz), normalize(camRight.xz + vec2(0.0001)));
+  vLight = 0.82 + sunSide * 0.2 + uv.y * 0.22;
   gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
 }
 `;
@@ -293,8 +117,6 @@ export const PUFF_FRAG = /* glsl */ `
 uniform vec3 uSun;
 uniform float uSpace;
 uniform float uNight;
-uniform float uTime;
-uniform float uLod;
 varying vec2 vLocal;
 varying float vLight;
 varying float vDist;
@@ -321,55 +143,77 @@ float lobe(vec2 p, vec2 c, vec2 r) {
   return length(q);
 }
 
-float field(vec2 w, float s) {
-  float d = lobe(w, vec2(0.02 * s, -0.14), vec2(0.96, 0.74));
-  d = min(d, lobe(w, vec2(-0.46 - s * 0.08, 0.0), vec2(0.56, 0.5)));
-  d = min(d, lobe(w, vec2(0.44 + s * 0.06, -0.04), vec2(0.58, 0.5)));
-  d = min(d, lobe(w, vec2(-0.22, 0.32 + s * 0.08), vec2(0.48, 0.42)));
-  d = min(d, lobe(w, vec2(0.24, 0.3), vec2(0.46, 0.4)));
-  d = min(d, lobe(w, vec2(-0.02, 0.56), vec2(0.34, 0.3)));
-  d = min(d, lobe(w, vec2(-0.58, -0.22), vec2(0.34, 0.3)));
-  d = min(d, lobe(w, vec2(0.6, -0.2), vec2(0.32, 0.28)));
-  d = min(d, lobe(w, vec2(0.08 - s * 0.1, 0.12), vec2(0.38, 0.34)));
-  d = min(d, lobe(w, vec2(-0.16, 0.72), vec2(0.28, 0.24)));
-  d = min(d, lobe(w, vec2(0.18, 0.68), vec2(0.26, 0.22)));
-  d = min(d, lobe(w, vec2(0.0, 0.84), vec2(0.2, 0.18)));
-  return d;
-}
-
 void main() {
   vec2 p = vLocal * 2.0 - 1.0;
-  float ang = vSeed * 6.2832;
-  float ca = cos(ang);
-  float sa = sin(ang);
-  p = vec2(ca * p.x - sa * p.y, sa * p.x + ca * p.y);
-  float nA = noise(p * 2.6 + vSeed * 9.0 + uTime * 0.07);
-  float nB = noise(p * 6.4 + 2.7 + vSeed * 4.0 - uTime * 0.05);
-  vec2 w = p + vec2(nA - 0.5, nB - 0.5) * 0.16;
+  float nA = noise(p * 2.8 + vSeed * 9.0);
+  float nB = noise(p * 6.2 + 2.7 + vSeed * 4.0);
+  vec2 w = p + vec2(nA - 0.5, nB - 0.5) * 0.28;
 
-  float d = field(w, vSeed);
-  float rimNoise = smoothstep(0.55, 0.98, d);
-  d += (noise(w * 7.0 + vSeed) - 0.5) * 0.28 * rimNoise;
-  d += (nB - 0.5) * 0.08;
-  if (d > 1.08) discard;
+  float d = lobe(w, vec2(0.0, -0.12), vec2(0.98, 0.78));
+  d = min(d, lobe(w, vec2(-0.42, 0.02), vec2(0.58, 0.5)));
+  d = min(d, lobe(w, vec2(0.4, -0.02), vec2(0.6, 0.52)));
+  d = min(d, lobe(w, vec2(-0.18, 0.34), vec2(0.46, 0.4)));
+  d = min(d, lobe(w, vec2(0.2, 0.3), vec2(0.44, 0.38)));
+  d = min(d, lobe(w, vec2(0.02, 0.54), vec2(0.32, 0.28)));
+  d += (noise(w * 7.5 + vSeed) - 0.5) * 0.16;
+  if (d > 1.02) discard;
 
-  float dens = 1.0 - smoothstep(0.62, 0.98, d);
-  dens = smoothstep(0.0, 0.42, dens);
-  if (dens < 0.04) discard;
+  float dens = 1.0 - smoothstep(0.48, 1.0, d);
+  dens *= 0.72 + 0.28 * noise(w * 4.4 + vSeed * 3.0);
+  if (dens < 0.05) discard;
 
-  float ht = clamp(0.15 + w.y * 1.05, 0.0, 1.0);
-  vec3 under = mix(vec3(0.58, 0.68, 0.84), vec3(0.22, 0.3, 0.48), uNight);
-  vec3 top = vec3(0.99, 0.97, 0.93);
-  vec3 shade = mix(under, top, smoothstep(0.12, 0.7, ht));
-  float lit = clamp(vLight, 0.75, 1.05);
-  vec3 col = shade * mix(lit, lit * 0.7 + 0.2, uNight);
-  col = min(col, vec3(0.97));
+  float ht = clamp(0.42 + w.y * 0.62 + nA * 0.08, 0.0, 1.0);
+  vec3 shade = mix(vec3(0.55, 0.68, 0.86), vec3(1.0, 1.0, 1.0), ht);
+  shade = mix(shade, vec3(1.0), dens * ht * 0.35);
+  vec3 view = normalize(vView);
+  vec3 sun = normalize(uSun);
+  float backlit = pow(max(dot(view, sun), 0.0), 3.8);
+  vec3 col = shade * mix(vLight, vLight * 0.6 + 0.22, uNight);
+  col += mix(vec3(1.0, 0.97, 0.9), vec3(0.72, 0.82, 1.0), uNight) * backlit * mix(0.22, 0.14, uNight);
 
-  float fade = smoothstep(1900.0, 70.0, vDist);
+  float fade = smoothstep(1100.0, 90.0, vDist);
   float alpha = dens * fade * (1.0 - uSpace * 0.85);
-  alpha = clamp(alpha * 1.15, 0.0, 1.0);
-  if (alpha < 0.035) discard;
+  if (alpha < 0.04) discard;
   gl_FragColor = vec4(col * alpha, alpha);
+}
+`;
+
+export const FARM_VERT = /* glsl */ `
+varying vec3 vWorld;
+void main() {
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vWorld = world.xyz;
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+export const FARM_FRAG = /* glsl */ `
+uniform sampler2D uFields;
+uniform sampler2D uShadow;
+uniform vec2 uCamXZ;
+uniform vec2 uWind;
+uniform float uTime;
+uniform float uNight;
+uniform vec3 uHorizon;
+uniform vec2 uSunShift;
+varying vec3 vWorld;
+
+void main() {
+  vec2 wxz = vWorld.xz;
+  vec3 fields = texture2D(uFields, wxz / 2300.0).rgb;
+  vec3 fieldsFar = texture2D(uFields, wxz / 3700.0 + vec2(0.17, 0.41)).rgb;
+  vec3 col = mix(fields, fieldsFar, 0.35);
+  col = mix(col, col * vec3(0.62, 0.72, 1.05), uNight);
+  col *= mix(1.0, 0.26, uNight);
+
+  vec2 suv = (wxz - uWind * uTime - uSunShift) / 1480.0;
+  float sh = texture2D(uShadow, suv).r;
+  col *= 1.0 - sh * mix(0.32, 0.04, uNight);
+
+  float dist = length(wxz - uCamXZ);
+  float haze = smoothstep(2500.0, 7000.0, dist);
+  col = mix(col, uHorizon, haze);
+  gl_FragColor = vec4(col, 1.0);
 }
 `;
 
@@ -482,14 +326,14 @@ float noise(vec2 x) {
 void main() {
   vec3 n = normalize(mix(vec3(0.0, 1.0, 0.0), vN, 0.45));
   float ndotl = max(dot(n, normalize(uSun)), 0.0);
-  float patch = noise(vWorld.xz * 0.035);
+  float patchN = noise(vWorld.xz * 0.035);
   vec3 sand = vec3(0.86, 0.74, 0.46);
   vec3 teal = vec3(0.05, 0.42, 0.46);
   vec3 coral = vec3(0.92, 0.36, 0.4);
   vec3 violet = vec3(0.48, 0.2, 0.56);
   vec3 albedo = mix(sand, teal, smoothstep(0.28, 0.62, vH));
   albedo = mix(albedo, vec3(0.12, 0.48, 0.3), smoothstep(0.58, 0.86, noise(vWorld.xz * 0.07)) * 0.62);
-  albedo = mix(albedo, coral, smoothstep(0.62, 0.86, patch) * 0.65);
+  albedo = mix(albedo, coral, smoothstep(0.62, 0.86, patchN) * 0.65);
   albedo = mix(albedo, violet, smoothstep(0.78, 0.96, noise(vWorld.xz * 0.02)));
   float rip = 0.5 + 0.5 * sin(vWorld.x * 0.42 + vWorld.z * 0.18);
   albedo = mix(albedo, sand * 1.05, rip * 0.12);
