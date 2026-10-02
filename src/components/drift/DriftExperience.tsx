@@ -10,6 +10,8 @@ import { markFlight } from "@/game/who";
 import { loadSavedOptions, useHud } from "@/store/hud";
 import { Overlay } from "./Overlay";
 import { World } from "./World";
+import { LangRoot } from "./LangRoot";
+import type { Lang } from "@/game/copy";
 
 function syncTouchMode() {
   const touch = detectTouchMode();
@@ -21,7 +23,7 @@ function syncTouchMode() {
   return touch;
 }
 
-export function DriftExperience() {
+export function DriftExperience({ boot, classic }: { boot: Lang; classic: boolean }) {
   const audioRef = useRef<ReturnType<typeof sharedSoundscape> | null>(null);
   const muted = useHud((s) => s.muted);
   const playing = useHud((s) => s.playing);
@@ -99,9 +101,10 @@ export function DriftExperience() {
   };
 
   return (
-    <main className="sky-wash relative h-dvh w-full overflow-hidden text-cloud select-none">
-      <div className="absolute inset-0 touch-none">
-        <Canvas
+    <LangRoot boot={boot} classic={classic}>
+      <main className="sky-wash relative h-dvh w-full overflow-hidden text-cloud select-none">
+        <div className="absolute inset-0 touch-none" dir="ltr">
+          <Canvas
           camera={{ fov: 72, near: 0.4, far: 7600, position: [0, 148, 0] }}
           dpr={touchMode ? [1, 1.15] : [1, 1.5]}
           gl={{
@@ -122,8 +125,9 @@ export function DriftExperience() {
         >
           <World />
         </Canvas>
-      </div>
-      <Overlay onStart={handleStart} />
-    </main>
+        </div>
+        <Overlay onStart={handleStart} />
+      </main>
+    </LangRoot>
   );
 }

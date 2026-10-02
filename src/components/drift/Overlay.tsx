@@ -9,6 +9,8 @@ import { runtime } from "@/game/runtime";
 import { cn } from "@/lib/utils";
 import { LOOK_SENS_MAX, LOOK_SENS_MIN, RETICLES, resetOptions, useHud, type FeatureFlags, type Reticle } from "@/store/hud";
 import { TrafficMap } from "./TrafficMap";
+import { layerLine, line, sharedLine, type Key } from "@/game/copy";
+import { noVoiceLine, speakLine, useLang } from "./LangRoot";
 
 type OverlayProps = {
   onStart: () => void;
@@ -25,6 +27,7 @@ function persistCruise(v: number) {
 }
 
 function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
+  const lang = useLang();
   const cruise = useHud((s) => s.cruise);
   const rail = useRef<HTMLDivElement>(null);
 
@@ -36,14 +39,14 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
   };
 
   return (
-    <div className="throttle-slot pointer-events-auto touch-auto flex flex-col items-center gap-2">
+    <div className="throttle-slot pointer-events-auto touch-auto flex flex-col items-center gap-2" dir="ltr">
       <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud" : "text-ink")}>
-        Fast
+        {line(lang, "fast")}
       </p>
       <div
         ref={rail}
         role="slider"
-        aria-label="Speed"
+        aria-label={line(lang, "speed")}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(cruise * 100)}
@@ -95,7 +98,7 @@ function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
         />
       </div>
       <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud" : "text-ink")}>
-        Slow
+        {line(lang, "slowSpeed")}
       </p>
     </div>
   );
@@ -152,13 +155,6 @@ function StickGhost({ inky, showCraft }: { inky: boolean; showCraft: boolean }) 
   );
 }
 
-const SIGHT_LABEL: Record<Reticle, string> = {
-  off: "No sight",
-  dot: "Dot sight",
-  plus: "Plus sight",
-  ring: "Ring sight",
-};
-
 function SightMark({ kind, tight }: { kind: Reticle; tight?: boolean }) {
   const box = tight ? "size-4" : "size-5";
   if (kind === "off") {
@@ -190,15 +186,22 @@ function SightMark({ kind, tight }: { kind: Reticle; tight?: boolean }) {
 
 function SightPicker() {
   const reticle = useHud((s) => s.reticle);
+  const lang = useLang();
+  const label: Record<Reticle, Key> = {
+    off: "sightOff",
+    dot: "sightDot",
+    plus: "sightPlus",
+    ring: "sightRing",
+  };
   return (
-    <div role="radiogroup" aria-label="Sight" className="flex gap-1">
+    <div role="radiogroup" aria-label={line(lang, "sight")} className="flex gap-1">
       {RETICLES.map((kind) => (
         <button
           key={kind}
           type="button"
           role="radio"
           aria-checked={reticle === kind}
-          aria-label={SIGHT_LABEL[kind]}
+          aria-label={line(lang, label[kind])}
           onClick={() => useHud.getState().setReticle(kind)}
           className={cn(
             "inline-flex size-11 items-center justify-center rounded-[var(--radius-pill)] bg-ink/10 text-ink",
@@ -237,7 +240,7 @@ function FeatureSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onToggle}
-      className="flex h-11 w-full items-center justify-between gap-4 rounded-[var(--radius-sm)] px-1 text-left"
+      className="flex h-11 w-full items-center justify-between gap-4 rounded-[var(--radius-sm)] px-1 text-start"
       onPointerDown={(e) => captureUiPointer(e.pointerId)}
       onPointerUp={(e) => releaseUiPointer(e.pointerId)}
       onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
@@ -250,6 +253,7 @@ function FeatureSwitch({
 
 function SensRail() {
   const lookSens = useHud((s) => s.lookSens);
+  const lang = useLang();
   const rail = useRef<HTMLDivElement>(null);
   const span = LOOK_SENS_MAX - LOOK_SENS_MIN;
   const t = (lookSens - LOOK_SENS_MIN) / span;
@@ -263,15 +267,15 @@ function SensRail() {
   };
 
   return (
-    <div className="px-1 pt-2 pb-3">
+    <div className="px-1 pt-2 pb-3" dir="ltr">
       <div className="flex items-center justify-between pb-2">
-        <p className="font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sensitivity</p>
+        <p className="font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">{line(lang, "sensitivity")}</p>
         <span className="font-sans text-xs text-ink-soft">{Math.round(lookSens * 100)}%</span>
       </div>
       <div
         ref={rail}
         role="slider"
-        aria-label="Look sensitivity"
+        aria-label={line(lang, "sensitivity")}
         aria-valuemin={Math.round(LOOK_SENS_MIN * 100)}
         aria-valuemax={Math.round(LOOK_SENS_MAX * 100)}
         aria-valuenow={Math.round(lookSens * 100)}
@@ -310,8 +314,8 @@ function SensRail() {
         />
       </div>
       <div className="mt-1 flex justify-between font-sans text-xs text-ink-soft">
-        <span>Soft</span>
-        <span>Quick</span>
+        <span>{line(lang, "soft")}</span>
+        <span>{line(lang, "quick")}</span>
       </div>
     </div>
   );
@@ -356,35 +360,36 @@ function ChipPicker<T extends string>({
   );
 }
 
-const WORLD_OPTS: { id: WorldMode; name: string }[] = [
-  { id: "sky", name: "Clouds" },
-  { id: "space", name: "Space" },
-  { id: "reef", name: "Reef" },
+const WORLD_OPTS: { id: WorldMode; key: Key }[] = [
+  { id: "sky", key: "clouds" },
+  { id: "space", key: "space" },
+  { id: "reef", key: "reef" },
 ];
 
-const MUSIC_OPTS: { id: MusicId; name: string }[] = [
-  { id: "off", name: "Off" },
-  { id: "rain", name: "Rain" },
-  { id: "bowls", name: "Bowls" },
-  { id: "ocean", name: "Ocean" },
-  { id: "focus", name: "Focus" },
-  { id: "keys", name: "Keys" },
+const MUSIC_OPTS: { id: MusicId; key: Key }[] = [
+  { id: "off", key: "off" },
+  { id: "rain", key: "rain" },
+  { id: "bowls", key: "bowls" },
+  { id: "ocean", key: "ocean" },
+  { id: "focus", key: "focus" },
+  { id: "keys", key: "keys" },
 ];
 
-const FX_ROWS: { key: keyof FeatureFlags; label: string }[] = [
-  { key: "sun", label: "Sun" },
-  { key: "stars", label: "Stars" },
-  { key: "haze", label: "Haze" },
-  { key: "streaks", label: "Streaks" },
-  { key: "airplanes", label: "Airplanes" },
-  { key: "contrails", label: "Contrails" },
-  { key: "throttle", label: "Throttle" },
-  { key: "hud", label: "Altimeter" },
-  { key: "traffic", label: "Live map" },
+const FX_ROWS: { key: keyof FeatureFlags; label: Key }[] = [
+  { key: "sun", label: "sun" },
+  { key: "stars", label: "stars" },
+  { key: "haze", label: "haze" },
+  { key: "streaks", label: "streaks" },
+  { key: "airplanes", label: "airplanes" },
+  { key: "contrails", label: "contrails" },
+  { key: "throttle", label: "throttle" },
+  { key: "hud", label: "altimeter" },
+  { key: "traffic", label: "liveMap" },
 ];
 
 function SettingsPanel() {
   const open = useHud((s) => s.settingsOpen);
+  const lang = useLang();
   const nightOn = useHud((s) => s.nightOn);
   const muted = useHud((s) => s.muted);
   const fx = useHud((s) => s.fx);
@@ -409,20 +414,20 @@ function SettingsPanel() {
     <div className="pointer-events-auto absolute inset-0 z-30 touch-auto">
       <button
         type="button"
-        aria-label="Close settings"
+        aria-label={sharedLine("close")}
         className="absolute inset-0 bg-ink/40"
         onClick={() => useHud.getState().setSettingsOpen(false)}
       />
       <aside
         role="dialog"
-        aria-label="Settings"
-        className="fx-panel absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] flex w-72 flex-col overflow-hidden rounded-[var(--radius-xl)] bg-panel text-panel-ink shadow-[0_18px_50px_rgba(28,40,56,0.28)]"
+        aria-label={sharedLine("settings")}
+        className="fx-panel absolute top-[max(1rem,env(safe-area-inset-top))] end-[max(1rem,env(safe-area-inset-right))] flex w-72 flex-col overflow-hidden rounded-[var(--radius-xl)] bg-panel text-panel-ink shadow-[0_18px_50px_rgba(28,40,56,0.28)]"
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="font-display text-xl tracking-[-0.03em] italic">Options</h2>
+          <h2 className="font-display text-xl tracking-[-0.03em] italic">{line(lang, "options")}</h2>
           <button
             type="button"
-            aria-label="Close options"
+            aria-label={sharedLine("close")}
             className="inline-flex size-11 items-center justify-center rounded-[var(--radius-pill)] bg-ink/10 text-ink hover:bg-ink/15 [&_svg]:text-ink"
             onClick={() => useHud.getState().setSettingsOpen(false)}
           >
@@ -431,27 +436,25 @@ function SettingsPanel() {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <ChipPicker
-            label="World"
+            label={line(lang, "world")}
             value={world}
-            options={WORLD_OPTS}
+            options={WORLD_OPTS.map((opt) => ({ id: opt.id, name: line(lang, opt.key) }))}
             onPick={(id) => useHud.getState().setWorld(id)}
           />
           <ChipPicker
-            label="Sound"
+            label={sharedLine("sound")}
             value={music === "haze" || music === "drift" || music === "tide" || music === "void" ? "off" : music}
-            options={MUSIC_OPTS}
+            options={MUSIC_OPTS.map((opt) => ({ id: opt.id, name: line(lang, opt.key) }))}
             onPick={(id) => {
               useHud.getState().setMusic(id);
               previewSound(id);
             }}
           />
-          <p className="px-1 pb-2 font-sans text-sm text-ink-soft">
-            Rain, waves, and a bowl are calm. Focus and keys are quiet piano.
-          </p>
+          <p className="px-1 pb-2 font-sans text-sm text-ink-soft">{line(lang, "soundNote")}</p>
           <div className="mt-2 border-t border-ink/10 pt-1">
-            <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Steer</p>
+            <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">{line(lang, "steer")}</p>
             <FeatureSwitch
-              label="Invert look"
+              label={line(lang, "invertLook")}
               checked={invertLook}
               onToggle={() => {
                 const s = useHud.getState();
@@ -459,7 +462,7 @@ function SettingsPanel() {
               }}
             />
             <FeatureSwitch
-              label="Invert turn"
+              label={line(lang, "invertTurn")}
               checked={invertTurn}
               onToggle={() => {
                 const s = useHud.getState();
@@ -467,16 +470,16 @@ function SettingsPanel() {
               }}
             />
             <FeatureSwitch
-              label="Watch"
+              label={line(lang, "watch")}
               checked={easy}
               onToggle={() => useHud.getState().setEasy(!useHud.getState().easy)}
             />
             <SensRail />
           </div>
           <div className="mt-1 border-t border-ink/10 pt-1">
-            <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sky</p>
+            <p className="px-1 pt-2 pb-1 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">{line(lang, "sky")}</p>
             <FeatureSwitch
-              label="Night"
+              label={line(lang, "night")}
               checked={nightOn}
               onToggle={() => {
                 const s = useHud.getState();
@@ -484,7 +487,7 @@ function SettingsPanel() {
               }}
             />
             <FeatureSwitch
-              label="Wind"
+              label={line(lang, "wind")}
               checked={!muted}
               onToggle={() => {
                 const s = useHud.getState();
@@ -494,7 +497,7 @@ function SettingsPanel() {
             {FX_ROWS.map((row) => (
               <FeatureSwitch
                 key={row.key}
-                label={row.label}
+                label={line(lang, row.label)}
                 checked={fx[row.key]}
                 onToggle={() => {
                   const s = useHud.getState();
@@ -504,7 +507,7 @@ function SettingsPanel() {
             ))}
           </div>
           <div className="mt-1 border-t border-ink/10 pt-1">
-            <p className="px-1 pt-2 pb-2 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">Sight</p>
+            <p className="px-1 pt-2 pb-2 font-sans text-xs tracking-[0.16em] text-ink-soft uppercase">{line(lang, "sight")}</p>
             <SightPicker />
           </div>
           <button
@@ -512,7 +515,7 @@ function SettingsPanel() {
             className="mt-4 h-11 w-full rounded-[var(--radius-md)] text-sm text-ink-soft hover:bg-ink/8"
             onClick={() => resetOptions()}
           >
-            Reset
+            {line(lang, "reset")}
           </button>
         </div>
       </aside>
@@ -535,9 +538,11 @@ export function Overlay({ onStart }: OverlayProps) {
   const music = useHud((s) => s.music);
   const easy = useHud((s) => s.easy);
   const settingsOpen = useHud((s) => s.settingsOpen);
+  const lang = useLang();
   const [fps, setFps] = useState(0);
   const [hint, setHint] = useState(true);
   const [alias, setAlias] = useState("");
+  const [voiceNote, setVoiceNote] = useState("");
 
   useEffect(() => {
     if (!playing) return;
@@ -586,7 +591,7 @@ export function Overlay({ onStart }: OverlayProps) {
   const inky = space > 0.55 || night > 0.42 || world !== "sky";
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 touch-none">
+    <div className="pointer-events-none absolute inset-0 z-10">
       <div
         className="absolute inset-0 bg-white transition-opacity duration-200 ease-out"
         style={{ opacity: fx.haze ? Math.min(0.82, inCloud * inCloud * 0.95) * (1 - night) : 0 }}
@@ -619,20 +624,14 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              Slow flight · 1.10.0
+              {line(lang, "slow")} · 1.11.0
             </p>
             {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
-              Drift
+              <bdi>Drift</bdi>
             </h1>
-            <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">
-              Three quiet worlds. Glide the clouds, drift past planets, or float above a reef. Pick
-              a calm track, then click and drag to steer.
-            </p>
-            <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">
-              Three quiet worlds. Clouds, space, or a reef. Pull the craft, or drag, to steer. Slide
-              the throttle to change speed.
-            </p>
+            <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeDesk")}</p>
+            <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeTouch")}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               {WORLD_OPTS.map((opt) => (
                 <button
@@ -644,12 +643,12 @@ export function Overlay({ onStart }: OverlayProps) {
                     world === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
                   )}
                 >
-                  {opt.name}
+                  {line(lang, opt.key)}
                 </button>
               ))}
             </div>
-            <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">Sound</p>
-            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Sound">
+            <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">{sharedLine("sound")}</p>
+            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={sharedLine("sound")}>
               {MUSIC_OPTS.map((opt) => (
                 <button
                   key={opt.id}
@@ -665,7 +664,7 @@ export function Overlay({ onStart }: OverlayProps) {
                     sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
                   )}
                 >
-                  {opt.name}
+                  {line(lang, opt.key)}
                 </button>
               ))}
             </div>
@@ -678,23 +677,29 @@ export function Overlay({ onStart }: OverlayProps) {
                 easy ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
               )}
             >
-              {easy ? "Watch on" : "Watch"}
+              {easy ? line(lang, "watchOn") : line(lang, "watch")}
             </button>
-            <p className="mt-2 max-w-md text-sm text-cloud">
-              Watch levels out and glides. The map stays hidden until you turn Watch off.
-            </p>
+            <p className="mt-2 max-w-md text-sm text-cloud">{line(lang, "watchHint")}</p>
             <div className="mt-5 flex flex-wrap items-center gap-4">
-              <Button type="button" onClick={onStart} aria-label="Start drifting">
-                Start
+              <Button type="button" onClick={onStart} aria-label={line(lang, "start")}>
+                {line(lang, "start")}
               </Button>
-              <p className="copy-desk max-w-[18rem] text-sm text-cloud">
-                Click and drag to steer. Scroll or Q and E change speed.
-              </p>
-              <p className="copy-touch max-w-[18rem] text-sm text-cloud">
-                Pull the craft to steer. Throttle is on the right.
-              </p>
+              <button
+                type="button"
+                className="h-11 rounded-[var(--radius-pill)] bg-cloud/15 px-4 font-sans text-sm text-cloud"
+                onClick={() => {
+                  const words = line(lang, "ledeDesk");
+                  speakLine(words, lang);
+                  setVoiceNote(lang === "rw" || lang === "ti" ? `${words} ${noVoiceLine()}` : "");
+                }}
+              >
+                {sharedLine("readAloud")}
+              </button>
+              <p className="copy-desk max-w-[18rem] text-sm text-cloud">{line(lang, "hintDesk")}</p>
+              <p className="copy-touch max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
+              {voiceNote ? <p className="w-full text-sm text-cloud">{voiceNote}</p> : null}
               <p className="w-full text-sm text-cloud">
-                What’s new (Sep 29): Sign in is the Hub button. Drift does not ask for a name.
+                {sharedLine("whatsNew")} (Oct 1): {line(lang, "whatsBody")}
               </p>
             </div>
           </div>
@@ -710,7 +715,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 inky ? "text-cloud" : "text-ink",
               )}
             >
-              <p className="font-display text-xl tracking-[-0.03em] italic sm:text-2xl">{layer}</p>
+              <p className="font-display text-xl tracking-[-0.03em] italic sm:text-2xl">{layerLine(lang, layer)}</p>
               {alias ? <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">{alias}</p> : null}
               <p className="mt-1 font-sans text-sm font-medium tabular-nums text-current">
                 {meters.toLocaleString()} m
@@ -719,10 +724,10 @@ export function Overlay({ onStart }: OverlayProps) {
                 <span className="mx-2 text-current/45">·</span>
                 {fps} fps
               </p>
-              {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">Watch</p>}
+              {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">{line(lang, "watch")}</p>}
               {sound !== "off" && (
                 <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">
-                  {MUSIC_OPTS.find((opt) => opt.id === sound)?.name}
+                  {line(lang, MUSIC_OPTS.find((opt) => opt.id === sound)?.key || "off")}
                 </p>
               )}
             </div>
@@ -735,7 +740,7 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud" : "text-ink",
             )}
           >
-            Click and drag to steer. Scroll or drag the throttle to change speed.
+            {line(lang, "flyDesk")}
           </p>
           <p
             className={cn(
@@ -744,7 +749,7 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud" : "text-ink",
             )}
           >
-            Pull the craft or drag to steer. Throttle is on the right.
+            {line(lang, "flyTouch")}
           </p>
 
           {fx.throttle && <ThrottleRail inky={inky} mobile={mobile} />}
@@ -753,16 +758,16 @@ export function Overlay({ onStart }: OverlayProps) {
         </>
       )}
 
-      <div className="pointer-events-auto absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-20">
+      <div className="pointer-events-auto absolute top-[max(1rem,env(safe-area-inset-top))] end-[max(1rem,env(safe-area-inset-right))] z-20">
         {!settingsOpen && (
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={() => useHud.getState().setSettingsOpen(true)}
-            aria-label="Open options"
+            aria-label={line(lang, "openOptions")}
             aria-expanded={false}
-            className={cn(inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink")}
+            className={cn("size-11", inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink")}
             onPointerDown={(e) => captureUiPointer(e.pointerId)}
             onPointerUp={(e) => releaseUiPointer(e.pointerId)}
             onPointerCancel={(e) => releaseUiPointer(e.pointerId)}

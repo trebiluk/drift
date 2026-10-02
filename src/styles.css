@@ -2,7 +2,7 @@
 
 @theme {
   --font-display: "Fraunces", "Times New Roman", serif;
-  --font-sans: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--kp-font), "Outfit", "Noto Sans", "Noto Sans Arabic", "Noto Sans Ethiopic", system-ui, sans-serif;
 
   --color-ink: #1c2838;
   --color-ink-soft: #3d4a5c;
@@ -37,6 +37,10 @@
   --motion-slow: 400ms;
 }
 
+:root {
+  --kp-font: "Noto Sans", "Noto Sans Arabic", "Noto Sans Ethiopic", "Outfit", system-ui, sans-serif;
+}
+
 @layer base {
   html,
   body {
@@ -49,7 +53,18 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    touch-action: none;
+    touch-action: manipulation;
+  }
+
+  html[data-kp-lang="ar"] .font-sans,
+  html[data-kp-lang="fa-AF"] .font-sans,
+  html[data-kp-lang="ti"] .font-sans,
+  html[dir="rtl"] .font-sans,
+  html[data-kp-lang="ar"] .font-display,
+  html[data-kp-lang="fa-AF"] .font-display,
+  html[data-kp-lang="ti"] .font-display {
+    line-height: 1.5;
+    font-family: var(--kp-font), "Noto Sans", "Noto Sans Arabic", "Noto Sans Ethiopic", system-ui, sans-serif;
   }
 
   button:not(:disabled),

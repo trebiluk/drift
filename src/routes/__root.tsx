@@ -14,7 +14,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       {
         name: "viewport",
-        content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
       { title: APP_NAME },
       {
@@ -43,7 +43,7 @@ export const Route = createRootRoute({
         href: classroomDoor ? "./__grok/icon-180.png" : "/__grok/icon-180.png",
       },
       ...(classroomDoor
-        ? [{ rel: "stylesheet", href: "/fonts/room.css" }]
+        ? [{ rel: "stylesheet", href: "/fonts/room.css?v=2026-10-04-i18n" }]
         : [
             { rel: "preconnect", href: "https://fonts.googleapis.com" },
             {
@@ -66,7 +66,9 @@ export const Route = createRootRoute({
             __html: `(function(){try{var t=window.innerWidth<720||/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(matchMedia("(pointer: coarse)").matches&&matchMedia("(hover: none)").matches);document.documentElement.dataset.input=t?"touch":"desk";}catch(e){}})();`,
           }}
         />
-        {classroomDoor ? <script src="/shared/kw-who.js?v=2026-09-29-hub-return" /> : null}
+        {classroomDoor ? <script src="/shared/kw-who.js?v=2026-10-01-v2" /> : null}
+        {classroomDoor ? <script src="/shared/kulibert-i18n.js?v=2026-10-04-i18n" /> : null}
+        {classroomDoor ? <script src="/shared/kulibert-prefs.js?v=2026-10-04-i18n" /> : null}
         <HeadContent />
       </head>
       <body className="overflow-hidden bg-sky-deep text-cloud">

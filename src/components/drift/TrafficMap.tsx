@@ -12,6 +12,8 @@ import {
 } from "@/game/traffic";
 import { cn } from "@/lib/utils";
 import { useHud } from "@/store/hud";
+import { line as copyLine } from "@/game/copy";
+import { useLang } from "./LangRoot";
 
 const SIZE = 232;
 
@@ -30,6 +32,7 @@ function fl(alt: number) {
 
 export function TrafficMap({ inky }: { inky: boolean }) {
   const on = useHud((s) => s.fx.traffic);
+  const lang = useLang();
   const [region, setRegion] = useState<TrafficRegionId>("upstate");
   const [snap, setSnap] = useState<TrafficSnapshot | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -122,15 +125,15 @@ export function TrafficMap({ inky }: { inky: boolean }) {
         "pointer-events-auto absolute bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] left-[max(1rem,env(safe-area-inset-left))] z-[8] w-[13.5rem] rounded-[var(--radius-lg)] p-3",
         inky ? "bg-ink/32 text-cloud" : "bg-cloud/42 text-ink",
       )}
-      aria-label="Live air traffic"
+      aria-label={copyLine(lang, "liveMap")}
     >
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <p className={cn("font-sans text-xs tracking-[0.16em] uppercase", faint)}>Live sky</p>
+        <p className={cn("font-sans text-xs tracking-[0.16em] uppercase", faint)}>{copyLine(lang, "liveSky")}</p>
         <p className={cn("font-sans text-xs tabular-nums", faint)}>
-          {status === "idle" && "Listening"}
-          {status === "live" && `${flights.length} aloft`}
-          {status === "quiet" && "Radio quiet"}
-          {status === "lost" && "No radio"}
+          {status === "idle" && copyLine(lang, "listening")}
+          {status === "live" && `${flights.length} ${copyLine(lang, "aloft")}`}
+          {status === "quiet" && copyLine(lang, "radioQuiet")}
+          {status === "lost" && copyLine(lang, "noRadio")}
         </p>
       </div>
       <svg
@@ -188,7 +191,7 @@ export function TrafficMap({ inky }: { inky: boolean }) {
           </li>
         ))}
       </ul>
-      <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Map region">
+      <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label={copyLine(lang, "liveMap")}>
         {REGION_LIST.map((id) => (
           <button
             key={id}
@@ -196,7 +199,7 @@ export function TrafficMap({ inky }: { inky: boolean }) {
             role="radio"
             aria-checked={region === id}
             className={cn(
-              "h-9 min-w-11 rounded-[var(--radius-sm)] px-2.5 font-sans text-xs",
+              "h-11 min-w-11 rounded-[var(--radius-sm)] px-2.5 font-sans text-xs",
               region === id
                 ? inky
                   ? "bg-cloud text-ink"
