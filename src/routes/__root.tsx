@@ -37,6 +37,13 @@ function RootDocument() {
         {classroomDoor ? <script src="/shared/kw-who.js?v=2026-10-01-v2" /> : null}
         {classroomDoor ? <script src="/shared/kulibert-i18n.js?v=2026-10-04-i18n" /> : null}
         {classroomDoor ? <script src="/shared/kulibert-prefs.js?v=2026-10-04-i18n" /> : null}
+        {classroomDoor ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){try{var q=new URLSearchParams(location.search);var classic=q.get("theme")==="classic"||q.get("hub")==="classic";var ok={en:1,simple:1,uk:1,ru:1,es:1,ar:1,"fa-AF":1,rw:1,ti:1};var lang="en";if(!classic){var u=q.get("lang")||"";if(ok[u])lang=u;}var el=document.documentElement;el.lang=lang==="simple"?"en":lang;el.dir=(lang==="ar"||lang==="fa-AF")?"rtl":"ltr";el.setAttribute("data-kp-lang",lang);}catch(e){}})();`,
+            }}
+          />
+        ) : null}
         <HeadContent />
       </head>
       <body className="overflow-hidden bg-sky-deep text-cloud">
