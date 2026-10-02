@@ -424,7 +424,7 @@ function SettingsPanel() {
         className="fx-panel absolute top-[max(1rem,env(safe-area-inset-top))] end-[max(1rem,env(safe-area-inset-right))] flex w-72 flex-col overflow-hidden rounded-[var(--radius-xl)] bg-panel text-panel-ink shadow-[0_18px_50px_rgba(28,40,56,0.28)]"
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="font-display text-xl tracking-[-0.03em] italic">{line(lang, "options")}</h2>
+          <h2 className="font-display text-xl tracking-[-0.03em] italic">{sharedLine("settings")}</h2>
           <button
             type="button"
             aria-label={sharedLine("close")}
@@ -543,6 +543,10 @@ export function Overlay({ onStart }: OverlayProps) {
   const [hint, setHint] = useState(true);
   const [alias, setAlias] = useState("");
   const [voiceNote, setVoiceNote] = useState("");
+
+  useEffect(() => {
+    setVoiceNote("");
+  }, [lang]);
 
   useEffect(() => {
     if (!playing) return;
@@ -765,7 +769,7 @@ export function Overlay({ onStart }: OverlayProps) {
             variant="ghost"
             size="icon"
             onClick={() => useHud.getState().setSettingsOpen(true)}
-            aria-label={line(lang, "openOptions")}
+            aria-label={sharedLine("settings")}
             aria-expanded={false}
             className={cn("size-11", inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink")}
             onPointerDown={(e) => captureUiPointer(e.pointerId)}

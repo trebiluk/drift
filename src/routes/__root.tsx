@@ -1,12 +1,54 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { bootLang } from "@/components/drift/LangRoot";
+import { dirOf } from "@/game/copy";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Drift";
 
 /** Classroom snapshot is built with base `./` and served under /drift/. */
 const classroomDoor = import.meta.env.BASE_URL === "./";
+
+function RootDocument() {
+  const searchStr = useRouterState({ select: (s) => s.location.searchStr });
+  const q = new URLSearchParams(searchStr);
+  const boot = bootLang({
+    lang: q.get("lang") || undefined,
+    theme: q.get("theme") || undefined,
+    hub: q.get("hub") || undefined,
+  });
+  const dir = dirOf(boot.lang);
+
+  return (
+    <html
+      lang={boot.lang === "simple" ? "en" : boot.lang}
+      dir={dir}
+      data-kp-lang={boot.lang}
+      suppressHydrationWarning
+      className="antialiased"
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=window.innerWidth<720||/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(matchMedia("(pointer: coarse)").matches&&matchMedia("(hover: none)").matches);document.documentElement.dataset.input=t?"touch":"desk";}catch(e){}})();`,
+          }}
+        />
+        {classroomDoor ? <script src="/shared/kw-who.js?v=2026-10-01-v2" /> : null}
+        {classroomDoor ? <script src="/shared/kulibert-i18n.js?v=2026-10-04-i18n" /> : null}
+        {classroomDoor ? <script src="/shared/kulibert-prefs.js?v=2026-10-04-i18n" /> : null}
+        <HeadContent />
+      </head>
+      <body className="overflow-hidden bg-sky-deep text-cloud">
+        <PreviewHostBridge />
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+        <Scripts />
+      </body>
+    </html>
+  );
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -58,26 +100,5 @@ export const Route = createRootRoute({
           ]),
     ],
   }),
-  component: () => (
-    <html lang="en" suppressHydrationWarning className="antialiased">
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=window.innerWidth<720||/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(matchMedia("(pointer: coarse)").matches&&matchMedia("(hover: none)").matches);document.documentElement.dataset.input=t?"touch":"desk";}catch(e){}})();`,
-          }}
-        />
-        {classroomDoor ? <script src="/shared/kw-who.js?v=2026-10-01-v2" /> : null}
-        {classroomDoor ? <script src="/shared/kulibert-i18n.js?v=2026-10-04-i18n" /> : null}
-        {classroomDoor ? <script src="/shared/kulibert-prefs.js?v=2026-10-04-i18n" /> : null}
-        <HeadContent />
-      </head>
-      <body className="overflow-hidden bg-sky-deep text-cloud">
-        <PreviewHostBridge />
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
-        <Scripts />
-      </body>
-    </html>
-  ),
+  component: RootDocument,
 });
