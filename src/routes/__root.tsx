@@ -81,7 +81,6 @@ function RootDocument() {
       className="antialiased"
     >
       <head>
-        {classroomDoor ? <base href="/drift/" /> : null}
         <HeadContent />
       </head>
       <body className="overflow-hidden bg-sky-deep text-cloud">

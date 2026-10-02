@@ -29,8 +29,10 @@ export function DriftExperience({ boot, classic }: { boot: Lang; classic: boolea
   const playing = useHud((s) => s.playing);
   const music = useHud((s) => s.music);
   const [touchMode, setTouchMode] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     setTouchMode(syncTouchMode());
     attachInput();
     installControlsTest();
@@ -101,6 +103,7 @@ export function DriftExperience({ boot, classic }: { boot: Lang; classic: boolea
     <LangRoot boot={boot} classic={classic}>
       <main className="sky-wash relative h-dvh w-full overflow-hidden text-cloud select-none">
         <div className="absolute inset-0 touch-none" dir="ltr">
+          {mounted ? (
           <Canvas
           camera={{ fov: 72, near: 0.4, far: 7600, position: [0, 148, 0] }}
           dpr={touchMode ? [1, 1.15] : [1, 1.5]}
@@ -122,6 +125,9 @@ export function DriftExperience({ boot, classic }: { boot: Lang; classic: boolea
         >
           <World />
         </Canvas>
+          ) : (
+            <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }} />
+          )}
         </div>
         <Overlay onStart={handleStart} />
       </main>
