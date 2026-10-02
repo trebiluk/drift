@@ -1,8 +1,9 @@
-import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootLang } from "@/components/drift/LangRoot";
-import { dirOf } from "@/game/copy";
+import { dirOf, normalizeLang, type Lang } from "@/game/copy";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Drift";
@@ -10,40 +11,77 @@ const APP_NAME = "Drift";
 /** Classroom snapshot is built with base `./` and served under /drift/. */
 const classroomDoor = import.meta.env.BASE_URL === "./";
 
+const SHARED_SCRIPTS = [
+  "/shared/kw-who.js?v=2026-10-01-v2",
+  "/shared/kulibert-i18n.js?v=2026-10-04-i18n",
+  "/shared/kulibert-prefs.js?v=2026-10-04-i18n",
+];
+
+function loadSharedScripts() {
+  const run = (index: number) => {
+    if (index >= SHARED_SCRIPTS.length) {
+      window.dispatchEvent(new Event("drift-shared-ready"));
+      return;
+    }
+    const node = document.createElement("script");
+    node.src = SHARED_SCRIPTS[index];
+    node.onload = () => run(index + 1);
+    node.onerror = () => run(index + 1);
+    document.body.appendChild(node);
+  };
+  run(0);
+}
+
+function readBoot(): { lang: Lang; classic: boolean } {
+  const q = new URLSearchParams(window.location.search);
+  let classic = q.get("theme") === "classic" || q.get("hub") === "classic";
+  try {
+    if (localStorage.getItem("tech-room-hub") === "classic") classic = true;
+  } catch {
+    /* ignore */
+  }
+  if (classic) return { lang: "en", classic: true };
+  const urlLang = q.get("lang");
+  if (urlLang) return bootLang({ lang: urlLang });
+  const prefsLang = (window as Window & { KulibertPrefs?: { lang?: string } }).KulibertPrefs?.lang;
+  if (prefsLang) return { lang: normalizeLang(prefsLang), classic: false };
+  return { lang: "en", classic: false };
+}
+
 function RootDocument() {
-  const searchStr = useRouterState({ select: (s) => s.location.searchStr });
-  const q = new URLSearchParams(searchStr);
-  const boot = bootLang({
-    lang: q.get("lang") || undefined,
-    theme: q.get("theme") || undefined,
-    hub: q.get("hub") || undefined,
-  });
-  const dir = dirOf(boot.lang);
+  // English until mount so the first client render matches the saved door HTML.
+  const [boot, setBoot] = useState<{ lang: Lang; classic: boolean }>({ lang: "en", classic: false });
+
+  useEffect(() => {
+    const apply = () => setBoot(readBoot());
+    apply();
+    const onLang = () => apply();
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data = ev.data as { type?: string } | null;
+      if (data?.type === "kp-lang") apply();
+    };
+    window.addEventListener("kulibert-lang", onLang);
+    window.addEventListener("drift-shared-ready", onLang);
+    window.addEventListener("message", onMsg);
+    if (classroomDoor) loadSharedScripts();
+    return () => {
+      window.removeEventListener("kulibert-lang", onLang);
+      window.removeEventListener("drift-shared-ready", onLang);
+      window.removeEventListener("message", onMsg);
+    };
+  }, []);
 
   return (
     <html
       lang={boot.lang === "simple" ? "en" : boot.lang}
-      dir={dir}
+      dir={dirOf(boot.lang)}
       data-kp-lang={boot.lang}
       suppressHydrationWarning
       className="antialiased"
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=window.innerWidth<720||/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(matchMedia("(pointer: coarse)").matches&&matchMedia("(hover: none)").matches);document.documentElement.dataset.input=t?"touch":"desk";}catch(e){}})();`,
-          }}
-        />
-        {classroomDoor ? <script src="/shared/kw-who.js?v=2026-10-01-v2" /> : null}
-        {classroomDoor ? <script src="/shared/kulibert-i18n.js?v=2026-10-04-i18n" /> : null}
-        {classroomDoor ? <script src="/shared/kulibert-prefs.js?v=2026-10-04-i18n" /> : null}
-        {classroomDoor ? (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `(function(){try{var q=new URLSearchParams(location.search);var classic=q.get("theme")==="classic"||q.get("hub")==="classic";var ok={en:1,simple:1,uk:1,ru:1,es:1,ar:1,"fa-AF":1,rw:1,ti:1};var lang="en";if(!classic){var u=q.get("lang")||"";if(ok[u])lang=u;}var el=document.documentElement;el.lang=lang==="simple"?"en":lang;el.dir=(lang==="ar"||lang==="fa-AF")?"rtl":"ltr";el.setAttribute("data-kp-lang",lang);}catch(e){}})();`,
-            }}
-          />
-        ) : null}
+        {classroomDoor ? <base href="/drift/" /> : null}
         <HeadContent />
       </head>
       <body className="overflow-hidden bg-sky-deep text-cloud">

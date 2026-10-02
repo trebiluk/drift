@@ -387,6 +387,12 @@ const FX_ROWS: { key: keyof FeatureFlags; label: Key }[] = [
   { key: "traffic", label: "liveMap" },
 ];
 
+function debugHud() {
+  if (typeof window === "undefined") return false;
+  const value = new URLSearchParams(window.location.search).get("debug");
+  return value === "" || value === "1" || value === "true";
+}
+
 function SettingsPanel() {
   const open = useHud((s) => s.settingsOpen);
   const lang = useLang();
@@ -421,7 +427,7 @@ function SettingsPanel() {
       <aside
         role="dialog"
         aria-label={sharedLine("settings")}
-        className="fx-panel absolute top-[max(1rem,env(safe-area-inset-top))] end-[max(1rem,env(safe-area-inset-right))] flex w-72 flex-col overflow-hidden rounded-[var(--radius-xl)] bg-panel text-panel-ink shadow-[0_18px_50px_rgba(28,40,56,0.28)]"
+        className="fx-panel absolute top-2 left-2 flex max-h-[calc(100%-1rem)] w-72 flex-col overflow-hidden rounded-[var(--radius-xl)] bg-panel text-panel-ink shadow-[0_18px_50px_rgba(28,40,56,0.28)]"
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <h2 className="font-display text-xl tracking-[-0.03em] italic">{sharedLine("settings")}</h2>
@@ -549,7 +555,7 @@ export function Overlay({ onStart }: OverlayProps) {
   }, [lang]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || !debugHud()) return;
     let frames = 0;
     let last = performance.now();
     let id = 0;
@@ -628,7 +634,7 @@ export function Overlay({ onStart }: OverlayProps) {
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
             <p className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              {line(lang, "slow")} · 1.11.0
+              {line(lang, "slow")} · 1.11.1
             </p>
             {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
@@ -703,7 +709,7 @@ export function Overlay({ onStart }: OverlayProps) {
               <p className="copy-touch max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
               {voiceNote ? <p className="w-full text-sm text-cloud">{voiceNote}</p> : null}
               <p className="w-full text-sm text-cloud">
-                {sharedLine("whatsNew")} (Oct 1): {line(lang, "whatsBody")}
+                {sharedLine("whatsNew")} (Oct 2): {line(lang, "whatsBody")}
               </p>
             </div>
           </div>
@@ -715,7 +721,7 @@ export function Overlay({ onStart }: OverlayProps) {
           {fx.hud && (
             <div
               className={cn(
-                "hud-mark absolute top-[max(1.25rem,env(safe-area-inset-top))] left-[max(1.25rem,env(safe-area-inset-left))] transition-colors duration-[var(--motion-fast)]",
+                "hud-mark absolute top-[max(4.25rem,calc(env(safe-area-inset-top)+3.75rem))] left-[max(1.25rem,env(safe-area-inset-left))] transition-colors duration-[var(--motion-fast)]",
                 inky ? "text-cloud" : "text-ink",
               )}
             >
@@ -725,8 +731,12 @@ export function Overlay({ onStart }: OverlayProps) {
                 {meters.toLocaleString()} m
                 <span className="mx-2 text-current/45">·</span>
                 {kph.toLocaleString()} km/h
-                <span className="mx-2 text-current/45">·</span>
-                {fps} fps
+                {debugHud() ? (
+                  <>
+                    <span className="mx-2 text-current/45">·</span>
+                    {fps} fps
+                  </>
+                ) : null}
               </p>
               {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">{line(lang, "watch")}</p>}
               {sound !== "off" && (
@@ -762,21 +772,24 @@ export function Overlay({ onStart }: OverlayProps) {
         </>
       )}
 
-      <div className="pointer-events-auto absolute top-[max(1rem,env(safe-area-inset-top))] end-[max(1rem,env(safe-area-inset-right))] z-20">
+      <div className="pointer-events-auto absolute top-2 left-2 z-20">
         {!settingsOpen && (
           <Button
             type="button"
             variant="ghost"
-            size="icon"
             onClick={() => useHud.getState().setSettingsOpen(true)}
             aria-label={sharedLine("settings")}
             aria-expanded={false}
-            className={cn("size-11", inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink")}
+            className={cn(
+              "h-11 min-w-0 gap-2 rounded-[var(--radius-pill)] px-3",
+              inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink",
+            )}
             onPointerDown={(e) => captureUiPointer(e.pointerId)}
             onPointerUp={(e) => releaseUiPointer(e.pointerId)}
             onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
           >
             <Settings className="size-5" />
+            <span className="font-sans text-sm">{sharedLine("settings")}</span>
           </Button>
         )}
       </div>

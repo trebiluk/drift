@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { dirOf, normalizeLang, sharedLine, type Lang } from "@/game/copy";
+import { dirOf, markSharedReady, normalizeLang, sharedLine, type Lang } from "@/game/copy";
 
 const LangCtx = createContext<Lang>("en");
 
@@ -41,13 +41,15 @@ export function LangRoot({
   classic: boolean;
   children: ReactNode;
 }) {
-  const [lang, setLang] = useState<Lang>(classic ? "en" : boot);
+  // First paint matches the English door file. The Hub language applies after mount.
+  const [lang, setLang] = useState<Lang>("en");
   const [sharedTick, setSharedTick] = useState(0);
 
   useEffect(() => {
     const locked = classic || classicStored();
     const paint = (nextLang: Lang) => {
       const shown: Lang = locked ? "en" : nextLang;
+      markSharedReady();
       setLang(shown);
       document.documentElement.lang = shown === "simple" ? "en" : shown;
       document.documentElement.dir = dirOf(shown);
@@ -55,20 +57,19 @@ export function LangRoot({
       i18n()?.ready?.(shown, () => setSharedTick((n) => n + 1));
     };
 
-    if (locked) {
-      paint("en");
-      return;
-    }
+    const fromUrl = () => {
+      if (locked) return "en" as Lang;
+      try {
+        const urlLang = new URLSearchParams(window.location.search).get("lang");
+        if (urlLang) return normalizeLang(urlLang);
+        if (prefs()?.lang) return normalizeLang(prefs()?.lang);
+      } catch {
+        /* keep English */
+      }
+      return boot;
+    };
 
-    let initial = boot;
-    try {
-      const urlLang = new URLSearchParams(window.location.search).get("lang");
-      if (urlLang) initial = normalizeLang(urlLang);
-      else if (prefs()?.lang) initial = normalizeLang(prefs()?.lang);
-    } catch {
-      /* keep the first-paint language */
-    }
-    paint(initial);
+    paint(fromUrl());
 
     const onLang = (ev: Event) => {
       const detail = (ev as CustomEvent<{ lang?: string }>).detail;
@@ -80,11 +81,14 @@ export function LangRoot({
       if (!data || data.type !== "kp-lang" || !data.lang) return;
       paint(normalizeLang(data.lang));
     };
+    const onShared = () => paint(fromUrl());
     window.addEventListener("kulibert-lang", onLang);
     window.addEventListener("message", onMsg);
+    window.addEventListener("drift-shared-ready", onShared);
     return () => {
       window.removeEventListener("kulibert-lang", onLang);
       window.removeEventListener("message", onMsg);
+      window.removeEventListener("drift-shared-ready", onShared);
     };
   }, [boot, classic]);
 

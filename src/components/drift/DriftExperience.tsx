@@ -28,10 +28,7 @@ export function DriftExperience({ boot, classic }: { boot: Lang; classic: boolea
   const muted = useHud((s) => s.muted);
   const playing = useHud((s) => s.playing);
   const music = useHud((s) => s.music);
-  const [touchMode, setTouchMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return syncTouchMode();
-  });
+  const [touchMode, setTouchMode] = useState(false);
 
   useEffect(() => {
     setTouchMode(syncTouchMode());

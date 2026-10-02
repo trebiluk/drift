@@ -95,7 +95,7 @@ const EN: Record<Key, string> = {
   start: "Start",
   hintDesk: "Click and drag to steer. Scroll or Q and E change speed.",
   hintTouch: "Pull the craft to steer. Throttle is on the right.",
-  whatsBody: "Drift follows the Hub language. Pinch zoom works again.",
+  whatsBody: "Settings is at the top left and opens from the left. Classic links load cleanly.",
   options: "Options",
   world: "World",
   steer: "Steer",
@@ -156,7 +156,7 @@ const SIMPLE: Partial<Record<Key, string>> = {
   hintTouch: "Pull to steer. Speed is on the right.",
   flyDesk: "Drag to steer. Drag the bar to change speed.",
   flyTouch: "Pull to steer. Speed is on the right.",
-  whatsBody: "Drift uses the Hub language. You can pinch to zoom.",
+  whatsBody: "Settings is at the top left. Classic links work.",
 };
 
 const UK: Record<Key, string> = {
@@ -179,7 +179,7 @@ const UK: Record<Key, string> = {
   start: "Старт",
   hintDesk: "Тягни, щоб керувати. Коліщатко або Q і E змінюють швидкість.",
   hintTouch: "Тягни, щоб керувати. Швидкість справа.",
-  whatsBody: "Дрифт іде за мовою Хаба. Зум щипком знову працює.",
+  whatsBody: "Налаштування зліва вгорі й відкриваються зліва. Класичні посилання відкриваються без помилок.",
   options: "Опції",
   world: "Світ",
   steer: "Кермо",
@@ -250,7 +250,7 @@ const RU: Record<Key, string> = {
   start: "Старт",
   hintDesk: "Тяни, чтобы рулить. Колёсико или Q и E меняют скорость.",
   hintTouch: "Тяни, чтобы рулить. Скорость справа.",
-  whatsBody: "Дрифт следует языку Хаба. Зум щипком снова работает.",
+  whatsBody: "Настройки слева вверху и открываются слева. Классические ссылки открываются без ошибок.",
   options: "Опции",
   world: "Мир",
   steer: "Руль",
@@ -321,7 +321,7 @@ const ES: Record<Key, string> = {
   start: "Empezar",
   hintDesk: "Arrastra para girar. La rueda o Q y E cambian la velocidad.",
   hintTouch: "Tira para girar. La velocidad está a la derecha.",
-  whatsBody: "Drift sigue el idioma del Hub. El zoom con dos dedos vuelve a funcionar.",
+  whatsBody: "Ajustes está arriba a la izquierda y se abre desde la izquierda. Los enlaces clásicos cargan bien.",
   options: "Opciones",
   world: "Mundo",
   steer: "Girar",
@@ -392,7 +392,7 @@ const AR: Record<Key, string> = {
   start: "ابدأ",
   hintDesk: "اسحب لتقود. العجلة أو Q و E تغيّر السرعة.",
   hintTouch: "اسحب لتقود. السرعة على اليمين.",
-  whatsBody: "دريفت يتبع لغة المركز. تكبير القرص يعمل من جديد.",
+  whatsBody: "الإعدادات في أعلى اليسار وتفتح من اليسار. روابط النمط الكلاسيكي تعمل بلا أخطاء.",
   options: "خيارات",
   world: "عالم",
   steer: "قيادة",
@@ -463,7 +463,7 @@ const FA: Record<Key, string> = {
   start: "شروع",
   hintDesk: "برای راندن بکش. چرخ یا Q و E سرعت را عوض می‌کند.",
   hintTouch: "برای راندن بکش. سرعت طرف راست است.",
-  whatsBody: "دریفت زبان هاب را می‌گیرد. زوم با دو انگشت دوباره کار می‌کند.",
+  whatsBody: "تنظیمات بالا چپ است و از چپ باز می‌شود. لینک‌های کلاسیک درست باز می‌شوند.",
   options: "گزینه‌ها",
   world: "دنیا",
   steer: "راندن",
@@ -534,7 +534,7 @@ const RW: Record<Key, string> = {
   start: "Tangira",
   hintDesk: "Kura kugira ngo uyobore. Uruziga cyangwa Q na E bihindura umuvuduko.",
   hintTouch: "Kura kugira ngo uyobore. Umuvuduko uri iburyo.",
-  whatsBody: "Drift ikurikira ururimi rwa Hub. Kuzuza ukoresheje intoki birakora.",
+  whatsBody: "Igenamiterere iri hejuru ibumoso kandi ifungura ibumoso. Amahuza ya classic afunguka neza.",
   options: "Amahitamo",
   world: "Isi",
   steer: "Kuyobora",
@@ -605,7 +605,7 @@ const TI: Record<Key, string> = {
   start: "ጀምር",
   hintDesk: "ንምምራሕ ስሓብ። መንኰርኰር ወይ Q ከምኡውን E ፍጥነት ይቕይሩ።",
   hintTouch: "ንምምራሕ ስሓብ። ፍጥነት ኣብ የማን እዩ።",
-  whatsBody: "ድሪፍት ቋንቋ ሃብ ይኽተል። ምዕባይ ብኽልተ ኣጻብዕቲ ደጊሙ ይሰርሕ።",
+  whatsBody: "ምርጫታት ኣብ ላዕለዋይ ጸጋም እዩ፣ ካብ ጸጋም ይኸፍት። ክላሲክ መላግቦታት ብንጽህና ይጽዕኑ።",
   options: "ምርጫታት",
   world: "ዓለም",
   steer: "ምምራሕ",
@@ -709,13 +709,20 @@ const SHARED_EN: Record<string, string> = {
   noVoice: "No voice yet. Read the words.",
 };
 
+let sharedReady = false;
+
+/** Shared packs must not change the first paint. The saved door HTML is English. */
+export function markSharedReady() {
+  sharedReady = true;
+}
+
 type I18nApi = { t?: (key: string) => string; ready?: (lang: string, cb: () => void) => void };
 
 export function sharedLine(key: keyof typeof SHARED_EN): string {
-  if (typeof window !== "undefined") {
+  if (sharedReady && typeof window !== "undefined") {
     const api = (window as Window & { KulibertI18n?: I18nApi }).KulibertI18n;
     const value = api?.t?.(key);
-    if (value) return value;
+    if (value && value !== key) return value;
   }
   return SHARED_EN[key] || "";
 }
