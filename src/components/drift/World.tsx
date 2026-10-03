@@ -215,7 +215,10 @@ function GodRays() {
   );
 }
 
-const _tiltAxis = new THREE.Vector3();
+const _axisX = new THREE.Vector3();
+const _axisY = new THREE.Vector3();
+const _axisZ = new THREE.Vector3();
+const _basis = new THREE.Matrix4();
 
 function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: ShadowBlob[] } {
   const list: Puff[] = [];
@@ -230,27 +233,30 @@ function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: S
     group.push(puff);
   };
 
-  const path: Puff[] = [];
-  groups.push(path);
+  const left: Puff[] = [];
+  const right: Puff[] = [];
+  groups.push(left, right);
   for (let i = 0; i < 10; i++) {
+    const along = 50 + i * 46;
+    const side = ((i % 2) * 2 - 1) * (78 + (i % 5) * 34);
     push(
       {
-        x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
+        x: fx * along + rx * side,
         y: 88 + (i % 5) * 14,
-        z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
+        z: fz * along + rz * side,
         s: mobile ? 58 + (i % 5) * 10 : 70 + (i % 5) * 18,
       },
-      path,
+      side < 0 ? left : right,
     );
   }
 
   const near = [
-    { ang: -0.3, r: 480, y: 110 },
-    { ang: 0.3, r: 530, y: 106 },
-    { ang: 0.0, r: 700, y: 100 },
-    { ang: -0.58, r: 360, y: 90 },
-    { ang: 0.66, r: 420, y: 84 },
-    { ang: 0.05, r: 250, y: 108 },
+    { ang: -0.1, r: 280, y: 96 },
+    { ang: 0.14, r: 470, y: 86 },
+    { ang: -0.04, r: 660, y: 106 },
+    { ang: -0.72, r: 430, y: 92 },
+    { ang: 0.68, r: 510, y: 84 },
+    { ang: -1.08, r: 600, y: 108 },
   ];
   for (let c = 0; c < 18; c++) {
     const cluster: Puff[] = [];
@@ -423,41 +429,43 @@ function CloudPuffs({ puffs }: { puffs: Puff[] }) {
 
 type Streak = { x: number; y: number; z: number; w: number; d: number; yaw: number; tilt: number };
 
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a += 0x6d2b79f5;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function Cirrus() {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const { gl } = useThree();
   const wind = useMemo(() => new THREE.Vector2(), []);
   const streaks = useMemo<Streak[]>(() => {
-    const rng = mulberry32(11);
     const yaw0 = runtime.craft.yaw;
     const fx = -Math.sin(yaw0);
     const fz = -Math.cos(yaw0);
-    const ahead = Math.atan2(fz, fx);
+    const rx = -fz;
+    const rz = fx;
+    // Long axis left-right across the opening view, not along the heading.
+    const yaw = Math.atan2(rz, rx);
     const list: Streak[] = [];
-    for (let i = 0; i < 13; i++) {
-      const forward = i < 2;
-      const a = forward ? ahead + (i === 0 ? -0.18 : 0.16) : rng() * Math.PI * 2;
-      const r = forward ? 1900 + i * 500 : 1600 + rng() * 1600;
-      list.push({
-        x: Math.cos(a) * r,
-        z: Math.sin(a) * r,
-        y: forward ? 580 + i * 50 : 540 + rng() * 150,
-        w: 1500 + rng() * 1100,
-        d: 600 + rng() * 400,
-        yaw: rng() * Math.PI,
-        tilt: ((16 + rng() * 4) * Math.PI) / 180,
-      });
+    // Elevations sit apart in the upper sky. Tilt trails each one by the same
+    // opening so a band stays a band instead of turning edge-on.
+    const open = 0.24;
+    const bands = [
+      { along: 1900, y: 458, side: -30, n: 5 },
+      { along: 1300, y: 548, side: 40, n: 4 },
+      { along: 980, y: 656, side: -16, n: 4 },
+    ];
+    for (const band of bands) {
+      const elev = Math.atan2(band.y - 190, band.along);
+      const tilt = elev - open;
+      for (let k = 0; k < band.n; k++) {
+        const side = band.side + (k - (band.n - 1) / 2) * 110;
+        const along = band.along + ((k % 3) - 1) * 28;
+        list.push({
+          x: fx * along + rx * side,
+          z: fz * along + rz * side,
+          y: band.y,
+          w: 2100,
+          d: 640,
+          yaw,
+          tilt,
+        });
+      }
     }
     return list;
   }, []);
@@ -479,7 +487,7 @@ function Cirrus() {
       new THREE.ShaderMaterial({
         uniforms: {
           uMap: { value: tex },
-          uOpacity: { value: 0.35 },
+          uOpacity: { value: 0.22 },
         },
         vertexShader: CIRRUS_VERT,
         fragmentShader: CIRRUS_FRAG,
@@ -509,20 +517,28 @@ function Cirrus() {
     const sky = runtime.world === "sky" && runtime.spaceAmt < 0.4 && camera.position.y < 980;
     inst.visible = sky;
     if (!sky) return;
-    mat.uniforms.uOpacity.value = 0.35 * (1 - runtime.night * 0.85);
+    mat.uniforms.uOpacity.value = 0.22 * (1 - runtime.night * 0.85);
     windVelocity(wind);
     const ox = wind.x * clock.elapsedTime;
     const oz = wind.y * clock.elapsedTime;
     const half = 3400;
     for (let i = 0; i < streaks.length; i++) {
       const s = streaks[i];
+      const ct = Math.cos(s.tilt);
+      const st = Math.sin(s.tilt);
+      const ax = Math.cos(s.yaw);
+      const az = Math.sin(s.yaw);
+      const dx = az;
+      const dz = -ax;
+      _axisX.set(ax, 0, az);
+      _axisY.set(dx * ct, st, dz * ct);
+      _axisZ.set(-dx * st, ct, -dz * st);
+      _basis.makeBasis(_axisX, _axisY, _axisZ);
+      _dummy.quaternion.setFromRotationMatrix(_basis);
       const x = wrapAxis(s.x + ox, camera.position.x, half);
       const z = wrapAxis(s.z + oz, camera.position.z, half);
       _dummy.position.set(x, s.y, z);
       _dummy.scale.set(s.w, s.d, 1);
-      _dummy.rotation.set(-Math.PI / 2, 0, s.yaw);
-      _tiltAxis.set(1, 0, 0).applyQuaternion(_dummy.quaternion);
-      _dummy.rotateOnWorldAxis(_tiltAxis, s.tilt);
       _dummy.updateMatrix();
       inst.setMatrixAt(i, _dummy.matrix);
     }

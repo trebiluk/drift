@@ -259,12 +259,11 @@ varying vec2 vUv;
 varying vec3 vWorld;
 void main() {
   vec4 tex = texture2D(uMap, vUv);
-  float edge = smoothstep(0.0, 0.12, vUv.x) * smoothstep(0.0, 0.12, 1.0 - vUv.x);
-  edge *= smoothstep(0.0, 0.22, vUv.y) * smoothstep(0.0, 0.22, 1.0 - vUv.y);
+  float edge = smoothstep(0.0, 0.14, vUv.x) * smoothstep(0.0, 0.14, 1.0 - vUv.x);
+  edge *= smoothstep(0.0, 0.05, vUv.y) * smoothstep(0.0, 0.05, 1.0 - vUv.y);
   vec3 dir = normalize(vWorld - cameraPosition);
   float ang = 1.0 - pow(abs(dir.y), 4.0);
   float a = tex.a * uOpacity * ang * edge;
-  if (a < 0.015) discard;
   gl_FragColor = vec4(a, a, a, a);
 }
 `;

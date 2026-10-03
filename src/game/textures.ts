@@ -146,64 +146,38 @@ export function createDotTexture() {
   return canvas;
 }
 
-/** Combed high cirrus. One canvas, drawn once. Soft ribbons, no stitched gaps. */
+/** Combed high cirrus. One soft band per tile, slow lengthwise variation, no gaps. */
 export function createCirrusTexture() {
   const w = 1024;
   const h = 256;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("No 2d context");
-  ctx.clearRect(0, 0, w, h);
-  const rng = mulberry32(7);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  const paint = (blur: string, alphaMul: number) => {
-    ctx.filter = blur;
-    for (let i = 0; i < 5; i++) {
-      const y = 36 + (i + rng() * 0.6) * ((h - 72) / 5);
-      const amp = 8 + rng() * 16;
-      const phase = rng() * Math.PI * 2;
-      const width = 28 + rng() * 26;
-      const alpha = (0.07 + rng() * 0.08) * alphaMul;
-      ctx.beginPath();
-      for (let x = -20; x <= w + 20; x += 12) {
-        const yy = y + Math.sin(x * 0.008 + phase) * amp + Math.sin(x * 0.021 + phase * 1.7) * amp * 0.35;
-        if (x === -20) ctx.moveTo(x, yy);
-        else ctx.lineTo(x, yy);
-      }
-      ctx.lineWidth = width;
-      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.stroke();
-    }
-    ctx.filter = "none";
-  };
-  paint("blur(16px)", 1);
-  paint("blur(8px)", 0.55);
-
-  ctx.globalCompositeOperation = "destination-in";
-  const fadeX = ctx.createLinearGradient(0, 0, w, 0);
-  fadeX.addColorStop(0, "rgba(0,0,0,0)");
-  fadeX.addColorStop(0.14, "rgba(0,0,0,1)");
-  fadeX.addColorStop(0.86, "rgba(0,0,0,1)");
-  fadeX.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = fadeX;
-  ctx.fillRect(0, 0, w, h);
-  const fadeY = ctx.createLinearGradient(0, 0, 0, h);
-  fadeY.addColorStop(0, "rgba(0,0,0,0)");
-  fadeY.addColorStop(0.22, "rgba(0,0,0,1)");
-  fadeY.addColorStop(0.78, "rgba(0,0,0,1)");
-  fadeY.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = fadeY;
-  ctx.fillRect(0, 0, w, h);
-  ctx.globalCompositeOperation = "source-over";
-  const img = ctx.getImageData(0, 0, w, h);
+  const img = ctx.createImageData(w, h);
   const px = img.data;
-  for (let i = 0; i < px.length; i += 4) {
-    px[i] = 255;
-    px[i + 1] = 255;
-    px[i + 2] = 255;
+  const fade = (t: number) => {
+    const x = Math.min(1, Math.max(0, t));
+    return x * x * (3 - 2 * x);
+  };
+  for (let y = 0; y < h; y++) {
+    const v = y / (h - 1);
+    const band = Math.exp(-(((v - 0.5) / 0.4) ** 2));
+    const fadeV = fade(v / 0.22) * fade((1 - v) / 0.22);
+    for (let x = 0; x < w; x++) {
+      const u = x / (w - 1);
+      const fadeU = fade(u / 0.18) * fade((1 - u) / 0.18);
+      const fiber = 0.9 + 0.1 * Math.sin(u * Math.PI * 2 * 0.85 + 0.4);
+      let a = band * fadeU * fadeV * fiber;
+      if (a < 0) a = 0;
+      if (a > 1) a = 1;
+      const i = (y * w + x) * 4;
+      px[i] = 255;
+      px[i + 1] = 255;
+      px[i + 2] = 255;
+      px[i + 3] = Math.round(a * 255);
+    }
   }
   ctx.putImageData(img, 0, 0);
   return canvas;
