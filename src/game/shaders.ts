@@ -229,7 +229,7 @@ void main() {
 
   vec2 suv = (wxz - uWind * uTime - uSunShift) / 1480.0;
   float sh = texture2D(uShadow, suv).r;
-  col *= 1.0 - sh * mix(0.24, 0.04, uNight);
+  col *= 1.0 - sh * mix(0.26, 0.04, uNight);
 
   vec3 toCam = cameraPosition - vWorld;
   float viewUp = toCam.y / max(length(toCam), 1.0);
@@ -255,6 +255,7 @@ void main() {
 export const CIRRUS_FRAG = /* glsl */ `
 uniform sampler2D uMap;
 uniform float uOpacity;
+uniform float uNight;
 varying vec2 vUv;
 varying vec3 vWorld;
 void main() {
@@ -264,7 +265,9 @@ void main() {
   vec3 dir = normalize(vWorld - cameraPosition);
   float ang = 1.0 - pow(abs(dir.y), 4.0);
   float a = tex.a * uOpacity * ang * edge;
-  gl_FragColor = vec4(a, a, a, a);
+  if (a < 0.01) discard;
+  vec3 tint = mix(vec3(1.0), vec3(0.80, 0.86, 1.0), uNight);
+  gl_FragColor = vec4(tint * a, a);
 }
 `;
 

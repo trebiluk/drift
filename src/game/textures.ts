@@ -417,8 +417,8 @@ export function createCloudShadowTexture(blobs: ShadowBlob[], span: number) {
         ctx.rotate(blob.rot);
         ctx.scale(rxp, rzp);
         const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-        g.addColorStop(0, "rgba(255,255,255,0.55)");
-        g.addColorStop(0.55, "rgba(255,255,255,0.25)");
+        g.addColorStop(0, "rgba(255,255,255,0.85)");
+        g.addColorStop(0.6, "rgba(255,255,255,0.45)");
         g.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = g;
         ctx.beginPath();

@@ -220,7 +220,18 @@ const _axisY = new THREE.Vector3();
 const _axisZ = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
 
-function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: ShadowBlob[] } {
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a += 0x6d2b79f5;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildPuffs(count: number, mobile: boolean, narrow: boolean): { puffs: Puff[]; shadows: ShadowBlob[] } {
   const list: Puff[] = [];
   const groups: Puff[][] = [];
   const yaw = runtime.craft.yaw;
@@ -237,8 +248,10 @@ function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: S
   const right: Puff[] = [];
   groups.push(left, right);
   for (let i = 0; i < 10; i++) {
-    const along = 50 + i * 46;
-    const side = ((i % 2) * 2 - 1) * (78 + (i % 5) * 34);
+    const along = narrow ? 220 + i * 42 : 220 + i * 46;
+    const side = narrow
+      ? ((i % 2) * 2 - 1) * (18 + (i % 4) * 14)
+      : ((i % 2) * 2 - 1) * (78 + (i % 5) * 34);
     push(
       {
         x: fx * along + rx * side,
@@ -250,27 +263,51 @@ function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: S
     );
   }
 
-  const near = [
-    { ang: -0.1, r: 280, y: 96 },
-    { ang: 0.14, r: 470, y: 86 },
-    { ang: -0.04, r: 660, y: 106 },
-    { ang: -0.72, r: 430, y: 92 },
-    { ang: 0.68, r: 510, y: 84 },
-    { ang: -1.08, r: 600, y: 108 },
-  ];
+  const angSpan = narrow ? 0.25 : 0.7;
+  const near = Array.from({ length: 6 }, (_, i) => ({
+    ang: -angSpan + (i / 5) * angSpan * 2,
+    along: 380 + (i / 5) * 340,
+    y: 80 + (i % 4) * 10,
+  }));
+  // Close banks for the 115 m among view. The lane at 220 stays ahead after the cruise.
+  const home = narrow
+    ? [
+        { ang: -0.18, along: 120, y: 108 },
+        { ang: 0.16, along: 170, y: 84 },
+        { ang: 0.0, along: 210, y: 126 },
+        { ang: -0.12, along: 260, y: 92 },
+        { ang: 0.2, along: 300, y: 112 },
+        { ang: -0.06, along: 340, y: 78 },
+      ]
+    : [
+        { ang: -0.45, along: 90, y: 102 },
+        { ang: 0.5, along: 150, y: 86 },
+        { ang: -0.15, along: 120, y: 120 },
+        { ang: 0.25, along: 200, y: 94 },
+        { ang: -0.7, along: 240, y: 108 },
+        { ang: 0.15, along: 280, y: 80 },
+      ];
   for (let c = 0; c < 18; c++) {
     const cluster: Puff[] = [];
     groups.push(cluster);
     let cx: number;
     let cz: number;
     let cy: number;
-    if (c < near.length) {
+    const ring = c < near.length;
+    const homeSpot = !ring && c < near.length + home.length ? home[c - near.length] : null;
+    if (ring) {
       const spot = near[c];
       const ca = Math.cos(spot.ang);
       const sa = Math.sin(spot.ang);
-      cx = (fx * ca + rx * sa) * spot.r;
-      cz = (fz * ca + rz * sa) * spot.r;
+      cx = (fx * ca + rx * sa) * spot.along;
+      cz = (fz * ca + rz * sa) * spot.along;
       cy = spot.y;
+    } else if (homeSpot) {
+      const ca = Math.cos(homeSpot.ang);
+      const sa = Math.sin(homeSpot.ang);
+      cx = (fx * ca + rx * sa) * homeSpot.along;
+      cz = (fz * ca + rz * sa) * homeSpot.along;
+      cy = homeSpot.y;
     } else {
       const a = Math.random() * Math.PI * 2;
       const rad = 70 + Math.pow(Math.random(), 0.4) * WRAP;
@@ -278,18 +315,25 @@ function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: S
       cz = Math.sin(a) * rad;
       cy = 70 + Math.random() * 70;
     }
-    const n = 3 + (c % 4);
+    const n = ring ? 5 + (c % 3) : 3 + (c % 4);
+    const spread = ring ? 110 : 78;
     for (let j = 0; j < n && list.length < count; j++) {
-      const x = cx + (Math.random() - 0.5) * 78;
+      const x = cx + (Math.random() - 0.5) * spread;
       const y = cy + (Math.random() - 0.5) * 36;
-      const z = cz + (Math.random() - 0.5) * 78;
+      const z = cz + (Math.random() - 0.5) * spread;
       const sizeRoll = Math.random();
       push(
         {
           x,
           y,
           z,
-          s: mobile ? 48 + sizeRoll * 62 : 52 + sizeRoll * 88,
+          s: ring
+            ? mobile
+              ? 58 + sizeRoll * 67
+              : 62 + sizeRoll * 98
+            : mobile
+              ? 48 + sizeRoll * 62
+              : 52 + sizeRoll * 88,
         },
         cluster,
       );
@@ -342,7 +386,13 @@ function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: S
       if (u > brx) brx = u;
       if (v > brz) brz = v;
     }
-    shadows.push({ x: cx, z: cz, rx: Math.min(brx, 320), rz: Math.min(brz, 220), rot });
+    shadows.push({
+      x: cx,
+      z: cz,
+      rx: Math.min(mobile ? Math.max(brx, 110) : brx, 320),
+      rz: Math.min(mobile ? Math.max(brz, 80) : brz, 220),
+      rot,
+    });
   }
   return { puffs: list, shadows };
 }
@@ -439,33 +489,37 @@ function Cirrus() {
     const fz = -Math.cos(yaw0);
     const rx = -fz;
     const rz = fx;
-    // Long axis left-right across the opening view, not along the heading.
-    const yaw = Math.atan2(rz, rx);
-    const list: Streak[] = [];
-    // Elevations sit apart in the upper sky. Tilt trails each one by the same
-    // opening so a band stays a band instead of turning edge-on.
+    const rng = mulberry32(11);
     const open = 0.24;
-    const bands = [
-      { along: 1900, y: 458, side: -30, n: 5 },
-      { along: 1300, y: 548, side: 40, n: 4 },
-      { along: 980, y: 656, side: -16, n: 4 },
+    // Two sit in the opening view at different heights. The other six ring the sky.
+    const slots = [
+      { az: 0.1, r: 1320, y: 630, w: 1900, d: 540 },
+      { az: -0.14, r: 1760, y: 490, w: 2000, d: 620 },
+      { az: 1.25, r: 1540, y: 580, w: 1860, d: 560 },
+      { az: 2.3, r: 1680, y: 640, w: 2100, d: 600 },
+      { az: 3.25, r: 1420, y: 520, w: 1940, d: 580 },
+      { az: 4.2, r: 1840, y: 650, w: 1880, d: 530 },
+      { az: 5.05, r: 1280, y: 560, w: 2060, d: 640 },
+      { az: -1.35, r: 1600, y: 610, w: 1920, d: 570 },
     ];
-    for (const band of bands) {
-      const elev = Math.atan2(band.y - 190, band.along);
-      const tilt = elev - open;
-      for (let k = 0; k < band.n; k++) {
-        const side = band.side + (k - (band.n - 1) / 2) * 110;
-        const along = band.along + ((k % 3) - 1) * 28;
-        list.push({
-          x: fx * along + rx * side,
-          z: fz * along + rz * side,
-          y: band.y,
-          w: 2100,
-          d: 640,
-          yaw,
-          tilt,
-        });
-      }
+    const list: Streak[] = [];
+    for (const slot of slots) {
+      const jit = (rng() - 0.5) * ((24 * Math.PI) / 180);
+      const az = Math.abs(slot.az) < 0.4 ? slot.az + jit * 0.2 : slot.az + jit;
+      const ca = Math.cos(az);
+      const sa = Math.sin(az);
+      const x = (fx * ca + rx * sa) * slot.r;
+      const z = (fz * ca + rz * sa) * slot.r;
+      const elev = Math.atan2(slot.y - 190, slot.r);
+      list.push({
+        x,
+        z,
+        y: slot.y,
+        w: slot.w,
+        d: slot.d,
+        yaw: Math.atan2(z, x) + Math.PI / 2,
+        tilt: elev - open,
+      });
     }
     return list;
   }, []);
@@ -477,7 +531,7 @@ function Cirrus() {
     map.generateMipmaps = true;
     map.minFilter = THREE.LinearMipmapLinearFilter;
     map.magFilter = THREE.LinearFilter;
-    map.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    map.anisotropy = Math.min(4, gl.capabilities.getMaxAnisotropy());
     map.premultiplyAlpha = true;
     map.needsUpdate = true;
     return map;
@@ -488,6 +542,7 @@ function Cirrus() {
         uniforms: {
           uMap: { value: tex },
           uOpacity: { value: 0.22 },
+          uNight: { value: 0 },
         },
         vertexShader: CIRRUS_VERT,
         fragmentShader: CIRRUS_FRAG,
@@ -517,7 +572,8 @@ function Cirrus() {
     const sky = runtime.world === "sky" && runtime.spaceAmt < 0.4 && camera.position.y < 980;
     inst.visible = sky;
     if (!sky) return;
-    mat.uniforms.uOpacity.value = 0.22 * (1 - runtime.night * 0.85);
+    mat.uniforms.uOpacity.value = 0.22 * (1 - runtime.night * 0.94);
+    mat.uniforms.uNight.value = runtime.night;
     windVelocity(wind);
     const ox = wind.x * clock.elapsedTime;
     const oz = wind.y * clock.elapsedTime;
@@ -858,7 +914,11 @@ function LightRig() {
 function SkyClouds() {
   const mobile = runtime.mobile;
   const count = mobile ? 96 : 140;
-  const built = useMemo(() => buildPuffs(count, mobile), [count, mobile]);
+  const narrow = useMemo(
+    () => (typeof window !== "undefined" ? window.innerWidth / window.innerHeight < 1 || window.innerWidth < 600 : false),
+    [],
+  );
+  const built = useMemo(() => buildPuffs(count, mobile, narrow), [count, mobile, narrow]);
   return (
     <>
       <Farmland shadows={built.shadows} />
