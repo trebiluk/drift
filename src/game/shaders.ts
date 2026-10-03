@@ -14,6 +14,7 @@ uniform float uStars;
 uniform float uDeep;
 uniform float uReef;
 uniform float uTime;
+uniform float uGroundHaze;
 varying vec3 vDir;
 
 float starHash(vec3 p) {
@@ -29,6 +30,7 @@ void main() {
   vec3 zenith = mix(vec3(0.05, 0.24, 0.72), vec3(0.015, 0.03, 0.09), uNight);
   vec3 horizon = mix(vec3(0.62, 0.78, 0.94), vec3(0.12, 0.16, 0.32), uNight);
   vec3 below = mix(vec3(0.28, 0.5, 0.82), vec3(0.04, 0.06, 0.12), uNight);
+  below = mix(below, horizon, uGroundHaze);
   vec3 sky = mix(below, horizon, smoothstep(-0.22, 0.06, h));
   sky = mix(sky, zenith, smoothstep(0.02, 0.62, h));
 
@@ -95,12 +97,14 @@ varying float vLight;
 varying float vDist;
 varying float vSeed;
 varying vec3 vView;
+varying float vScale;
 
 void main() {
   vec3 worldPos = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   float sx = length(instanceMatrix[0].xyz);
   float sy = length(instanceMatrix[1].xyz);
   vLocal = uv;
+  vScale = sx;
   vSeed = fract(worldPos.x * 0.017 + worldPos.z * 0.013 + worldPos.y * 0.009);
   vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 camUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
@@ -122,6 +126,7 @@ varying float vLight;
 varying float vDist;
 varying float vSeed;
 varying vec3 vView;
+varying float vScale;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -172,8 +177,10 @@ void main() {
   col += mix(vec3(1.0, 0.97, 0.9), vec3(0.72, 0.82, 1.0), uNight) * backlit * mix(0.22, 0.14, uNight);
 
   float fade = smoothstep(1100.0, 90.0, vDist);
-  float alpha = dens * fade * (1.0 - uSpace * 0.85);
-  if (alpha < 0.04) discard;
+  float edge = smoothstep(0.0, 0.18, 1.0 - max(abs(vLocal.x * 2.0 - 1.0), abs(vLocal.y * 2.0 - 1.0)));
+  float nearFade = smoothstep(0.35, 1.0, vDist / max(vScale * 1.2, 1.0));
+  float alpha = dens * fade * (1.0 - uSpace * 0.85) * edge * nearFade;
+  if (alpha < 0.012) discard;
   gl_FragColor = vec4(col * alpha, alpha);
 }
 `;
@@ -201,8 +208,14 @@ varying vec3 vWorld;
 void main() {
   vec2 wxz = vWorld.xz;
   vec3 fields = texture2D(uFields, wxz / 2300.0).rgb;
-  vec3 fieldsFar = texture2D(uFields, wxz / 3700.0 + vec2(0.17, 0.41)).rgb;
-  vec3 col = mix(fields, fieldsFar, 0.35);
+  float ang = 0.52;
+  float ca = cos(ang);
+  float sa = sin(ang);
+  vec2 rot = vec2(ca * wxz.x - sa * wxz.y, sa * wxz.x + ca * wxz.y);
+  vec3 fieldsFar = texture2D(uFields, rot / 4150.0 + vec2(0.17, 0.41)).rgb;
+  vec3 col = mix(fields, fieldsFar, 0.36);
+  float cell = fract(sin(dot(floor(wxz / 9000.0), vec2(12.9898, 78.233))) * 43758.5453);
+  col *= mix(0.93, 1.06, cell);
   col = mix(col, col * vec3(0.62, 0.72, 1.05), uNight);
   col *= mix(1.0, 0.26, uNight);
 
@@ -210,10 +223,41 @@ void main() {
   float sh = texture2D(uShadow, suv).r;
   col *= 1.0 - sh * mix(0.32, 0.04, uNight);
 
+  vec3 toCam = cameraPosition - vWorld;
+  float viewUp = toCam.y / max(length(toCam), 1.0);
   float dist = length(wxz - uCamXZ);
-  float haze = smoothstep(2500.0, 7000.0, dist);
+  float haze = smoothstep(1800.0, 6200.0, dist);
+  haze = max(haze, smoothstep(0.30, 0.10, viewUp));
   col = mix(col, uHorizon, haze);
   gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+export const CIRRUS_VERT = /* glsl */ `
+varying vec2 vUv;
+varying vec3 vWorld;
+void main() {
+  vUv = uv;
+  vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+  vWorld = world.xyz;
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+export const CIRRUS_FRAG = /* glsl */ `
+uniform sampler2D uMap;
+uniform float uOpacity;
+varying vec2 vUv;
+varying vec3 vWorld;
+void main() {
+  vec4 tex = texture2D(uMap, vUv);
+  float edge = smoothstep(0.0, 0.12, vUv.x) * smoothstep(0.0, 0.12, 1.0 - vUv.x);
+  edge *= smoothstep(0.0, 0.22, vUv.y) * smoothstep(0.0, 0.22, 1.0 - vUv.y);
+  vec3 dir = normalize(vWorld - cameraPosition);
+  float ang = 1.0 - pow(abs(dir.y), 4.0);
+  float a = tex.a * uOpacity * ang * edge;
+  if (a < 0.015) discard;
+  gl_FragColor = vec4(1.0, 1.0, 1.0, a);
 }
 `;
 

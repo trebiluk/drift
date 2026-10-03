@@ -7,6 +7,8 @@ import { runtime } from "@/game/runtime";
 import {
   ATMOSPHERE_FRAG,
   ATMOSPHERE_VERT,
+  CIRRUS_FRAG,
+  CIRRUS_VERT,
   FARM_FRAG,
   FARM_VERT,
   PUFF_FRAG,
@@ -72,6 +74,7 @@ function Atmosphere() {
           uDeep: { value: 0 },
           uReef: { value: 0 },
           uTime: { value: 0 },
+          uGroundHaze: { value: 1 },
         },
         vertexShader: ATMOSPHERE_VERT,
         fragmentShader: ATMOSPHERE_FRAG,
@@ -94,6 +97,8 @@ function Atmosphere() {
     mat.uniforms.uDeep.value = runtime.spaceAmt;
     mat.uniforms.uReef.value = runtime.reefAmt;
     mat.uniforms.uTime.value = clock.elapsedTime;
+    const ground = runtime.world === "sky" && runtime.spaceAmt < 0.45 && runtime.reefAmt < 0.45;
+    mat.uniforms.uGroundHaze.value = ground ? 1 : 0;
   });
 
   return (
@@ -210,7 +215,7 @@ function GodRays() {
   );
 }
 
-function buildPuffs(count: number): Puff[] {
+function buildPuffs(count: number, mobile: boolean): Puff[] {
   const list: Puff[] = [];
   const yaw = runtime.craft.yaw;
   const fx = -Math.sin(yaw);
@@ -220,7 +225,7 @@ function buildPuffs(count: number): Puff[] {
       x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
       y: 88 + (i % 5) * 14,
       z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
-      s: 70 + (i % 5) * 18,
+      s: mobile ? 58 + (i % 5) * 10 : 70 + (i % 5) * 18,
     });
   }
   for (let c = 0; c < 18; c++) {
@@ -231,22 +236,28 @@ function buildPuffs(count: number): Puff[] {
     const cy = 70 + Math.random() * 70;
     const n = 3 + (c % 4);
     for (let j = 0; j < n && list.length < count; j++) {
+      const x = cx + (Math.random() - 0.5) * 78;
+      const y = cy + (Math.random() - 0.5) * 36;
+      const z = cz + (Math.random() - 0.5) * 78;
+      const sizeRoll = Math.random();
       list.push({
-        x: cx + (Math.random() - 0.5) * 78,
-        y: cy + (Math.random() - 0.5) * 36,
-        z: cz + (Math.random() - 0.5) * 78,
-        s: 52 + Math.random() * 88,
+        x,
+        y,
+        z,
+        s: mobile ? 48 + sizeRoll * 62 : 52 + sizeRoll * 88,
       });
     }
   }
   while (list.length < count) {
     const a = Math.random() * Math.PI * 2;
     const r = 50 + Math.random() * WRAP;
+    const y = 64 + Math.random() * 90;
+    const sizeRoll = Math.random();
     list.push({
       x: Math.cos(a) * r,
-      y: 64 + Math.random() * 90,
+      y,
       z: Math.sin(a) * r,
-      s: 48 + Math.random() * 70,
+      s: mobile ? 48 + sizeRoll * 52 : 48 + sizeRoll * 70,
     });
   }
   return list;
@@ -334,40 +345,59 @@ function CloudPuffs({ puffs }: { puffs: Puff[] }) {
 
 type Streak = { x: number; y: number; z: number; w: number; d: number; yaw: number };
 
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a += 0x6d2b79f5;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function Cirrus() {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const wind = useMemo(() => new THREE.Vector2(), []);
   const streaks = useMemo<Streak[]>(() => {
+    const rng = mulberry32(11);
     const list: Streak[] = [];
     for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 + 0.4;
-      const r = 980 + (i % 3) * 420;
+      const a = rng() * Math.PI * 2;
+      const r = 1600 + rng() * 1600;
       list.push({
         x: Math.cos(a) * r,
         z: Math.sin(a) * r,
-        y: 540 + (i % 4) * 42,
-        w: 820 + (i % 3) * 240,
-        d: 150 + (i % 2) * 80,
-        yaw: a + 0.7,
+        y: 540 + rng() * 150,
+        w: 1500 + rng() * 1100,
+        d: 260 + rng() * 280,
+        yaw: rng() * Math.PI,
       });
     }
     return list;
   }, []);
   const tex = useMemo(() => {
     const map = new THREE.CanvasTexture(createCirrusTexture());
-    map.colorSpace = THREE.SRGBColorSpace;
+    map.colorSpace = THREE.NoColorSpace;
     map.wrapS = THREE.ClampToEdgeWrapping;
     map.wrapT = THREE.ClampToEdgeWrapping;
+    map.generateMipmaps = false;
+    map.minFilter = THREE.LinearFilter;
+    map.magFilter = THREE.LinearFilter;
     map.needsUpdate = true;
     return map;
   }, []);
   const mat = useMemo(
     () =>
-      new THREE.MeshBasicMaterial({
-        map: tex,
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uMap: { value: tex },
+          uOpacity: { value: 0.4 },
+        },
+        vertexShader: CIRRUS_VERT,
+        fragmentShader: CIRRUS_FRAG,
         transparent: true,
         depthWrite: false,
-        opacity: 0.46,
         side: THREE.DoubleSide,
         toneMapped: false,
         fog: false,
@@ -391,11 +421,11 @@ function Cirrus() {
     const sky = runtime.world === "sky" && runtime.spaceAmt < 0.4 && camera.position.y < 980;
     inst.visible = sky;
     if (!sky) return;
-    mat.opacity = 0.46 * (1 - runtime.night * 0.7);
+    mat.uniforms.uOpacity.value = 0.4 * (1 - runtime.night * 0.85);
     windVelocity(wind);
     const ox = wind.x * clock.elapsedTime;
     const oz = wind.y * clock.elapsedTime;
-    const half = 2200;
+    const half = 3400;
     for (let i = 0; i < streaks.length; i++) {
       const s = streaks[i];
       _dummy.position.set(wrapAxis(s.x + ox, camera.position.x, half), s.y, wrapAxis(s.z + oz, camera.position.z, half));
@@ -718,8 +748,9 @@ function LightRig() {
 }
 
 function SkyClouds() {
-  const count = runtime.mobile ? 96 : 140;
-  const puffs = useMemo(() => buildPuffs(count), [count]);
+  const mobile = runtime.mobile;
+  const count = mobile ? 96 : 140;
+  const puffs = useMemo(() => buildPuffs(count, mobile), [count, mobile]);
   return (
     <>
       <Farmland puffs={puffs} />

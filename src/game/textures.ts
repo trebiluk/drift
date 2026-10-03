@@ -146,37 +146,102 @@ export function createDotTexture() {
   return canvas;
 }
 
-/** Thin horizontal streaks for high cirrus. Drawn once. */
+/** Combed high cirrus. One canvas, drawn once. */
 export function createCirrusTexture() {
-  const w = 512;
-  const h = 128;
+  const w = 1024;
+  const h = 256;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("No 2d context");
   ctx.clearRect(0, 0, w, h);
-  const strokes = [
-    { y: 28, a: 0.55, width: 7, bow: 10 },
-    { y: 46, a: 0.32, width: 4, bow: -6 },
-    { y: 62, a: 0.48, width: 5, bow: 8 },
-    { y: 84, a: 0.28, width: 9, bow: -4 },
-    { y: 102, a: 0.4, width: 3, bow: 6 },
-  ];
-  for (const s of strokes) {
-    const g = ctx.createLinearGradient(0, s.y, w, s.y);
-    g.addColorStop(0, "rgba(255,255,255,0)");
-    g.addColorStop(0.18, `rgba(255,255,255,${s.a})`);
-    g.addColorStop(0.72, `rgba(255,255,255,${s.a * 0.85})`);
-    g.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.strokeStyle = g;
-    ctx.lineWidth = s.width;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(8, s.y);
-    ctx.bezierCurveTo(w * 0.3, s.y + s.bow, w * 0.62, s.y - s.bow, w - 8, s.y + s.bow * 0.3);
-    ctx.stroke();
+  const rng = mulberry32(7);
+  type Seg = {
+    x0: number;
+    y0: number;
+    c1x: number;
+    c1y: number;
+    c2x: number;
+    c2y: number;
+    x1: number;
+    y1: number;
+    a: number;
+  };
+  const strokes: Array<{ width: number; segs: Seg[] }> = [];
+  const count = 22 + Math.floor(rng() * 12);
+  for (let i = 0; i < count; i++) {
+    const y = 12 + rng() * (h - 24);
+    const width = 2 + rng() * 12;
+    const alpha = 0.08 + rng() * 0.27;
+    const curl = (rng() - 0.5) * 56;
+    const segs: Seg[] = [];
+    let x = -8;
+    let yy = y + (rng() - 0.5) * 10;
+    const nSeg = 5 + Math.floor(rng() * 3);
+    for (let s = 0; s < nSeg; s++) {
+      const span = ((w + 40) / nSeg) * (0.72 + rng() * 0.45);
+      const dip = rng() < 0.42 ? 0.08 + rng() * 0.22 : 0.62 + rng() * 0.38;
+      const x1 = x + span;
+      const y1 = y + curl * (rng() - 0.5) * 0.65;
+      segs.push({
+        x0: x,
+        y0: yy,
+        c1x: x + span * 0.33,
+        c1y: yy + curl * (rng() - 0.5),
+        c2x: x + span * 0.68,
+        c2y: y1 + curl * (rng() - 0.5) * 0.45,
+        x1,
+        y1,
+        a: Math.min(0.35, alpha * dip),
+      });
+      x = x1 + 8 + rng() * 30;
+      yy = y1;
+      if (x > w + 12) break;
+    }
+    strokes.push({ width, segs });
   }
+
+  const paint = (alphaMul: number) => {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const stroke of strokes) {
+      for (const seg of stroke.segs) {
+        const rings = 5;
+        for (let k = rings; k >= 1; k--) {
+          ctx.beginPath();
+          ctx.moveTo(seg.x0, seg.y0);
+          ctx.bezierCurveTo(seg.c1x, seg.c1y, seg.c2x, seg.c2y, seg.x1, seg.y1);
+          ctx.lineWidth = stroke.width * (k / 2.1);
+          const a = seg.a * alphaMul * (0.16 + 0.08 * (rings - k));
+          ctx.strokeStyle = `rgba(255,255,255,${a})`;
+          ctx.stroke();
+        }
+      }
+    }
+  };
+
+  ctx.filter = "blur(2px)";
+  paint(1);
+  ctx.filter = "none";
+  paint(0.48);
+
+  ctx.globalCompositeOperation = "destination-in";
+  const fadeX = ctx.createLinearGradient(0, 0, w, 0);
+  fadeX.addColorStop(0, "rgba(0,0,0,0)");
+  fadeX.addColorStop(0.14, "rgba(0,0,0,1)");
+  fadeX.addColorStop(0.86, "rgba(0,0,0,1)");
+  fadeX.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = fadeX;
+  ctx.fillRect(0, 0, w, h);
+  const fadeY = ctx.createLinearGradient(0, 0, 0, h);
+  fadeY.addColorStop(0, "rgba(0,0,0,0)");
+  fadeY.addColorStop(0.22, "rgba(0,0,0,1)");
+  fadeY.addColorStop(0.78, "rgba(0,0,0,1)");
+  fadeY.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = fadeY;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "source-over";
   return canvas;
 }
 
@@ -201,7 +266,7 @@ const TULIPS: Array<[number, number, number]> = [
   [246, 244, 242],
 ];
 
-/** One repeating tile of patchwork fields and a few tulip rows. */
+/** One repeating tile of irregular fields, short hedges, and a few tulip rows. */
 export function createFieldTexture() {
   const size = 512;
   const canvas = document.createElement("canvas");
@@ -212,52 +277,133 @@ export function createFieldTexture() {
   const rng = mulberry32(19);
   const cols = 8;
   const rows = 8;
-  const edges = (n: number) => {
-    const raw = [0];
-    for (let i = 0; i < n; i++) raw.push(raw[i] + 0.72 + rng() * 0.56);
-    const last = raw[raw.length - 1];
-    return raw.map((v) => (v / last) * size);
-  };
-  const xs = edges(cols);
-  const ys = edges(rows);
-  ctx.fillStyle = "#6e9a68";
-  ctx.fillRect(0, 0, size, size);
+  const jx: number[][] = [];
+  const jy: number[][] = [];
   for (let j = 0; j < rows; j++) {
+    jx[j] = [];
+    jy[j] = [];
     for (let i = 0; i < cols; i++) {
-      const x0 = xs[i];
-      const y0 = ys[j];
-      const x1 = xs[i + 1];
-      const y1 = ys[j + 1];
-      const tulip = rng() < 0.2;
-      const wheat = !tulip && rng() < 0.34;
-      const base = (wheat ? FIELD_WHEAT : FIELD_GREENS)[Math.floor(rng() * (wheat ? FIELD_WHEAT.length : FIELD_GREENS.length))];
-      ctx.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
-      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-      if (tulip) {
-        const horizontal = rng() < 0.5;
-        const stripe = 5 + Math.floor(rng() * 3);
-        const color = TULIPS[Math.floor(rng() * TULIPS.length)];
-        ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-        if (horizontal) {
-          for (let y = y0 + 3; y < y1 - 2; y += stripe) ctx.fillRect(x0 + 2, y, x1 - x0 - 4, 2);
-        } else {
-          for (let x = x0 + 3; x < x1 - 2; x += stripe) ctx.fillRect(x, y0 + 2, 2, y1 - y0 - 4);
+      jx[j][i] = (rng() - 0.5) * 0.55;
+      jy[j][i] = (rng() - 0.5) * 0.55;
+    }
+  }
+  const vx = (i: number, j: number) => {
+    const ii = ((i % cols) + cols) % cols;
+    const jj = ((j % rows) + rows) % rows;
+    return ((i + 0.5 + jx[jj][ii]) / cols) * size;
+  };
+  const vy = (i: number, j: number) => {
+    const ii = ((i % cols) + cols) % cols;
+    const jj = ((j % rows) + rows) % rows;
+    return ((j + 0.5 + jy[jj][ii]) / rows) * size;
+  };
+  const mix = (a: [number, number], b: [number, number], t: number): [number, number] => [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+  ];
+  type Pt = [number, number];
+
+  ctx.fillStyle = "#7ea872";
+  ctx.fillRect(0, 0, size, size);
+  ctx.lineWidth = 1.25;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(48, 78, 46, 0.4)";
+
+  const paint = (pts: Pt[], edges: Array<[Pt, Pt]>, tulip: boolean, wheat: boolean) => {
+    const palette = wheat ? FIELD_WHEAT : FIELD_GREENS;
+    const base = palette[Math.floor(rng() * palette.length)];
+    const minX = Math.min(...pts.map((p) => p[0]));
+    const maxX = Math.max(...pts.map((p) => p[0]));
+    const minY = Math.min(...pts.map((p) => p[1]));
+    const maxY = Math.max(...pts.map((p) => p[1]));
+    const oxs = [0];
+    const oys = [0];
+    if (minX < 1) oxs.push(size);
+    if (maxX > size - 1) oxs.push(-size);
+    if (minY < 1) oys.push(size);
+    if (maxY > size - 1) oys.push(-size);
+    const color = TULIPS[Math.floor(rng() * TULIPS.length)];
+    const horizontal = rng() < 0.5;
+    const step = 4 + Math.floor(rng() * 3);
+    const marks = edges.map(([a, b]) => {
+      const tree = rng() < 0.22;
+      const along = 0.3 + rng() * 0.4;
+      const rad = 1.6 + rng() * 1.8;
+      return { a, b, tree, along, rad };
+    });
+    for (const ox of oxs) {
+      for (const oy of oys) {
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0] + ox, pts[0][1] + oy);
+        for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0] + ox, pts[k][1] + oy);
+        ctx.closePath();
+        ctx.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
+        ctx.fill();
+        if (tulip) {
+          ctx.save();
+          ctx.clip();
+          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},0.55)`;
+          if (horizontal) {
+            for (let y = minY + 2; y < maxY - 1; y += step) ctx.fillRect(minX + ox, y + oy, maxX - minX, 1);
+          } else {
+            for (let x = minX + 2; x < maxX - 1; x += step) ctx.fillRect(x + ox, minY + oy, 1, maxY - minY);
+          }
+          ctx.restore();
+        }
+        for (const mark of marks) {
+          const p0 = mix(mark.a, mark.b, 0.16);
+          const p1 = mix(mark.a, mark.b, 0.72);
+          ctx.beginPath();
+          ctx.moveTo(p0[0] + ox, p0[1] + oy);
+          ctx.lineTo(p1[0] + ox, p1[1] + oy);
+          ctx.stroke();
+          if (mark.tree) {
+            const dot = mix(mark.a, mark.b, mark.along);
+            ctx.fillStyle = "rgba(42, 68, 40, 0.45)";
+            ctx.beginPath();
+            ctx.arc(dot[0] + ox, dot[1] + oy, mark.rad, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
     }
+  };
+
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const p00: Pt = [vx(i, j), vy(i, j)];
+      const p10: Pt = [vx(i + 1, j), vy(i + 1, j)];
+      const p11: Pt = [vx(i + 1, j + 1), vy(i + 1, j + 1)];
+      const p01: Pt = [vx(i, j + 1), vy(i, j + 1)];
+      const wide = Math.hypot(p10[0] - p00[0], p10[1] - p00[1]) >= Math.hypot(p01[0] - p00[0], p01[1] - p00[1]);
+      if (rng() < 0.25) {
+        const t = 0.38 + rng() * 0.24;
+        if (wide) {
+          const a = mix(p00, p10, t);
+          const b = mix(p01, p11, t);
+          const tulipA = rng() < 0.11;
+          const wheatA = !tulipA && rng() < 0.34;
+          paint([p00, a, b, p01], [[p00, a], [a, b]], tulipA, wheatA);
+          const tulipB = rng() < 0.11;
+          const wheatB = !tulipB && rng() < 0.34;
+          paint([a, p10, p11, b], [[a, p10], [p10, p11]], tulipB, wheatB);
+        } else {
+          const a = mix(p00, p01, t);
+          const b = mix(p10, p11, t);
+          const tulipA = rng() < 0.11;
+          const wheatA = !tulipA && rng() < 0.34;
+          paint([p00, p10, b, a], [[p00, p10], [a, b]], tulipA, wheatA);
+          const tulipB = rng() < 0.11;
+          const wheatB = !tulipB && rng() < 0.34;
+          paint([a, b, p11, p01], [[b, p11], [p11, p01]], tulipB, wheatB);
+        }
+      } else {
+        const tulip = rng() < 0.11;
+        const wheat = !tulip && rng() < 0.34;
+        paint([p00, p10, p11, p01], [[p10, p11], [p11, p01]], tulip, wheat);
+      }
+    }
   }
-  ctx.strokeStyle = "rgba(48, 78, 46, 0.85)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i <= cols; i++) {
-    ctx.moveTo(xs[i], 0);
-    ctx.lineTo(xs[i], size);
-  }
-  for (let j = 0; j <= rows; j++) {
-    ctx.moveTo(0, ys[j]);
-    ctx.lineTo(size, ys[j]);
-  }
-  ctx.stroke();
   return canvas;
 }
 
