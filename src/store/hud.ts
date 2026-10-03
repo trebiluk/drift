@@ -194,6 +194,12 @@ export function loadSavedOptions() {
   }
   applyFx(fx);
   applyLook(invertLook, invertTurn, lookSens);
+  try {
+    const savedDensity = Number(window.localStorage.getItem("drift-star-density"));
+    if (Number.isFinite(savedDensity)) runtime.starDensity = clamp(savedDensity, 0.12, 1);
+  } catch {
+    /* ignore */
+  }
   runtime.night = nightOn ? 1 : 0;
   runtime.nightTarget = nightOn ? 1 : 0;
   runtime.muted = muted;

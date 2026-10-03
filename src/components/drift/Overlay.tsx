@@ -16,6 +16,76 @@ type OverlayProps = {
   onStart: () => void;
 };
 
+function persistDensity(v: number) {
+  runtime.starDensity = clamp(v, 0.12, 1);
+  try {
+    window.localStorage.setItem("drift-star-density", String(runtime.starDensity));
+  } catch {
+    /* ignore */
+  }
+}
+
+function WarpDock({ inky }: { inky: boolean }) {
+  const lang = useLang();
+  const [density, setDensity] = useState(runtime.starDensity);
+  const [boosting, setBoosting] = useState(false);
+
+  const endBoost = (id: number) => {
+    runtime.boostHold = false;
+    setBoosting(false);
+    releaseUiPointer(id);
+  };
+
+  return (
+    <div className="warp-dock pointer-events-auto flex flex-wrap items-center gap-2" dir="ltr">
+      <label
+        className={cn(
+          "flex h-11 items-center gap-2 rounded-[var(--radius-pill)] px-3 font-sans text-xs tracking-[0.16em] uppercase",
+          inky ? "bg-cloud/15 text-cloud" : "bg-ink/15 text-ink",
+        )}
+      >
+        <span>{line(lang, "density")}</span>
+        <input
+          type="range"
+          min={0.12}
+          max={1}
+          step={0.01}
+          value={density}
+          aria-label={line(lang, "density")}
+          className="warp-range"
+          onPointerDown={(e) => captureUiPointer(e.pointerId)}
+          onPointerUp={(e) => releaseUiPointer(e.pointerId)}
+          onPointerCancel={(e) => releaseUiPointer(e.pointerId)}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            setDensity(next);
+            persistDensity(next);
+          }}
+        />
+      </label>
+      <button
+        type="button"
+        aria-pressed={boosting}
+        aria-label={line(lang, "boost")}
+        className={cn(
+          "h-11 rounded-[var(--radius-pill)] px-4 font-sans text-xs tracking-[0.16em] uppercase",
+          boosting ? "bg-cloud text-ink" : inky ? "bg-cloud/15 text-cloud" : "bg-ink/15 text-ink",
+        )}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          captureUiPointer(e.pointerId);
+          runtime.boostHold = true;
+          setBoosting(true);
+        }}
+        onPointerUp={(e) => endBoost(e.pointerId)}
+        onPointerCancel={(e) => endBoost(e.pointerId)}
+      >
+        {line(lang, "boost")}
+      </button>
+    </div>
+  );
+}
+
 function persistCruise(v: number) {
   runtime.cruise = clamp(v, 0, 1);
   useHud.getState().patch({ cruise: runtime.cruise });
@@ -633,8 +703,8 @@ export function Overlay({ onStart }: OverlayProps) {
       {!playing && (
         <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
           <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
-            <p data-version="1.11.6" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              {line(lang, "slow")} · 1.11.6
+            <p data-version="1.12.0" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
+              {line(lang, "slow")} · 1.12.0
             </p>
             {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
             <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
@@ -709,7 +779,7 @@ export function Overlay({ onStart }: OverlayProps) {
               <p className="copy-touch max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
               {voiceNote ? <p className="w-full text-sm text-cloud">{voiceNote}</p> : null}
               <p className="w-full text-sm text-cloud">
-                {sharedLine("whatsNew")} (Oct 2): {line(lang, "whatsBody")}
+                {sharedLine("whatsNew")} (Oct 3): {line(lang, "whatsBody")}
               </p>
             </div>
           </div>
@@ -754,7 +824,7 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud" : "text-ink",
             )}
           >
-            {line(lang, "flyDesk")}
+            {line(lang, world === "space" ? "flySpaceDesk" : "flyDesk")}
           </p>
           <p
             className={cn(
@@ -763,9 +833,10 @@ export function Overlay({ onStart }: OverlayProps) {
               inky ? "text-cloud" : "text-ink",
             )}
           >
-            {line(lang, "flyTouch")}
+            {line(lang, world === "space" ? "flySpaceTouch" : "flyTouch")}
           </p>
 
+          {world === "space" && <WarpDock inky={inky} />}
           {fx.throttle && <ThrottleRail inky={inky} mobile={mobile} />}
           {fx.traffic && !settingsOpen && !easy && <TrafficMap inky={inky} />}
           {playing && <StickGhost inky={inky} showCraft={!mobile} />}

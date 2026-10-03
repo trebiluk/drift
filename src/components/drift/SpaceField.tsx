@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { runtime } from "@/game/runtime";
 import { NEBULA_FRAG, NEBULA_VERT, PLANET_FRAG, PLANET_VERT } from "@/game/shaders";
+import { WarpField } from "./WarpField";
 
 type Body = {
   x: number;
@@ -218,6 +219,7 @@ export function SpaceField() {
 
   return (
     <group>
+      <WarpField />
       <group ref={group}>
         {bodies.map((b, i) => (
           <group key={i} position={[b.x, b.y, b.z]} scale={[b.r, b.r * (b.rings ? 0.82 : 1), b.r]}>

@@ -79,6 +79,7 @@ function onBlur() {
   runtime.pointer.ny = 0;
   runtime.uiCapture = false;
   runtime.uiPointers.clear();
+  runtime.boostHold = false;
   runtime.stick.active = false;
   runtime.stick.pointerId = null;
   runtime.stick.x = 0;
@@ -191,7 +192,7 @@ export function sampleActions(): Actions {
   if (keys.has("KeyD") || keys.has("ArrowRight")) yaw -= 1;
   if (keys.has("KeyW") || keys.has("ArrowUp")) pitch += 1;
   if (keys.has("KeyS") || keys.has("ArrowDown")) pitch -= 1;
-  if (keys.has("ShiftLeft") || keys.has("ShiftRight") || keys.has("Space")) throttle += 1;
+  if (keys.has("ShiftLeft") || keys.has("ShiftRight") || keys.has("Space") || runtime.boostHold) throttle += 1;
 
   // Steer only while a pull is held. Idle mouse position never contributes.
   if (runtime.playing) {

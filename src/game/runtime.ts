@@ -56,6 +56,9 @@ export type Runtime = {
   invertTurn: boolean;
   lookSens: number;
   easy: boolean;
+  starDensity: number;
+  boostHold: boolean;
+  boostAmt: number;
   traffic: TrafficSnapshot | null;
   lod: number;
   frozen: boolean;
@@ -96,6 +99,9 @@ export const runtime: Runtime = {
   invertTurn: false,
   lookSens: 1,
   easy: false,
+  starDensity: 0.58,
+  boostHold: false,
+  boostAmt: 0,
   traffic: null,
   lod: 0,
   frozen: false,

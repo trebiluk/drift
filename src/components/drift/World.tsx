@@ -807,7 +807,8 @@ function FlightLoop() {
     camera.rotation.z = craft.roll;
 
     const rush = THREE.MathUtils.clamp((craft.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0, 1);
-    const fov = reduced ? 72 : 68 + rush * (runtime.fx.streaks ? 16 : 7);
+    const warp = runtime.world === "space" ? runtime.boostAmt : 0;
+    const fov = reduced ? 72 : 68 + rush * (runtime.fx.streaks ? 16 : 7) + warp * (runtime.fx.streaks ? 10 : 4);
     const persp = camera as THREE.PerspectiveCamera;
     if (Math.abs(persp.fov - fov) > 0.08) {
       persp.fov = fov;

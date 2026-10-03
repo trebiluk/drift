@@ -58,6 +58,10 @@ export type Key =
   | "speed"
   | "flyDesk"
   | "flyTouch"
+  | "flySpaceDesk"
+  | "flySpaceTouch"
+  | "density"
+  | "boost"
   | "layerDeep"
   | "layerWorlds"
   | "layerOuter"
@@ -95,7 +99,7 @@ const EN: Record<Key, string> = {
   start: "Start",
   hintDesk: "Click and drag to steer. Scroll or Q and E change speed.",
   hintTouch: "Pull the craft to steer. Throttle is on the right.",
-  whatsBody: "More clouds below you and soft wisps all around.",
+  whatsBody: "Space is a warp of stars you can steer. Hold Boost and they streak.",
   options: "Options",
   world: "World",
   steer: "Steer",
@@ -128,6 +132,10 @@ const EN: Record<Key, string> = {
   speed: "Speed",
   flyDesk: "Click and drag to steer. Scroll or drag the throttle to change speed.",
   flyTouch: "Pull the craft or drag to steer. Throttle is on the right.",
+  flySpaceDesk: "Drag to steer the stars. Scroll changes speed. Hold Boost or Shift to streak.",
+  flySpaceTouch: "Drag to steer. Throttle is on the right. Hold Boost to streak.",
+  density: "Density",
+  boost: "Boost",
   layerDeep: "Deep space",
   layerWorlds: "Among the worlds",
   layerOuter: "The outer dark",
@@ -156,7 +164,11 @@ const SIMPLE: Partial<Record<Key, string>> = {
   hintTouch: "Pull to steer. Speed is on the right.",
   flyDesk: "Drag to steer. Drag the bar to change speed.",
   flyTouch: "Pull to steer. Speed is on the right.",
-  whatsBody: "More clouds. Wisps all around.",
+  flySpaceDesk: "Drag to steer. Scroll for speed. Hold Boost for long stars.",
+  flySpaceTouch: "Drag to steer. Hold Boost for long stars.",
+  density: "How many",
+  boost: "Boost",
+  whatsBody: "Space is fast stars. Hold Boost and they stretch.",
 };
 
 const UK: Record<Key, string> = {
@@ -179,7 +191,7 @@ const UK: Record<Key, string> = {
   start: "Старт",
   hintDesk: "Тягни, щоб керувати. Коліщатко або Q і E змінюють швидкість.",
   hintTouch: "Тягни, щоб керувати. Швидкість справа.",
-  whatsBody: "Більше хмар під тобою і м'які пасма навколо.",
+  whatsBody: "Космос — зоряний ривок. Тримайте Ривок, і зорі витягуються.",
   options: "Опції",
   world: "Світ",
   steer: "Кермо",
@@ -227,6 +239,10 @@ const UK: Record<Key, string> = {
   listening: "Слухаю",
   aloft: "у небі",
   radioQuiet: "Радіо тихе",
+  flySpaceDesk: "Тягни, щоб керувати зорями. Коліщатко змінює швидкість. Тримайте Ривок або Shift — зорі стають смугами.",
+  flySpaceTouch: "Тягни, щоб керувати. Повзунок праворуч. Тримайте Ривок — зорі стають смугами.",
+  density: "Густота",
+  boost: "Ривок",
   noRadio: "Немає радіо",
 };
 
@@ -250,7 +266,7 @@ const RU: Record<Key, string> = {
   start: "Старт",
   hintDesk: "Тяни, чтобы рулить. Колёсико или Q и E меняют скорость.",
   hintTouch: "Тяни, чтобы рулить. Скорость справа.",
-  whatsBody: "Больше облаков под тобой и мягкие перистые вокруг.",
+  whatsBody: "Космос — звёздный рывок. Держи Рывок, и звёзды становятся полосами.",
   options: "Опции",
   world: "Мир",
   steer: "Руль",
@@ -298,6 +314,10 @@ const RU: Record<Key, string> = {
   listening: "Слушаю",
   aloft: "в небе",
   radioQuiet: "Радио тихо",
+  flySpaceDesk: "Тяни, чтобы вести звёзды. Колёсико меняет скорость. Держи Рывок или Shift — звёзды тянутся.",
+  flySpaceTouch: "Тяни, чтобы рулить. Ползунок справа. Держи Рывок — звёзды тянутся.",
+  density: "Плотность",
+  boost: "Рывок",
   noRadio: "Нет радио",
 };
 
@@ -321,7 +341,7 @@ const ES: Record<Key, string> = {
   start: "Empezar",
   hintDesk: "Arrastra para girar. La rueda o Q y E cambian la velocidad.",
   hintTouch: "Tira para girar. La velocidad está a la derecha.",
-  whatsBody: "Más nubes debajo y cirros suaves alrededor.",
+  whatsBody: "El espacio es un campo de estrellas. Mantén Impulso y se estiran.",
   options: "Opciones",
   world: "Mundo",
   steer: "Girar",
@@ -369,6 +389,10 @@ const ES: Record<Key, string> = {
   listening: "Escuchando",
   aloft: "en el aire",
   radioQuiet: "Radio en calma",
+  flySpaceDesk: "Arrastra para dirigir las estrellas. La rueda cambia la velocidad. Mantén Impulso o Mayús para estelas.",
+  flySpaceTouch: "Arrastra para dirigir. La barra está a la derecha. Mantén Impulso para estelas.",
+  density: "Densidad",
+  boost: "Impulso",
   noRadio: "Sin radio",
 };
 
@@ -392,7 +416,7 @@ const AR: Record<Key, string> = {
   start: "ابدأ",
   hintDesk: "اسحب لتقود. العجلة أو Q و E تغيّر السرعة.",
   hintTouch: "اسحب لتقود. السرعة على اليمين.",
-  whatsBody: "مزيد من السحب تحتك وخيوط ناعمة في كل السماء.",
+  whatsBody: "الفضاء حقل نجوم سريع. اضغط اندفاع فتمتد النجوم.",
   options: "خيارات",
   world: "عالم",
   steer: "قيادة",
@@ -440,6 +464,10 @@ const AR: Record<Key, string> = {
   listening: "أستمع",
   aloft: "في الجو",
   radioQuiet: "الراديو هادئ",
+  flySpaceDesk: "اسحب لتوجيه النجوم. العجلة تغيّر السرعة. اضغط اندفاع أو Shift للخطوط.",
+  flySpaceTouch: "اسحب للتوجيه. السرعة على اليمين. اضغط اندفاع للخطوط.",
+  density: "الكثافة",
+  boost: "اندفاع",
   noRadio: "لا راديو",
 };
 
@@ -463,7 +491,7 @@ const FA: Record<Key, string> = {
   start: "شروع",
   hintDesk: "برای راندن بکش. چرخ یا Q و E سرعت را عوض می‌کند.",
   hintTouch: "برای راندن بکش. سرعت طرف راست است.",
-  whatsBody: "ابرهای بیشتر زیر تو و رشته‌های نرم در همه‌جا.",
+  whatsBody: "فضا میدان ستاره‌های تند است. شتاب را نگه دار تا کشیده شوند.",
   options: "گزینه‌ها",
   world: "دنیا",
   steer: "راندن",
@@ -511,6 +539,10 @@ const FA: Record<Key, string> = {
   listening: "گوش می‌دهم",
   aloft: "در هوا",
   radioQuiet: "رادیو آرام",
+  flySpaceDesk: "برای راندن ستاره‌ها بکش. چرخ سرعت را عوض می‌کند. شتاب یا Shift را نگه دار تا خط شوند.",
+  flySpaceTouch: "برای راندن بکش. سرعت در راست است. شتاب را نگه دار تا خط شوند.",
+  density: "تراکم",
+  boost: "شتاب",
   noRadio: "رادیو نیست",
 };
 
@@ -534,7 +566,7 @@ const RW: Record<Key, string> = {
   start: "Tangira",
   hintDesk: "Kura kugira ngo uyobore. Uruziga cyangwa Q na E bihindura umuvuduko.",
   hintTouch: "Kura kugira ngo uyobore. Umuvuduko uri iburyo.",
-  whatsBody: "Ibicu byinshi munsi yawe n'imiraba yoroshye hirya no hino.",
+  whatsBody: "Ikirere ni inyenyeri zihuta. Fata Kwihuta zikaba imirongo.",
   options: "Amahitamo",
   world: "Isi",
   steer: "Kuyobora",
@@ -582,6 +614,10 @@ const RW: Record<Key, string> = {
   listening: "Ndumva",
   aloft: "mu kirere",
   radioQuiet: "Radiyo ituje",
+  flySpaceDesk: "Kura kugira ngo uyobore inyenyeri. Uruziga ruhindura umuvuduko. Fata Kwihuta cyangwa Shift zigakwirwa.",
+  flySpaceTouch: "Kura kugira ngo uyobore. Umuvuduko uri iburyo. Fata Kwihuta zigakwirwa.",
+  density: "Ubwuzurane",
+  boost: "Kwihuta",
   noRadio: "Nta radiyo",
 };
 
@@ -605,7 +641,7 @@ const TI: Record<Key, string> = {
   start: "ጀምር",
   hintDesk: "ንምምራሕ ስሓብ። መንኰርኰር ወይ Q ከምኡውን E ፍጥነት ይቕይሩ።",
   hintTouch: "ንምምራሕ ስሓብ። ፍጥነት ኣብ የማን እዩ።",
-  whatsBody: "ዝያዳ ደበና ኣብ ታሕቲኻን ልስሉስ ፍንጫጭ ኣብ ኩሉ ሰማይን።",
+  whatsBody: "ህዋ ፈጣን ኮኾብ እዩ። ምብዝባዝ ሓዝ ኮኾብ ይዝርጋሕ።",
   options: "ምርጫታት",
   world: "ዓለም",
   steer: "ምምራሕ",
@@ -653,6 +689,10 @@ const TI: Record<Key, string> = {
   listening: "ይሰምዕ",
   aloft: "ኣብ ኣየር",
   radioQuiet: "ሬድዮ ጸጥ",
+  flySpaceDesk: "ንምምራሕ ኮኾብ ስሓብ። መንኰርኰር ፍጥነት ይቕይር። ምብዝባዝ ወይ Shift ሓዝ።",
+  flySpaceTouch: "ንምምራሕ ስሓብ። ፍጥነት ኣብ የማን። ምብዝባዝ ሓዝ።",
+  density: "ጥቕሲ",
+  boost: "ምብዝባዝ",
   noRadio: "ሬድዮ የለን",
 };
 
