@@ -14,7 +14,7 @@ import {
   PUFF_FRAG,
   PUFF_VERT,
 } from "@/game/shaders";
-import { createCirrusTexture, createCloudShadowTexture, createFieldTexture, createGlowTexture, createRayTexture } from "@/game/textures";
+import { createCirrusTexture, createCloudShadowTexture, createFieldTexture, createGlowTexture, createRayTexture, type ShadowBlob } from "@/game/textures";
 import { useHud } from "@/store/hud";
 import { Airplanes } from "./Airplanes";
 import { ReefField } from "./ReefField";
@@ -215,37 +215,78 @@ function GodRays() {
   );
 }
 
-function buildPuffs(count: number, mobile: boolean): Puff[] {
+const _tiltAxis = new THREE.Vector3();
+
+function buildPuffs(count: number, mobile: boolean): { puffs: Puff[]; shadows: ShadowBlob[] } {
   const list: Puff[] = [];
+  const groups: Puff[][] = [];
   const yaw = runtime.craft.yaw;
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
+  const rx = -fz;
+  const rz = fx;
+  const push = (puff: Puff, group: Puff[]) => {
+    list.push(puff);
+    group.push(puff);
+  };
+
+  const path: Puff[] = [];
+  groups.push(path);
   for (let i = 0; i < 10; i++) {
-    list.push({
-      x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
-      y: 88 + (i % 5) * 14,
-      z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
-      s: mobile ? 58 + (i % 5) * 10 : 70 + (i % 5) * 18,
-    });
+    push(
+      {
+        x: fx * (40 + i * 42) + ((i % 2) * 2 - 1) * (18 + (i % 4) * 14),
+        y: 88 + (i % 5) * 14,
+        z: fz * (40 + i * 42) + (((i + 1) % 3) - 1) * 22,
+        s: mobile ? 58 + (i % 5) * 10 : 70 + (i % 5) * 18,
+      },
+      path,
+    );
   }
+
+  const near = [
+    { ang: -0.3, r: 480, y: 110 },
+    { ang: 0.3, r: 530, y: 106 },
+    { ang: 0.0, r: 700, y: 100 },
+    { ang: -0.58, r: 360, y: 90 },
+    { ang: 0.66, r: 420, y: 84 },
+    { ang: 0.05, r: 250, y: 108 },
+  ];
   for (let c = 0; c < 18; c++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = 70 + Math.pow(Math.random(), 0.4) * WRAP;
-    const cx = Math.cos(a) * r;
-    const cz = Math.sin(a) * r;
-    const cy = 70 + Math.random() * 70;
+    const cluster: Puff[] = [];
+    groups.push(cluster);
+    let cx: number;
+    let cz: number;
+    let cy: number;
+    if (c < near.length) {
+      const spot = near[c];
+      const ca = Math.cos(spot.ang);
+      const sa = Math.sin(spot.ang);
+      cx = (fx * ca + rx * sa) * spot.r;
+      cz = (fz * ca + rz * sa) * spot.r;
+      cy = spot.y;
+    } else {
+      const a = Math.random() * Math.PI * 2;
+      const rad = 70 + Math.pow(Math.random(), 0.4) * WRAP;
+      cx = Math.cos(a) * rad;
+      cz = Math.sin(a) * rad;
+      cy = 70 + Math.random() * 70;
+    }
     const n = 3 + (c % 4);
     for (let j = 0; j < n && list.length < count; j++) {
       const x = cx + (Math.random() - 0.5) * 78;
       const y = cy + (Math.random() - 0.5) * 36;
       const z = cz + (Math.random() - 0.5) * 78;
       const sizeRoll = Math.random();
-      list.push({
-        x,
-        y,
-        z,
-        s: mobile ? 48 + sizeRoll * 62 : 52 + sizeRoll * 88,
-      });
+      push(
+        {
+          x,
+          y,
+          z,
+          s: mobile ? 48 + sizeRoll * 62 : 52 + sizeRoll * 88,
+        },
+        cluster,
+      );
     }
   }
   while (list.length < count) {
@@ -260,7 +301,44 @@ function buildPuffs(count: number, mobile: boolean): Puff[] {
       s: mobile ? 48 + sizeRoll * 52 : 48 + sizeRoll * 70,
     });
   }
-  return list;
+
+  const shadows: ShadowBlob[] = [];
+  for (const group of groups) {
+    if (group.length === 0) continue;
+    let sx = 0;
+    let sz = 0;
+    for (const p of group) {
+      sx += p.x;
+      sz += p.z;
+    }
+    const cx = sx / group.length;
+    const cz = sz / group.length;
+    let cxx = 0;
+    let czz = 0;
+    let cxz = 0;
+    for (const p of group) {
+      const dx = p.x - cx;
+      const dz = p.z - cz;
+      cxx += dx * dx;
+      czz += dz * dz;
+      cxz += dx * dz;
+    }
+    const rot = 0.5 * Math.atan2(2 * cxz, cxx - czz);
+    const c = Math.cos(rot);
+    const s = Math.sin(rot);
+    let brx = 36;
+    let brz = 28;
+    for (const p of group) {
+      const dx = p.x - cx;
+      const dz = p.z - cz;
+      const u = Math.abs(dx * c + dz * s) + p.s * 0.42;
+      const v = Math.abs(-dx * s + dz * c) + p.s * 0.34;
+      if (u > brx) brx = u;
+      if (v > brz) brz = v;
+    }
+    shadows.push({ x: cx, z: cz, rx: Math.min(brx, 320), rz: Math.min(brz, 220), rot });
+  }
+  return { puffs: list, shadows };
 }
 
 function CloudPuffs({ puffs }: { puffs: Puff[] }) {
@@ -343,7 +421,7 @@ function CloudPuffs({ puffs }: { puffs: Puff[] }) {
   return <instancedMesh ref={mesh} args={[geo, mat, count]} frustumCulled={false} renderOrder={2} />;
 }
 
-type Streak = { x: number; y: number; z: number; w: number; d: number; yaw: number };
+type Streak = { x: number; y: number; z: number; w: number; d: number; yaw: number; tilt: number };
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -358,20 +436,27 @@ function mulberry32(seed: number) {
 
 function Cirrus() {
   const mesh = useRef<THREE.InstancedMesh>(null);
+  const { gl } = useThree();
   const wind = useMemo(() => new THREE.Vector2(), []);
   const streaks = useMemo<Streak[]>(() => {
     const rng = mulberry32(11);
+    const yaw0 = runtime.craft.yaw;
+    const fx = -Math.sin(yaw0);
+    const fz = -Math.cos(yaw0);
+    const ahead = Math.atan2(fz, fx);
     const list: Streak[] = [];
-    for (let i = 0; i < 8; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = 1600 + rng() * 1600;
+    for (let i = 0; i < 13; i++) {
+      const forward = i < 2;
+      const a = forward ? ahead + (i === 0 ? -0.18 : 0.16) : rng() * Math.PI * 2;
+      const r = forward ? 1900 + i * 500 : 1600 + rng() * 1600;
       list.push({
         x: Math.cos(a) * r,
         z: Math.sin(a) * r,
-        y: 540 + rng() * 150,
+        y: forward ? 580 + i * 50 : 540 + rng() * 150,
         w: 1500 + rng() * 1100,
-        d: 260 + rng() * 280,
+        d: 600 + rng() * 400,
         yaw: rng() * Math.PI,
+        tilt: ((16 + rng() * 4) * Math.PI) / 180,
       });
     }
     return list;
@@ -381,23 +466,26 @@ function Cirrus() {
     map.colorSpace = THREE.NoColorSpace;
     map.wrapS = THREE.ClampToEdgeWrapping;
     map.wrapT = THREE.ClampToEdgeWrapping;
-    map.generateMipmaps = false;
-    map.minFilter = THREE.LinearFilter;
+    map.generateMipmaps = true;
+    map.minFilter = THREE.LinearMipmapLinearFilter;
     map.magFilter = THREE.LinearFilter;
+    map.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    map.premultiplyAlpha = true;
     map.needsUpdate = true;
     return map;
-  }, []);
+  }, [gl]);
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
         uniforms: {
           uMap: { value: tex },
-          uOpacity: { value: 0.4 },
+          uOpacity: { value: 0.35 },
         },
         vertexShader: CIRRUS_VERT,
         fragmentShader: CIRRUS_FRAG,
         transparent: true,
         depthWrite: false,
+        premultipliedAlpha: true,
         side: THREE.DoubleSide,
         toneMapped: false,
         fog: false,
@@ -421,16 +509,20 @@ function Cirrus() {
     const sky = runtime.world === "sky" && runtime.spaceAmt < 0.4 && camera.position.y < 980;
     inst.visible = sky;
     if (!sky) return;
-    mat.uniforms.uOpacity.value = 0.4 * (1 - runtime.night * 0.85);
+    mat.uniforms.uOpacity.value = 0.35 * (1 - runtime.night * 0.85);
     windVelocity(wind);
     const ox = wind.x * clock.elapsedTime;
     const oz = wind.y * clock.elapsedTime;
     const half = 3400;
     for (let i = 0; i < streaks.length; i++) {
       const s = streaks[i];
-      _dummy.position.set(wrapAxis(s.x + ox, camera.position.x, half), s.y, wrapAxis(s.z + oz, camera.position.z, half));
-      _dummy.rotation.set(-Math.PI / 2, 0, s.yaw);
+      const x = wrapAxis(s.x + ox, camera.position.x, half);
+      const z = wrapAxis(s.z + oz, camera.position.z, half);
+      _dummy.position.set(x, s.y, z);
       _dummy.scale.set(s.w, s.d, 1);
+      _dummy.rotation.set(-Math.PI / 2, 0, s.yaw);
+      _tiltAxis.set(1, 0, 0).applyQuaternion(_dummy.quaternion);
+      _dummy.rotateOnWorldAxis(_tiltAxis, s.tilt);
       _dummy.updateMatrix();
       inst.setMatrixAt(i, _dummy.matrix);
     }
@@ -440,7 +532,7 @@ function Cirrus() {
   return <instancedMesh ref={mesh} args={[geo, mat, streaks.length]} frustumCulled={false} renderOrder={1} />;
 }
 
-function Farmland({ puffs }: { puffs: Puff[] }) {
+function Farmland({ shadows }: { shadows: ShadowBlob[] }) {
   const mesh = useRef<THREE.Mesh>(null);
   const wind = useMemo(() => new THREE.Vector2(), []);
   const { gl } = useThree();
@@ -457,7 +549,7 @@ function Farmland({ puffs }: { puffs: Puff[] }) {
     return map;
   }, [gl]);
   const shadowTex = useMemo(() => {
-    const map = new THREE.CanvasTexture(createCloudShadowTexture(puffs, WRAP_SPAN));
+    const map = new THREE.CanvasTexture(createCloudShadowTexture(shadows, WRAP_SPAN));
     map.colorSpace = THREE.NoColorSpace;
     map.wrapS = THREE.RepeatWrapping;
     map.wrapT = THREE.RepeatWrapping;
@@ -468,7 +560,7 @@ function Farmland({ puffs }: { puffs: Puff[] }) {
     map.anisotropy = Math.min(4, gl.capabilities.getMaxAnisotropy());
     map.needsUpdate = true;
     return map;
-  }, [gl, puffs]);
+  }, [gl, shadows]);
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -750,12 +842,12 @@ function LightRig() {
 function SkyClouds() {
   const mobile = runtime.mobile;
   const count = mobile ? 96 : 140;
-  const puffs = useMemo(() => buildPuffs(count, mobile), [count, mobile]);
+  const built = useMemo(() => buildPuffs(count, mobile), [count, mobile]);
   return (
     <>
-      <Farmland puffs={puffs} />
+      <Farmland shadows={built.shadows} />
       <Cirrus />
-      <CloudPuffs puffs={puffs} />
+      <CloudPuffs puffs={built.puffs} />
     </>
   );
 }

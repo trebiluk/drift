@@ -146,7 +146,7 @@ export function createDotTexture() {
   return canvas;
 }
 
-/** Combed high cirrus. One canvas, drawn once. */
+/** Combed high cirrus. One canvas, drawn once. Soft ribbons, no stitched gaps. */
 export function createCirrusTexture() {
   const w = 1024;
   const h = 256;
@@ -157,74 +157,30 @@ export function createCirrusTexture() {
   if (!ctx) throw new Error("No 2d context");
   ctx.clearRect(0, 0, w, h);
   const rng = mulberry32(7);
-  type Seg = {
-    x0: number;
-    y0: number;
-    c1x: number;
-    c1y: number;
-    c2x: number;
-    c2y: number;
-    x1: number;
-    y1: number;
-    a: number;
-  };
-  const strokes: Array<{ width: number; segs: Seg[] }> = [];
-  const count = 22 + Math.floor(rng() * 12);
-  for (let i = 0; i < count; i++) {
-    const y = 12 + rng() * (h - 24);
-    const width = 2 + rng() * 12;
-    const alpha = 0.08 + rng() * 0.27;
-    const curl = (rng() - 0.5) * 56;
-    const segs: Seg[] = [];
-    let x = -8;
-    let yy = y + (rng() - 0.5) * 10;
-    const nSeg = 5 + Math.floor(rng() * 3);
-    for (let s = 0; s < nSeg; s++) {
-      const span = ((w + 40) / nSeg) * (0.72 + rng() * 0.45);
-      const dip = rng() < 0.42 ? 0.08 + rng() * 0.22 : 0.62 + rng() * 0.38;
-      const x1 = x + span;
-      const y1 = y + curl * (rng() - 0.5) * 0.65;
-      segs.push({
-        x0: x,
-        y0: yy,
-        c1x: x + span * 0.33,
-        c1y: yy + curl * (rng() - 0.5),
-        c2x: x + span * 0.68,
-        c2y: y1 + curl * (rng() - 0.5) * 0.45,
-        x1,
-        y1,
-        a: Math.min(0.35, alpha * dip),
-      });
-      x = x1 + 8 + rng() * 30;
-      yy = y1;
-      if (x > w + 12) break;
-    }
-    strokes.push({ width, segs });
-  }
-
-  const paint = (alphaMul: number) => {
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    for (const stroke of strokes) {
-      for (const seg of stroke.segs) {
-        const rings = 5;
-        for (let k = rings; k >= 1; k--) {
-          ctx.beginPath();
-          ctx.moveTo(seg.x0, seg.y0);
-          ctx.bezierCurveTo(seg.c1x, seg.c1y, seg.c2x, seg.c2y, seg.x1, seg.y1);
-          ctx.lineWidth = stroke.width * (k / 2.1);
-          const a = seg.a * alphaMul * (0.16 + 0.08 * (rings - k));
-          ctx.strokeStyle = `rgba(255,255,255,${a})`;
-          ctx.stroke();
-        }
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const paint = (blur: string, alphaMul: number) => {
+    ctx.filter = blur;
+    for (let i = 0; i < 5; i++) {
+      const y = 36 + (i + rng() * 0.6) * ((h - 72) / 5);
+      const amp = 8 + rng() * 16;
+      const phase = rng() * Math.PI * 2;
+      const width = 28 + rng() * 26;
+      const alpha = (0.07 + rng() * 0.08) * alphaMul;
+      ctx.beginPath();
+      for (let x = -20; x <= w + 20; x += 12) {
+        const yy = y + Math.sin(x * 0.008 + phase) * amp + Math.sin(x * 0.021 + phase * 1.7) * amp * 0.35;
+        if (x === -20) ctx.moveTo(x, yy);
+        else ctx.lineTo(x, yy);
       }
+      ctx.lineWidth = width;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.stroke();
     }
+    ctx.filter = "none";
   };
-
-  ctx.filter = "blur(2px)";
-  paint(1);
-  ctx.filter = "none";
-  paint(0.48);
+  paint("blur(16px)", 1);
+  paint("blur(8px)", 0.55);
 
   ctx.globalCompositeOperation = "destination-in";
   const fadeX = ctx.createLinearGradient(0, 0, w, 0);
@@ -242,6 +198,14 @@ export function createCirrusTexture() {
   ctx.fillStyle = fadeY;
   ctx.fillRect(0, 0, w, h);
   ctx.globalCompositeOperation = "source-over";
+  const img = ctx.getImageData(0, 0, w, h);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    px[i] = 255;
+    px[i + 1] = 255;
+    px[i + 2] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
   return canvas;
 }
 
@@ -407,10 +371,49 @@ export function createFieldTexture() {
   return canvas;
 }
 
-type ShadowPuff = { x: number; z: number; s: number };
+export type ShadowBlob = { x: number; z: number; rx: number; rz: number; rot: number };
 
-/** One wrap tile of soft cloud shadows. Repeats with the puff wrap. */
-export function createCloudShadowTexture(puffs: ShadowPuff[], span: number) {
+function blurWrapMask(ctx: CanvasRenderingContext2D, size: number, radius: number) {
+  const img = ctx.getImageData(0, 0, size, size);
+  const src = new Float32Array(size * size);
+  const data = img.data;
+  for (let i = 0; i < src.length; i++) src[i] = data[i * 4] / 255;
+  const tmp = new Float32Array(src.length);
+  const dst = new Float32Array(src.length);
+  const n = radius * 2 + 1;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let sum = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const xx = (x + k + size) % size;
+        sum += src[y * size + xx];
+      }
+      tmp[y * size + x] = sum / n;
+    }
+  }
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let sum = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const yy = (y + k + size) % size;
+        sum += tmp[yy * size + x];
+      }
+      dst[y * size + x] = sum / n;
+    }
+  }
+  for (let i = 0; i < dst.length; i++) {
+    const v = Math.max(0, Math.min(255, Math.round(dst[i] * 255)));
+    const o = i * 4;
+    data[o] = v;
+    data[o + 1] = v;
+    data[o + 2] = v;
+    data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/** One wrap tile of soft cloud-shaped shadows. Repeats with the puff wrap. */
+export function createCloudShadowTexture(blobs: ShadowBlob[], span: number) {
   const size = 256;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -425,26 +428,34 @@ export function createCloudShadowTexture(puffs: ShadowPuff[], span: number) {
     if (x < 0) x += span;
     return (x / span) * size;
   };
-  for (const p of puffs) {
-    const px = tile(p.x);
-    const py = tile(p.z);
-    const r = Math.max(6, ((p.s * 0.72) / span) * size);
+  for (const blob of blobs) {
+    const px = tile(blob.x);
+    const py = tile(blob.z);
+    const rxp = Math.max(8, (blob.rx / span) * size);
+    const rzp = Math.max(8, (blob.rz / span) * size);
     for (const ox of [-size, 0, size]) {
       for (const oy of [-size, 0, size]) {
         const x = px + ox;
         const y = py + oy;
-        if (x < -r || y < -r || x > size + r || y > size + r) continue;
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, "rgba(255,255,255,0.95)");
-        g.addColorStop(0.45, "rgba(255,255,255,0.45)");
+        if (x < -rxp || y < -rzp || x > size + rxp || y > size + rzp) continue;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(blob.rot);
+        ctx.scale(rxp, rzp);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        g.addColorStop(0, "rgba(255,255,255,0.55)");
+        g.addColorStop(0.55, "rgba(255,255,255,0.25)");
         g.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.arc(0, 0, 1, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
     }
   }
+  ctx.globalCompositeOperation = "source-over";
+  blurWrapMask(ctx, size, 6);
   return canvas;
 }
 

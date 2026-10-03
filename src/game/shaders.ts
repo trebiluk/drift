@@ -178,7 +178,12 @@ void main() {
 
   float fade = smoothstep(1100.0, 90.0, vDist);
   float edge = smoothstep(0.0, 0.18, 1.0 - max(abs(vLocal.x * 2.0 - 1.0), abs(vLocal.y * 2.0 - 1.0)));
-  float nearFade = smoothstep(0.35, 1.0, vDist / max(vScale * 1.2, 1.0));
+  float distN = vDist / max(vScale * 1.2, 1.0);
+  float nearDay = smoothstep(0.35, 1.0, distN);
+  float nearNight = smoothstep(0.6, 1.2, distN);
+  float nearFade = mix(nearDay, nearNight, uNight);
+  vec3 pale = vec3(0.90, 0.94, 1.0);
+  col = mix(col, pale, uNight * (1.0 - nearNight));
   float alpha = dens * fade * (1.0 - uSpace * 0.85) * edge * nearFade;
   if (alpha < 0.012) discard;
   gl_FragColor = vec4(col * alpha, alpha);
@@ -212,8 +217,11 @@ void main() {
   float ca = cos(ang);
   float sa = sin(ang);
   vec2 rot = vec2(ca * wxz.x - sa * wxz.y, sa * wxz.x + ca * wxz.y);
-  vec3 fieldsFar = texture2D(uFields, rot / 4150.0 + vec2(0.17, 0.41)).rgb;
-  vec3 col = mix(fields, fieldsFar, 0.36);
+  vec2 base = rot / 4150.0 + vec2(0.17, 0.41);
+  vec3 farTint = texture2D(uFields, base, 5.0).rgb;
+  float farL = dot(farTint, vec3(0.299, 0.587, 0.114));
+  float lift = clamp(farL - 0.5, -0.08, 0.08);
+  vec3 col = fields * (1.0 + lift);
   float cell = fract(sin(dot(floor(wxz / 9000.0), vec2(12.9898, 78.233))) * 43758.5453);
   col *= mix(0.93, 1.06, cell);
   col = mix(col, col * vec3(0.62, 0.72, 1.05), uNight);
@@ -221,7 +229,7 @@ void main() {
 
   vec2 suv = (wxz - uWind * uTime - uSunShift) / 1480.0;
   float sh = texture2D(uShadow, suv).r;
-  col *= 1.0 - sh * mix(0.32, 0.04, uNight);
+  col *= 1.0 - sh * mix(0.24, 0.04, uNight);
 
   vec3 toCam = cameraPosition - vWorld;
   float viewUp = toCam.y / max(length(toCam), 1.0);
@@ -257,7 +265,7 @@ void main() {
   float ang = 1.0 - pow(abs(dir.y), 4.0);
   float a = tex.a * uOpacity * ang * edge;
   if (a < 0.015) discard;
-  gl_FragColor = vec4(1.0, 1.0, 1.0, a);
+  gl_FragColor = vec4(a, a, a, a);
 }
 `;
 
