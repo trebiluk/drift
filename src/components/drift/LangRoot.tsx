@@ -106,14 +106,31 @@ export function useLang() {
   return useContext(LangCtx);
 }
 
-/** True when this language has a voice. rw and ti do not. */
+/** Explicit Read aloud. The room read switch only gates KulibertPrefs.say;
+ *  a tap still speaks unless sound is off. rw and ti have no voice. */
 export function speakLine(text: string, lang: Lang) {
   const api = prefs();
-  if (api?.say) {
-    api.say(text);
-    return api.voiceFor ? api.voiceFor(lang) != null : lang !== "rw" && lang !== "ti";
+  if (api?.say) api.say(text);
+  const root = typeof document !== "undefined" ? document.documentElement : null;
+  const readOn = root?.getAttribute("data-kp-read") === "1";
+  if (readOn) return api?.voiceFor ? api.voiceFor(lang) != null : lang !== "rw" && lang !== "ti";
+  if (lang === "rw" || lang === "ti" || typeof window === "undefined") return false;
+  if (root?.getAttribute("data-kp-sound") === "0") return false;
+  const synth = window.speechSynthesis;
+  if (!synth) return false;
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    const voice = api?.voiceFor?.(lang) as SpeechSynthesisVoice | undefined;
+    if (voice) {
+      u.voice = voice;
+      u.lang = voice.lang;
+    }
+    synth.cancel();
+    synth.speak(u);
+    return true;
+  } catch {
+    return false;
   }
-  return false;
 }
 
 export function noVoiceLine() {

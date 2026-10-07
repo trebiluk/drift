@@ -599,6 +599,28 @@ function SettingsPanel() {
   );
 }
 
+function useOverflowCue(active: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const more = el.scrollHeight > el.clientHeight + 2 && el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+      setOverflowing(more);
+    };
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      watch.disconnect();
+    };
+  }, [active]);
+  return { ref, overflowing };
+}
+
 export function Overlay({ onStart }: OverlayProps) {
   const playing = useHud((s) => s.playing);
   const altitude = useHud((s) => s.altitude);
@@ -619,6 +641,8 @@ export function Overlay({ onStart }: OverlayProps) {
   const [hint, setHint] = useState(true);
   const [alias, setAlias] = useState("");
   const [voiceNote, setVoiceNote] = useState("");
+  const newsCue = useOverflowCue(!playing);
+  const sideCue = useOverflowCue(!playing);
 
   useEffect(() => {
     setVoiceNote("");
@@ -702,61 +726,77 @@ export function Overlay({ onStart }: OverlayProps) {
 
       {!playing && (
         <div className="door-sheet pointer-events-auto absolute inset-0 flex min-h-0 flex-col bg-linear-to-t from-ink/55 via-ink/18 to-transparent">
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-16 sm:px-12">
-            <div className="mx-auto mt-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)] pb-3">
-              <p data-version="1.12.1" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-                {line(lang, "slow")} · 1.12.1
-              </p>
-              {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
-              <h1 className="door-title font-display text-[clamp(2.5rem,8vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
-                <bdi>Drift</bdi>
-              </h1>
-              <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeDesk")}</p>
-              <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeTouch")}</p>
-              <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">{sharedLine("sound")}</p>
-              <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={sharedLine("sound")}>
-                {MUSIC_OPTS.map((opt) => (
+          <div className="door-flow flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-16 sm:px-12">
+            <div className="door-flow-inner mx-auto mt-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)] pb-3">
+              <div className="door-left">
+                <div className="door-copy-col">
+                  <div className="door-brand">
+                    <p data-version="1.12.2" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
+                      {line(lang, "slow")} · 1.12.2
+                    </p>
+                    {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
+                    <h1 className="door-title font-display text-[clamp(2.5rem,8vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
+                      <bdi>Drift</bdi>
+                    </h1>
+                  </div>
+                  <div className="door-lede">
+                    <p data-lede="desk" className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeDesk")}</p>
+                    <p data-lede="touch" className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeTouch")}</p>
+                  </div>
+                </div>
+                <div ref={newsCue.ref} className={cn("door-news", newsCue.overflowing && "is-overflowing")}>
+                  <p className="mt-3 max-w-md text-sm text-cloud">
+                    {sharedLine("whatsNew")} (Oct 7): {line(lang, "whatsBody")}
+                  </p>
+                  {voiceNote ? <p className="mt-2 w-full text-sm text-cloud">{voiceNote}</p> : null}
+                  <p className="copy-desk mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintDesk")}</p>
+                  <p className="copy-touch mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
+                </div>
+              </div>
+              <div ref={sideCue.ref} className={cn("door-side", sideCue.overflowing && "is-overflowing")}>
+                <div className="door-sound">
+                  <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">{sharedLine("sound")}</p>
+                  <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={sharedLine("sound")}>
+                    {MUSIC_OPTS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={sound === opt.id}
+                        onClick={() => {
+                          useHud.getState().setMusic(opt.id);
+                          previewSound(opt.id);
+                        }}
+                        className={cn(
+                          "h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm whitespace-nowrap",
+                          sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+                        )}
+                      >
+                        {line(lang, opt.key)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="door-watch">
                   <button
-                    key={opt.id}
                     type="button"
-                    role="radio"
-                    aria-checked={sound === opt.id}
-                    onClick={() => {
-                      useHud.getState().setMusic(opt.id);
-                      previewSound(opt.id);
-                    }}
+                    aria-pressed={easy}
+                    onClick={() => useHud.getState().setEasy(!easy)}
                     className={cn(
-                      "h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm whitespace-nowrap",
-                      sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+                      "mt-3 h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
+                      easy ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
                     )}
                   >
-                    {line(lang, opt.key)}
+                    {easy ? line(lang, "watchOn") : line(lang, "watch")}
                   </button>
-                ))}
+                  <p className="mt-2 max-w-md text-sm text-cloud">{line(lang, "watchHint")}</p>
+                </div>
               </div>
-              <button
-                type="button"
-                aria-pressed={easy}
-                onClick={() => useHud.getState().setEasy(!easy)}
-                className={cn(
-                  "mt-3 h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
-                  easy ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
-                )}
-              >
-                {easy ? line(lang, "watchOn") : line(lang, "watch")}
-              </button>
-              <p className="mt-2 max-w-md text-sm text-cloud">{line(lang, "watchHint")}</p>
-              <p className="mt-3 max-w-md text-sm text-cloud">
-                {sharedLine("whatsNew")} (Oct 7): {line(lang, "whatsBody")}
-              </p>
-              {voiceNote ? <p className="mt-2 w-full text-sm text-cloud">{voiceNote}</p> : null}
-              <p className="copy-desk mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintDesk")}</p>
-              <p className="copy-touch mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
             </div>
           </div>
           <div className="door-pick shrink-0 px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-12 sm:pb-8">
-            <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={line(lang, "world")}>
+            <div className="door-pick-inner mx-auto flex w-full max-w-xl flex-col gap-2">
+              <div className="door-world flex flex-wrap gap-2" role="radiogroup" aria-label={line(lang, "world")}>
                 {WORLD_OPTS.map((opt) => (
                   <button
                     key={opt.id}
@@ -774,7 +814,7 @@ export function Overlay({ onStart }: OverlayProps) {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="door-go flex flex-wrap items-center gap-3">
                 <Button type="button" onClick={onStart} aria-label={line(lang, "start")}>
                   {line(lang, "start")}
                 </Button>

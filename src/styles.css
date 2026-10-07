@@ -259,3 +259,139 @@ html[data-input="touch"] .warp-range {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Short landscape only. Upright and laptop doors keep the single bottom stack.
+   .door-left, .door-copy-col and .door-side generate no box until the screen is short,
+   so flex order can put sound and watch back between the lede and what's new. */
+.door-flow-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.door-left,
+.door-copy-col,
+.door-side {
+  display: contents;
+}
+
+.door-brand { order: 1; }
+.door-lede { order: 2; }
+.door-sound { order: 3; }
+.door-watch { order: 4; }
+.door-news { order: 5; }
+
+@media (max-height: 500px) {
+  .door-sheet {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "left world"
+      "left go"
+      "left side";
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+    align-items: stretch;
+    overflow: hidden;
+    padding: 3.75rem 0.85rem max(0.4rem, env(safe-area-inset-bottom));
+  }
+
+  .door-flow,
+  .door-flow-inner,
+  .door-pick,
+  .door-pick-inner,
+  .door-copy-col {
+    display: contents;
+  }
+
+  .door-left {
+    display: flex;
+    flex-direction: column;
+    grid-area: left;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .door-brand { min-width: 0; order: 1; align-self: end; }
+  .door-lede { min-width: 0; min-height: 0; order: 2; align-self: start; }
+  .door-news {
+    order: 3;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  .door-world {
+    grid-area: world;
+    min-width: 0;
+    align-self: end;
+    justify-self: start;
+    margin-top: 1.35rem;
+  }
+  .door-go { grid-area: go; min-width: 0; align-self: start; }
+  .door-side {
+    display: flex;
+    flex-direction: column;
+    grid-area: side;
+    min-width: 0;
+    min-height: 0;
+    align-self: stretch;
+    order: 0;
+  }
+
+  .door-sheet .door-title {
+    font-size: 2.5rem;
+    line-height: 0.9;
+    margin-top: 0;
+  }
+
+  .door-sheet .door-brand > p {
+    margin-bottom: 0.1rem;
+  }
+
+  .door-lede .copy-desk,
+  .door-lede .copy-touch {
+    margin-top: 0.15rem;
+    font-size: 0.95rem;
+    line-height: 1.35rem;
+  }
+
+  .door-sound > p,
+  .door-news > p,
+  .door-watch > p {
+    margin-top: 0.1rem;
+  }
+
+  .door-sound > div {
+    margin-top: 0;
+  }
+
+  .door-watch > button {
+    margin-top: 0.15rem;
+  }
+
+  .door-sound button {
+    padding-inline: 0.65rem;
+  }
+
+  .door-news,
+  .door-side {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-snap-type: y proximity;
+    scroll-padding-block: 0.15rem;
+    line-height: 1.35rem;
+  }
+
+  .door-news > *,
+  .door-side > * {
+    scroll-snap-align: start;
+  }
+
+  .door-news.is-overflowing,
+  .door-side.is-overflowing {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 1.35rem), transparent);
+    mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 1.35rem), transparent);
+  }
+}
