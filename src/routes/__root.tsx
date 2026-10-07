@@ -77,7 +77,7 @@ function RootDocument() {
       lang={boot.lang === "simple" ? "en" : boot.lang}
       dir={dirOf(boot.lang)}
       data-kp-lang={boot.lang}
-      data-version="1.12.0"
+      data-version="1.12.1"
       suppressHydrationWarning
       className="antialiased"
     >

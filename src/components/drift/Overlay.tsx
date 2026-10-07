@@ -415,7 +415,7 @@ function ChipPicker<T extends string>({
             aria-label={opt.name}
             onClick={() => onPick(opt.id)}
             className={cn(
-              "h-11 rounded-[var(--radius-sm)] px-3 font-sans text-sm",
+              "h-11 min-h-11 min-w-11 rounded-[var(--radius-sm)] px-3 font-sans text-sm whitespace-nowrap",
               value === opt.id ? "bg-ink text-cloud" : "bg-ink/8 text-ink-soft hover:bg-ink/10",
             )}
             onPointerDown={(e) => captureUiPointer(e.pointerId)}
@@ -701,86 +701,95 @@ export function Overlay({ onStart }: OverlayProps) {
       )}
 
       {!playing && (
-        <div className="pointer-events-auto absolute inset-0 flex flex-col justify-end bg-linear-to-t from-ink/55 via-ink/18 to-transparent px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-12 sm:pb-16">
-          <div className="mx-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)]">
-            <p data-version="1.12.0" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-              {line(lang, "slow")} · 1.12.0
-            </p>
-            {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
-            <h1 className="font-display text-[clamp(3.25rem,12vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
-              <bdi>Drift</bdi>
-            </h1>
-            <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeDesk")}</p>
-            <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeTouch")}</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {WORLD_OPTS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => useHud.getState().setWorld(opt.id)}
-                  className={cn(
-                    "h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
-                    world === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
-                  )}
-                >
-                  {line(lang, opt.key)}
-                </button>
-              ))}
-            </div>
-            <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">{sharedLine("sound")}</p>
-            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={sharedLine("sound")}>
-              {MUSIC_OPTS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={sound === opt.id}
-                  onClick={() => {
-                    useHud.getState().setMusic(opt.id);
-                    previewSound(opt.id);
-                  }}
-                  className={cn(
-                    "h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
-                    sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
-                  )}
-                >
-                  {line(lang, opt.key)}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              aria-pressed={easy}
-              onClick={() => useHud.getState().setEasy(!easy)}
-              className={cn(
-                "mt-3 h-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
-                easy ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
-              )}
-            >
-              {easy ? line(lang, "watchOn") : line(lang, "watch")}
-            </button>
-            <p className="mt-2 max-w-md text-sm text-cloud">{line(lang, "watchHint")}</p>
-            <div className="mt-5 flex flex-wrap items-center gap-4">
-              <Button type="button" onClick={onStart} aria-label={line(lang, "start")}>
-                {line(lang, "start")}
-              </Button>
+        <div className="door-sheet pointer-events-auto absolute inset-0 flex min-h-0 flex-col bg-linear-to-t from-ink/55 via-ink/18 to-transparent">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-16 sm:px-12">
+            <div className="mx-auto mt-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)] pb-3">
+              <p data-version="1.12.1" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
+                {line(lang, "slow")} · 1.12.1
+              </p>
+              {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
+              <h1 className="door-title font-display text-[clamp(2.5rem,8vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
+                <bdi>Drift</bdi>
+              </h1>
+              <p className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeDesk")}</p>
+              <p className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeTouch")}</p>
+              <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">{sharedLine("sound")}</p>
+              <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={sharedLine("sound")}>
+                {MUSIC_OPTS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={sound === opt.id}
+                    onClick={() => {
+                      useHud.getState().setMusic(opt.id);
+                      previewSound(opt.id);
+                    }}
+                    className={cn(
+                      "h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm whitespace-nowrap",
+                      sound === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+                    )}
+                  >
+                    {line(lang, opt.key)}
+                  </button>
+                ))}
+              </div>
               <button
                 type="button"
-                className="h-11 rounded-[var(--radius-pill)] bg-cloud/15 px-4 font-sans text-sm text-cloud"
-                onClick={() => {
-                  const words = line(lang, "ledeDesk");
-                  speakLine(words, lang);
-                  setVoiceNote(lang === "rw" || lang === "ti" ? `${words} ${noVoiceLine()}` : "");
-                }}
+                aria-pressed={easy}
+                onClick={() => useHud.getState().setEasy(!easy)}
+                className={cn(
+                  "mt-3 h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm",
+                  easy ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+                )}
               >
-                {sharedLine("readAloud")}
+                {easy ? line(lang, "watchOn") : line(lang, "watch")}
               </button>
-              <p className="copy-desk max-w-[18rem] text-sm text-cloud">{line(lang, "hintDesk")}</p>
-              <p className="copy-touch max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
-              {voiceNote ? <p className="w-full text-sm text-cloud">{voiceNote}</p> : null}
-              <p className="w-full text-sm text-cloud">
-                {sharedLine("whatsNew")} (Oct 3): {line(lang, "whatsBody")}
+              <p className="mt-2 max-w-md text-sm text-cloud">{line(lang, "watchHint")}</p>
+              <p className="mt-3 max-w-md text-sm text-cloud">
+                {sharedLine("whatsNew")} (Oct 7): {line(lang, "whatsBody")}
               </p>
+              {voiceNote ? <p className="mt-2 w-full text-sm text-cloud">{voiceNote}</p> : null}
+              <p className="copy-desk mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintDesk")}</p>
+              <p className="copy-touch mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintTouch")}</p>
+            </div>
+          </div>
+          <div className="door-pick shrink-0 px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-12 sm:pb-8">
+            <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={line(lang, "world")}>
+                {WORLD_OPTS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    data-world={opt.id}
+                    aria-checked={world === opt.id}
+                    onClick={() => useHud.getState().setWorld(opt.id)}
+                    className={cn(
+                      "h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] px-4 font-sans text-sm whitespace-nowrap",
+                      world === opt.id ? "bg-cloud text-ink" : "bg-cloud/15 text-cloud hover:bg-cloud/25",
+                    )}
+                  >
+                    {line(lang, opt.key)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" onClick={onStart} aria-label={line(lang, "start")}>
+                  {line(lang, "start")}
+                </Button>
+                <button
+                  type="button"
+                  className="h-11 min-h-11 min-w-11 rounded-[var(--radius-pill)] bg-cloud/15 px-4 font-sans text-sm text-cloud"
+                  onClick={() => {
+                    const words = line(lang, "ledeDesk");
+                    speakLine(words, lang);
+                    setVoiceNote(lang === "rw" || lang === "ti" ? `${words} ${noVoiceLine()}` : "");
+                  }}
+                >
+                  {sharedLine("readAloud")}
+                </button>
+              </div>
             </div>
           </div>
         </div>

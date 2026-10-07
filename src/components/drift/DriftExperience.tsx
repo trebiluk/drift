@@ -101,7 +101,7 @@ export function DriftExperience({ boot, classic }: { boot: Lang; classic: boolea
 
   return (
     <LangRoot boot={boot} classic={classic}>
-      <main className="sky-wash relative h-dvh w-full overflow-hidden text-cloud select-none">
+      <main className="sky-wash relative h-full min-h-0 w-full overflow-hidden text-cloud select-none">
         <div className="absolute inset-0 touch-none" dir="ltr">
           {mounted ? (
           <Canvas
