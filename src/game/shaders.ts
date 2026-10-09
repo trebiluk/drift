@@ -27,12 +27,12 @@ void main() {
   vec3 sun = normalize(uSun);
   float mu = max(dot(dir, sun), 0.0);
 
-  vec3 zenith = mix(vec3(0.05, 0.24, 0.72), vec3(0.015, 0.03, 0.09), uNight);
-  vec3 horizon = mix(vec3(0.62, 0.78, 0.94), vec3(0.12, 0.16, 0.32), uNight);
-  vec3 below = mix(vec3(0.28, 0.5, 0.82), vec3(0.04, 0.06, 0.12), uNight);
+  vec3 zenith = mix(vec3(0.03, 0.16, 0.62), vec3(0.015, 0.03, 0.09), uNight);
+  vec3 horizon = mix(vec3(0.74, 0.86, 0.96), vec3(0.16, 0.20, 0.36), uNight);
+  vec3 below = mix(vec3(0.22, 0.42, 0.74), vec3(0.04, 0.06, 0.12), uNight);
   below = mix(below, horizon, uGroundHaze);
-  vec3 sky = mix(below, horizon, smoothstep(-0.22, 0.06, h));
-  sky = mix(sky, zenith, smoothstep(0.02, 0.62, h));
+  vec3 sky = mix(below, horizon, smoothstep(-0.16, 0.02, h));
+  sky = mix(sky, zenith, smoothstep(0.05, 0.48, h));
 
   float disc = pow(mu, mix(900.0, 1100.0, uNight));
   float corona = pow(mu, mix(64.0, 80.0, uNight));
@@ -92,12 +92,15 @@ void main() {
 
 export const PUFF_VERT = /* glsl */ `
 uniform vec3 uSun;
+attribute float aLayer;
 varying vec2 vLocal;
 varying float vLight;
 varying float vDist;
 varying float vSeed;
 varying vec3 vView;
 varying float vScale;
+varying float vLayer;
+varying vec4 vClip;
 
 void main() {
   vec3 worldPos = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -105,6 +108,7 @@ void main() {
   float sy = length(instanceMatrix[1].xyz);
   vLocal = uv;
   vScale = sx;
+  vLayer = aLayer;
   vSeed = fract(worldPos.x * 0.017 + worldPos.z * 0.013 + worldPos.y * 0.009);
   vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 camUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
@@ -113,7 +117,8 @@ void main() {
   vView = cameraPosition - worldPos;
   float sunSide = 0.5 + 0.5 * dot(normalize(uSun.xz), normalize(camRight.xz + vec2(0.0001)));
   vLight = 0.82 + sunSide * 0.2 + uv.y * 0.22;
-  gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
+  vClip = projectionMatrix * viewMatrix * vec4(pos, 1.0);
+  gl_Position = vClip;
 }
 `;
 
@@ -127,6 +132,8 @@ varying float vDist;
 varying float vSeed;
 varying vec3 vView;
 varying float vScale;
+varying float vLayer;
+varying vec4 vClip;
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -149,17 +156,18 @@ float lobe(vec2 p, vec2 c, vec2 r) {
 }
 
 void main() {
+  if (vClip.w <= 0.0) discard;
   vec2 p = vLocal * 2.0 - 1.0;
   float nA = noise(p * 2.8 + vSeed * 9.0);
   float nB = noise(p * 6.2 + 2.7 + vSeed * 4.0);
   vec2 w = p + vec2(nA - 0.5, nB - 0.5) * 0.28;
 
-  float d = lobe(w, vec2(0.0, -0.12), vec2(0.98, 0.78));
-  d = min(d, lobe(w, vec2(-0.42, 0.02), vec2(0.58, 0.5)));
-  d = min(d, lobe(w, vec2(0.4, -0.02), vec2(0.6, 0.52)));
-  d = min(d, lobe(w, vec2(-0.18, 0.34), vec2(0.46, 0.4)));
-  d = min(d, lobe(w, vec2(0.2, 0.3), vec2(0.44, 0.38)));
-  d = min(d, lobe(w, vec2(0.02, 0.54), vec2(0.32, 0.28)));
+  float d = lobe(w, vec2(0.0, -0.12), vec2(0.86, 0.66));
+  d = min(d, lobe(w, vec2(-0.38, 0.02), vec2(0.5, 0.42)));
+  d = min(d, lobe(w, vec2(0.36, -0.02), vec2(0.52, 0.44)));
+  d = min(d, lobe(w, vec2(-0.16, 0.3), vec2(0.4, 0.34)));
+  d = min(d, lobe(w, vec2(0.18, 0.26), vec2(0.38, 0.32)));
+  d = min(d, lobe(w, vec2(0.02, 0.46), vec2(0.28, 0.24)));
   d += (noise(w * 7.5 + vSeed) - 0.5) * 0.16;
   if (d > 1.02) discard;
 
@@ -168,7 +176,9 @@ void main() {
   if (dens < 0.05) discard;
 
   float ht = clamp(0.42 + w.y * 0.62 + nA * 0.08, 0.0, 1.0);
-  vec3 shade = mix(vec3(0.55, 0.68, 0.86), vec3(1.0, 1.0, 1.0), ht);
+  vec3 belly = vec3(0.48, 0.62, 0.84);
+  vec3 top = vec3(1.0, 0.99, 0.97);
+  vec3 shade = mix(belly, top, ht);
   shade = mix(shade, vec3(1.0), dens * ht * 0.35);
   vec3 view = normalize(vView);
   vec3 sun = normalize(uSun);
@@ -176,16 +186,16 @@ void main() {
   vec3 col = shade * mix(vLight, vLight * 0.6 + 0.22, uNight);
   col += mix(vec3(1.0, 0.97, 0.9), vec3(0.72, 0.82, 1.0), uNight) * backlit * mix(0.22, 0.14, uNight);
 
-  float fade = smoothstep(1100.0, 90.0, vDist);
-  float edge = smoothstep(0.0, 0.18, 1.0 - max(abs(vLocal.x * 2.0 - 1.0), abs(vLocal.y * 2.0 - 1.0)));
-  float distN = vDist / max(vScale * 1.2, 1.0);
-  float nearDay = smoothstep(0.35, 1.0, distN);
-  float nearNight = smoothstep(0.6, 1.2, distN);
-  float nearFade = mix(nearDay, nearNight, uNight);
-  vec3 pale = vec3(0.90, 0.94, 1.0);
-  col = mix(col, pale, uNight * (1.0 - nearNight));
-  float alpha = dens * fade * (1.0 - uSpace * 0.85) * edge * nearFade;
-  if (alpha < 0.012) discard;
+  float far = clamp(vLayer, 0.0, 2.0) / 2.0;
+  col = mix(col, vec3(0.74, 0.84, 0.96), far * 0.5);
+  float fadeFar = mix(980.0, 2800.0, far);
+  float fadeGone = mix(1600.0, 5200.0, far);
+  float fade = 1.0 - smoothstep(fadeFar, fadeGone, vDist);
+  vec2 ndc = vClip.xy / vClip.w;
+  float rim = max(abs(ndc.x), abs(ndc.y));
+  float edgeFade = 1.0 - smoothstep(0.84, 1.02, rim);
+  float alpha = dens * fade * (1.0 - uSpace * 0.85) * edgeFade * (1.0 - far * 0.2);
+  if (alpha < 0.02) discard;
   gl_FragColor = vec4(col * alpha, alpha);
 }
 `;
@@ -212,31 +222,19 @@ varying vec3 vWorld;
 
 void main() {
   vec2 wxz = vWorld.xz;
-  vec3 fields = texture2D(uFields, wxz / 2300.0).rgb;
-  float ang = 0.52;
-  float ca = cos(ang);
-  float sa = sin(ang);
-  vec2 rot = vec2(ca * wxz.x - sa * wxz.y, sa * wxz.x + ca * wxz.y);
-  vec2 base = rot / 4150.0 + vec2(0.17, 0.41);
-  vec3 farTint = texture2D(uFields, base, 5.0).rgb;
-  float farL = dot(farTint, vec3(0.299, 0.587, 0.114));
-  float lift = clamp(farL - 0.5, -0.08, 0.08);
-  vec3 col = fields * (1.0 + lift);
-  float cell = fract(sin(dot(floor(wxz / 9000.0), vec2(12.9898, 78.233))) * 43758.5453);
-  col *= mix(0.93, 1.06, cell);
+  vec2 uv = wxz / 2000.0;
+  vec3 col = texture2D(uFields, uv).rgb;
   col = mix(col, col * vec3(0.62, 0.72, 1.05), uNight);
-  col *= mix(1.0, 0.26, uNight);
+  col *= mix(1.0, 0.32, uNight);
 
   vec2 suv = (wxz - uWind * uTime - uSunShift) / 1480.0;
   float sh = texture2D(uShadow, suv).r;
-  col *= 1.0 - sh * mix(0.26, 0.04, uNight);
+  col *= 1.0 - sh * mix(0.22, 0.04, uNight);
 
   vec3 toCam = cameraPosition - vWorld;
   float viewUp = toCam.y / max(length(toCam), 1.0);
-  float dist = length(wxz - uCamXZ);
-  float haze = smoothstep(1800.0, 6200.0, dist);
-  haze = max(haze, smoothstep(0.30, 0.10, viewUp));
-  col = mix(col, uHorizon, haze);
+  float horizon = smoothstep(0.16, 0.03, viewUp);
+  col = mix(col, uHorizon, horizon);
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -244,11 +242,13 @@ void main() {
 export const CIRRUS_VERT = /* glsl */ `
 varying vec2 vUv;
 varying vec3 vWorld;
+varying vec4 vClip;
 void main() {
   vUv = uv;
   vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vWorld = world.xyz;
-  gl_Position = projectionMatrix * viewMatrix * world;
+  vClip = projectionMatrix * viewMatrix * world;
+  gl_Position = vClip;
 }
 `;
 
@@ -258,13 +258,18 @@ uniform float uOpacity;
 uniform float uNight;
 varying vec2 vUv;
 varying vec3 vWorld;
+varying vec4 vClip;
 void main() {
+  if (vClip.w <= 0.0) discard;
   vec4 tex = texture2D(uMap, vUv);
   float edge = smoothstep(0.0, 0.14, vUv.x) * smoothstep(0.0, 0.14, 1.0 - vUv.x);
   edge *= smoothstep(0.0, 0.05, vUv.y) * smoothstep(0.0, 0.05, 1.0 - vUv.y);
   vec3 dir = normalize(vWorld - cameraPosition);
   float ang = 1.0 - pow(abs(dir.y), 4.0);
-  float a = tex.a * uOpacity * ang * edge;
+  vec2 ndc = vClip.xy / vClip.w;
+  float rim = max(abs(ndc.x), abs(ndc.y));
+  float edgeFade = 1.0 - smoothstep(0.86, 1.02, rim);
+  float a = tex.a * uOpacity * ang * edge * edgeFade;
   if (a < 0.01) discard;
   vec3 tint = mix(vec3(1.0), vec3(0.80, 0.86, 1.0), uNight);
   gl_FragColor = vec4(tint * a, a);

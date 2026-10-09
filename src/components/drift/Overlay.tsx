@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Settings, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clamp, type MusicId, type WorldMode } from "@/game/flight";
 import { signedAlias } from "@/game/who";
@@ -96,79 +96,119 @@ function persistCruise(v: number) {
   }
 }
 
-function ThrottleRail({ inky, mobile }: { inky: boolean; mobile: boolean }) {
+const NOTCHES = [0, 0.25, 0.5, 0.75, 1];
+
+function nearestNotch(v: number) {
+  let best = NOTCHES[0];
+  let bestD = 2;
+  for (const n of NOTCHES) {
+    const d = Math.abs(n - v);
+    if (d < bestD) {
+      bestD = d;
+      best = n;
+    }
+  }
+  return best;
+}
+
+function stepNotch(cur: number, dir: number) {
+  if (dir > 0) {
+    for (const n of NOTCHES) if (n > cur + 0.02) return n;
+    return 1;
+  }
+  for (let i = NOTCHES.length - 1; i >= 0; i--) if (NOTCHES[i] < cur - 0.02) return NOTCHES[i];
+  return 0;
+}
+
+function ThrottleRail({ kph }: { kph: number }) {
   const lang = useLang();
   const cruise = useHud((s) => s.cruise);
   const rail = useRef<HTMLDivElement>(null);
+  const drag = useRef({ y: 0, moved: false });
 
   const setFromY = (clientY: number) => {
     const el = rail.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    persistCruise(1 - (clientY - r.top) / r.height);
+    persistCruise(1 - (clientY - r.top) / Math.max(1, r.height));
   };
 
+  useEffect(() => {
+    const el = rail.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const dir = e.deltaY > 0 ? -1 : 1;
+      persistCruise(stepNotch(useHud.getState().cruise, dir));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
-    <div className="throttle-slot pointer-events-auto touch-auto flex flex-col items-center gap-2" dir="ltr">
-      <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud" : "text-ink")}>
-        {line(lang, "fast")}
+    <div className="throttle-slot cockpit-plate pointer-events-auto touch-auto" dir="ltr">
+      <p className="cockpit-lever-label">
+        <ChevronUp className="size-3.5" aria-hidden />
+        <span>{line(lang, "fast")}</span>
       </p>
-      <div
-        ref={rail}
-        role="slider"
-        aria-label={line(lang, "speed")}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(cruise * 100)}
-        aria-orientation="vertical"
-        tabIndex={0}
-        className={cn(
-          "relative cursor-ns-resize touch-none rounded-[var(--radius-pill)]",
-          mobile ? "h-52 w-14" : "h-44 w-11 sm:h-52",
-          inky ? "bg-cloud/15" : "bg-ink/15",
-        )}
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
-          captureUiPointer(e.pointerId);
-          setFromY(e.clientY);
-        }}
-        onPointerMove={(e) => {
-          if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromY(e.clientY);
-        }}
-        onPointerUp={(e) => {
-          releaseUiPointer(e.pointerId);
-        }}
-        onPointerCancel={(e) => {
-          releaseUiPointer(e.pointerId);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowUp" || e.key === "ArrowRight") {
-            e.preventDefault();
-            persistCruise(cruise + 0.06);
-          }
-          if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
-            e.preventDefault();
-            persistCruise(cruise - 0.06);
-          }
-        }}
-      >
+      <div className="throttle-row">
+        <div className="throttle-bubble" style={{ top: `${(1 - cruise) * 100}%` }}>
+          {kph.toLocaleString()} km/h
+        </div>
         <div
-          className={cn(
-            "absolute inset-x-1/2 top-2 bottom-2 w-1 -translate-x-1/2 rounded-full",
-            inky ? "bg-cloud/35" : "bg-ink/30",
-          )}
-        />
-        <div
-          className={cn(
-            "absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_6px_16px_rgba(28,40,56,0.22)]",
-            mobile ? "size-11" : "size-7 throttle-knob",
-            inky ? "bg-cloud" : "bg-ink",
-          )}
-          style={{ top: `${(1 - cruise) * 100}%` }}
-        />
+          ref={rail}
+          role="slider"
+          aria-label={line(lang, "speed")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(cruise * 100)}
+          aria-valuetext={`${kph} km/h`}
+          aria-orientation="vertical"
+          tabIndex={0}
+          className="throttle-track"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            captureUiPointer(e.pointerId);
+            drag.current.y = e.clientY;
+            drag.current.moved = false;
+            setFromY(e.clientY);
+          }}
+          onPointerMove={(e) => {
+            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            if (Math.abs(e.clientY - drag.current.y) > 6) drag.current.moved = true;
+            setFromY(e.clientY);
+          }}
+          onPointerUp={(e) => {
+            releaseUiPointer(e.pointerId);
+            if (!drag.current.moved) persistCruise(nearestNotch(useHud.getState().cruise));
+          }}
+          onPointerCancel={(e) => {
+            releaseUiPointer(e.pointerId);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+              e.preventDefault();
+              persistCruise(stepNotch(useHud.getState().cruise, 1));
+            }
+            if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+              e.preventDefault();
+              persistCruise(stepNotch(useHud.getState().cruise, -1));
+            }
+          }}
+        >
+          <div className="throttle-spine" />
+          {NOTCHES.map((n) => (
+            <span key={n} className="throttle-notch" style={{ top: `${(1 - n) * 100}%` }} />
+          ))}
+          <div className="throttle-knob" style={{ top: `${(1 - cruise) * 100}%` }}>
+            <span className="throttle-grip" />
+          </div>
+        </div>
       </div>
-      <p className={cn("font-sans text-xs tracking-[0.18em] uppercase", inky ? "text-cloud" : "text-ink")}>
-        {line(lang, "slowSpeed")}
+      <p className="cockpit-lever-label">
+        <ChevronDown className="size-3.5" aria-hidden />
+        <span>{line(lang, "slowSpeed")}</span>
       </p>
     </div>
   );
@@ -684,8 +724,44 @@ export function Overlay({ onStart }: OverlayProps) {
       setHint(true);
       return;
     }
-    const id = window.setTimeout(() => setHint(false), 9000);
-    return () => window.clearTimeout(id);
+    const started = performance.now();
+    let gone = false;
+    const finish = () => {
+      if (gone) return;
+      gone = true;
+      setHint(false);
+    };
+    const steerKey = (code: string) =>
+      code === "KeyA" ||
+      code === "KeyD" ||
+      code === "KeyW" ||
+      code === "KeyS" ||
+      code === "ArrowLeft" ||
+      code === "ArrowRight" ||
+      code === "ArrowUp" ||
+      code === "ArrowDown";
+    const onDown = (e: PointerEvent) => {
+      const t = e.target;
+      if (t instanceof Element && t.closest("button, a, input, textarea, select, [role='slider'], .throttle-slot, .warp-dock")) {
+        return;
+      }
+      finish();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (t instanceof Element && t.closest("[role='slider'], input, textarea, select")) return;
+      if (steerKey(e.code)) finish();
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    const id = window.setInterval(() => {
+      if (performance.now() - started >= 6000) finish();
+    }, 200);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+      window.clearInterval(id);
+    };
   }, [playing]);
 
   const meters = Math.round(altitude);
@@ -731,8 +807,8 @@ export function Overlay({ onStart }: OverlayProps) {
               <div className="door-left">
                 <div className="door-copy-col">
                   <div className="door-brand">
-                    <p data-version="1.12.2" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-                      {line(lang, "slow")} · 1.12.2
+                    <p data-version="1.12.3" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
+                      {line(lang, "slow")} · 1.12.3
                     </p>
                     {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
                     <h1 className="door-title font-display text-[clamp(2.5rem,8vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
@@ -746,7 +822,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 </div>
                 <div ref={newsCue.ref} className={cn("door-news", newsCue.overflowing && "is-overflowing")}>
                   <p className="mt-3 max-w-md text-sm text-cloud">
-                    {sharedLine("whatsNew")} (Oct 7): {line(lang, "whatsBody")}
+                    {sharedLine("whatsNew")} (Oct 9): {line(lang, "whatsBody")}
                   </p>
                   {voiceNote ? <p className="mt-2 w-full text-sm text-cloud">{voiceNote}</p> : null}
                   <p className="copy-desk mt-3 max-w-[18rem] text-sm text-cloud">{line(lang, "hintDesk")}</p>
@@ -838,55 +914,34 @@ export function Overlay({ onStart }: OverlayProps) {
       {playing && (
         <>
           {fx.hud && (
-            <div
-              className={cn(
-                "hud-mark absolute top-[max(4.25rem,calc(env(safe-area-inset-top)+3.75rem))] left-[max(1.25rem,env(safe-area-inset-left))] transition-colors duration-[var(--motion-fast)]",
-                inky ? "text-cloud" : "text-ink",
-              )}
-            >
-              <p className="font-display text-xl tracking-[-0.03em] italic sm:text-2xl">{layerLine(lang, layer)}</p>
-              {alias ? <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">{alias}</p> : null}
-              <p className="mt-1 font-sans text-sm font-medium tabular-nums text-current">
+            <div className="cockpit-plate cockpit-hud absolute top-[max(4.25rem,calc(env(safe-area-inset-top)+3.75rem))] left-[max(1rem,env(safe-area-inset-left))]">
+              <p className="cockpit-world">{layerLine(lang, layer)}</p>
+              {alias ? <p className="cockpit-meta">{alias}</p> : null}
+              <p className="cockpit-readout">
                 {meters.toLocaleString()} m
-                <span className="mx-2 text-current/45">·</span>
+                <span className="cockpit-dot">·</span>
                 {kph.toLocaleString()} km/h
                 {debugHud() ? (
                   <>
-                    <span className="mx-2 text-current/45">·</span>
+                    <span className="cockpit-dot">·</span>
                     {fps} fps
                   </>
                 ) : null}
               </p>
-              {easy && <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">{line(lang, "watch")}</p>}
+              {easy && <p className="cockpit-meta">{line(lang, "watch")}</p>}
               {sound !== "off" && (
-                <p className="mt-1 font-sans text-xs tracking-[0.16em] uppercase">
-                  {line(lang, MUSIC_OPTS.find((opt) => opt.id === sound)?.key || "off")}
-                </p>
+                <p className="cockpit-meta">{line(lang, MUSIC_OPTS.find((opt) => opt.id === sound)?.key || "off")}</p>
               )}
             </div>
           )}
 
-          <p
-            className={cn(
-              "copy-desk hud-mark absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 max-w-[22rem] -translate-x-1/2 px-4 text-center text-xs tracking-wide transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)] sm:text-sm",
-              hint ? "opacity-100" : "opacity-0",
-              inky ? "text-cloud" : "text-ink",
-            )}
-          >
-            {line(lang, world === "space" ? "flySpaceDesk" : "flyDesk")}
-          </p>
-          <p
-            className={cn(
-              "copy-touch hud-mark absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 max-w-[22rem] -translate-x-1/2 px-4 text-center text-xs tracking-wide transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out)]",
-              hint ? "opacity-100" : "opacity-0",
-              inky ? "text-cloud" : "text-ink",
-            )}
-          >
-            {line(lang, world === "space" ? "flySpaceTouch" : "flyTouch")}
-          </p>
+          <div className={cn("cockpit-hint cockpit-plate", hint ? "is-on" : "is-off")} aria-hidden={!hint}>
+            <p className="copy-desk">{line(lang, world === "space" ? "flySpaceDesk" : "flyDesk")}</p>
+            <p className="copy-touch">{line(lang, world === "space" ? "flySpaceTouch" : "flyTouch")}</p>
+          </div>
 
           {world === "space" && <WarpDock inky={inky} />}
-          {fx.throttle && <ThrottleRail inky={inky} mobile={mobile} />}
+          {fx.throttle && <ThrottleRail kph={kph} />}
           {fx.traffic && !settingsOpen && !easy && <TrafficMap inky={inky} />}
           {playing && <StickGhost inky={inky} showCraft={!mobile} />}
         </>
@@ -900,10 +955,7 @@ export function Overlay({ onStart }: OverlayProps) {
             onClick={() => useHud.getState().setSettingsOpen(true)}
             aria-label={sharedLine("settings")}
             aria-expanded={false}
-            className={cn(
-              "h-11 min-w-0 gap-2 rounded-[var(--radius-pill)] px-3",
-              inky || !playing ? "bg-cloud/20 text-cloud" : "bg-ink/25 text-ink",
-            )}
+            className="cockpit-plate h-11 min-h-11 min-w-11 gap-2 px-3"
             onPointerDown={(e) => captureUiPointer(e.pointerId)}
             onPointerUp={(e) => releaseUiPointer(e.pointerId)}
             onPointerCancel={(e) => releaseUiPointer(e.pointerId)}

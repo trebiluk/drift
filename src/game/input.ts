@@ -25,7 +25,7 @@ const GAME_KEYS = new Set([
 function inTouchChrome(e: PointerEvent) {
   if (e.pointerType === "mouse") return false;
   const w = window.innerWidth;
-  if (runtime.fx.throttle && e.clientX > w - 96) return true;
+  if (runtime.fx.throttle && e.clientX > w - 180) return true;
   if (e.clientY < 96 && e.clientX > w - 96) return true;
   return false;
 }

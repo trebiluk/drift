@@ -35,6 +35,10 @@ function windVelocity(out: THREE.Vector2) {
 }
 
 const _dummy = new THREE.Object3D();
+const _gliderOffset = new THREE.Vector3();
+const _gliderEuler = new THREE.Euler(0, 0, 0, "YXZ");
+const _gliderQuat = new THREE.Quaternion();
+const GLIDER_SPAN = 1.72;
 const _fwd = new THREE.Vector3();
 const _clearDay = new THREE.Color(0x7eb0e4);
 const _clearNight = new THREE.Color(0x0b1220);
@@ -45,13 +49,6 @@ const _fogNightCloud = new THREE.Color(0x2a3144);
 const _fogSpace = new THREE.Color(0x070b14);
 const _clearMix = new THREE.Color();
 const WRAP = 740;
-
-type Puff = {
-  x: number;
-  y: number;
-  z: number;
-  s: number;
-};
 
 function wrapAxis(value: number, center: number, half: number) {
   let v = value;
@@ -231,168 +228,51 @@ function mulberry32(seed: number) {
   };
 }
 
-function buildPuffs(count: number, mobile: boolean, narrow: boolean): { puffs: Puff[]; shadows: ShadowBlob[] } {
+type Puff = {
+  x: number;
+  y: number;
+  z: number;
+  s: number;
+  layer: number;
+  wrap: number;
+};
+
+function buildPuffs(_count: number, mobile: boolean, narrow: boolean): { puffs: Puff[]; shadows: ShadowBlob[] } {
   const list: Puff[] = [];
-  const groups: Puff[][] = [];
+  const shadows: ShadowBlob[] = [];
   const yaw = runtime.craft.yaw;
   const fx = -Math.sin(yaw);
   const fz = -Math.cos(yaw);
   const rx = -fz;
   const rz = fx;
-  const push = (puff: Puff, group: Puff[]) => {
-    list.push(puff);
-    group.push(puff);
-  };
-
-  const left: Puff[] = [];
-  const right: Puff[] = [];
-  groups.push(left, right);
-  for (let i = 0; i < 10; i++) {
-    const along = narrow ? 220 + i * 42 : 220 + i * 46;
-    const side = narrow
-      ? ((i % 2) * 2 - 1) * (18 + (i % 4) * 14)
-      : ((i % 2) * 2 - 1) * (78 + (i % 5) * 34);
-    push(
-      {
-        x: fx * along + rx * side,
-        y: 88 + (i % 5) * 14,
-        z: fz * along + rz * side,
-        s: mobile ? 58 + (i % 5) * 10 : 70 + (i % 5) * 18,
-      },
-      side < 0 ? left : right,
-    );
-  }
-
-  const angSpan = narrow ? 0.25 : 0.7;
-  const near = Array.from({ length: 6 }, (_, i) => ({
-    ang: -angSpan + (i / 5) * angSpan * 2,
-    along: 380 + (i / 5) * 340,
-    y: 80 + (i % 4) * 10,
-  }));
-  // Close banks for the 115 m among view. The lane at 220 stays ahead after the cruise.
-  const home = narrow
+  const rng = mulberry32(19);
+  const scale = narrow ? 0.86 : 1;
+  const layers = mobile
     ? [
-        { ang: -0.18, along: 120, y: 108 },
-        { ang: 0.16, along: 170, y: 84 },
-        { ang: 0.0, along: 210, y: 126 },
-        { ang: -0.12, along: 260, y: 92 },
-        { ang: 0.2, along: 300, y: 112 },
-        { ang: -0.06, along: 340, y: 78 },
+        { n: 7, layer: 0, radius: 300, wrap: 740, y: 98, s: 112 * scale },
+        { n: 9, layer: 1, radius: 900, wrap: 1680, y: 220, s: 66 * scale },
+        { n: 10, layer: 2, radius: 1980, wrap: 3400, y: 540, s: 40 * scale },
       ]
     : [
-        { ang: -0.45, along: 90, y: 102 },
-        { ang: 0.5, along: 150, y: 86 },
-        { ang: -0.15, along: 120, y: 120 },
-        { ang: 0.25, along: 200, y: 94 },
-        { ang: -0.7, along: 240, y: 108 },
-        { ang: 0.15, along: 280, y: 80 },
+        { n: 9, layer: 0, radius: 340, wrap: 820, y: 104, s: 132 * scale },
+        { n: 12, layer: 1, radius: 1020, wrap: 1860, y: 236, s: 74 * scale },
+        { n: 14, layer: 2, radius: 2200, wrap: 3700, y: 580, s: 46 * scale },
       ];
-  for (let c = 0; c < 18; c++) {
-    const cluster: Puff[] = [];
-    groups.push(cluster);
-    let cx: number;
-    let cz: number;
-    let cy: number;
-    const ring = c < near.length;
-    const homeSpot = !ring && c < near.length + home.length ? home[c - near.length] : null;
-    if (ring) {
-      const spot = near[c];
-      const ca = Math.cos(spot.ang);
-      const sa = Math.sin(spot.ang);
-      cx = (fx * ca + rx * sa) * spot.along;
-      cz = (fz * ca + rz * sa) * spot.along;
-      cy = spot.y;
-    } else if (homeSpot) {
-      const ca = Math.cos(homeSpot.ang);
-      const sa = Math.sin(homeSpot.ang);
-      cx = (fx * ca + rx * sa) * homeSpot.along;
-      cz = (fz * ca + rz * sa) * homeSpot.along;
-      cy = homeSpot.y;
-    } else {
-      const a = Math.random() * Math.PI * 2;
-      const rad = 70 + Math.pow(Math.random(), 0.4) * WRAP;
-      cx = Math.cos(a) * rad;
-      cz = Math.sin(a) * rad;
-      cy = 70 + Math.random() * 70;
+  for (const layer of layers) {
+    for (let i = 0; i < layer.n; i++) {
+      const ang = (i / layer.n) * Math.PI * 2 + 0.4;
+      const along = layer.radius * (0.9 + rng() * 0.22);
+      const side = Math.sin(ang) * layer.radius * 0.72 + (rng() - 0.5) * 40;
+      const fwd = Math.cos(ang) * along;
+      const x = fx * fwd + rx * side;
+      const z = fz * fwd + rz * side;
+      const y = layer.y + (rng() - 0.5) * (layer.layer === 0 ? 26 : 48);
+      const s = layer.s * (0.86 + rng() * 0.28);
+      list.push({ x, y, z, s, layer: layer.layer, wrap: layer.wrap });
+      if (layer.layer < 2) {
+        shadows.push({ x, z, rx: s * 0.52, rz: s * 0.36, rot: rng() * Math.PI });
+      }
     }
-    const n = ring ? 5 + (c % 3) : 3 + (c % 4);
-    const spread = ring ? 110 : 78;
-    for (let j = 0; j < n && list.length < count; j++) {
-      const x = cx + (Math.random() - 0.5) * spread;
-      const y = cy + (Math.random() - 0.5) * 36;
-      const z = cz + (Math.random() - 0.5) * spread;
-      const sizeRoll = Math.random();
-      push(
-        {
-          x,
-          y,
-          z,
-          s: ring
-            ? mobile
-              ? 58 + sizeRoll * 67
-              : 62 + sizeRoll * 98
-            : mobile
-              ? 48 + sizeRoll * 62
-              : 52 + sizeRoll * 88,
-        },
-        cluster,
-      );
-    }
-  }
-  while (list.length < count) {
-    const a = Math.random() * Math.PI * 2;
-    const r = 50 + Math.random() * WRAP;
-    const y = 64 + Math.random() * 90;
-    const sizeRoll = Math.random();
-    list.push({
-      x: Math.cos(a) * r,
-      y,
-      z: Math.sin(a) * r,
-      s: mobile ? 48 + sizeRoll * 52 : 48 + sizeRoll * 70,
-    });
-  }
-
-  const shadows: ShadowBlob[] = [];
-  for (const group of groups) {
-    if (group.length === 0) continue;
-    let sx = 0;
-    let sz = 0;
-    for (const p of group) {
-      sx += p.x;
-      sz += p.z;
-    }
-    const cx = sx / group.length;
-    const cz = sz / group.length;
-    let cxx = 0;
-    let czz = 0;
-    let cxz = 0;
-    for (const p of group) {
-      const dx = p.x - cx;
-      const dz = p.z - cz;
-      cxx += dx * dx;
-      czz += dz * dz;
-      cxz += dx * dz;
-    }
-    const rot = 0.5 * Math.atan2(2 * cxz, cxx - czz);
-    const c = Math.cos(rot);
-    const s = Math.sin(rot);
-    let brx = 36;
-    let brz = 28;
-    for (const p of group) {
-      const dx = p.x - cx;
-      const dz = p.z - cz;
-      const u = Math.abs(dx * c + dz * s) + p.s * 0.42;
-      const v = Math.abs(-dx * s + dz * c) + p.s * 0.34;
-      if (u > brx) brx = u;
-      if (v > brz) brz = v;
-    }
-    shadows.push({
-      x: cx,
-      z: cz,
-      rx: Math.min(mobile ? Math.max(brx, 110) : brx, 320),
-      rz: Math.min(mobile ? Math.max(brz, 80) : brz, 220),
-      rot,
-    });
   }
   return { puffs: list, shadows };
 }
@@ -422,7 +302,13 @@ function CloudPuffs({ puffs }: { puffs: Puff[] }) {
     [],
   );
 
-  const geo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  const geo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(1, 1);
+    const layers = new Float32Array(puffs.length);
+    for (let i = 0; i < puffs.length; i++) layers[i] = puffs[i].layer;
+    g.setAttribute("aLayer", new THREE.InstancedBufferAttribute(layers, 1));
+    return g;
+  }, [puffs]);
 
   useEffect(
     () => () => {
@@ -441,7 +327,12 @@ function CloudPuffs({ puffs }: { puffs: Puff[] }) {
       return;
     }
     const lod = runtime.lod;
-    inst.count = lod > 1 ? Math.floor(count * 0.78) : count;
+    let limit = count;
+    if (lod > 1) {
+      limit = 0;
+      while (limit < count && puffs[limit].layer < 2) limit++;
+    }
+    inst.count = limit;
     windVelocity(wind);
     const ox = wind.x * clock.elapsedTime;
     const oz = wind.y * clock.elapsedTime;
@@ -451,18 +342,22 @@ function CloudPuffs({ puffs }: { puffs: Puff[] }) {
     mat.uniforms.uNight.value = runtime.night;
 
     let nearest = 4;
-    const drawn = inst.count;
-    for (let i = 0; i < drawn; i++) {
+    for (let i = 0; i < limit; i++) {
       const puff = puffs[i];
-      const x = wrapAxis(puff.x + ox, cx, WRAP);
-      const z = wrapAxis(puff.z + oz, cz, WRAP);
+      const drift = puff.layer === 0 ? 1 : puff.layer === 1 ? 0.62 : 0.28;
+      const x = wrapAxis(puff.x + ox * drift, cx, puff.wrap);
+      const z = wrapAxis(puff.z + oz * drift, cz, puff.wrap);
       const dx = x - cx;
       const dy = puff.y - camera.position.y;
       const dz = z - cz;
-      const d = Math.hypot(dx, dy, dz) / (puff.s * 0.55);
-      if (d < nearest) nearest = d;
+      if (puff.layer === 0) {
+        const d = Math.hypot(dx, dy, dz) / (puff.s * 0.55);
+        if (d < nearest) nearest = d;
+      }
+      const grow = puff.layer === 0 ? 1.62 : puff.layer === 1 ? 1.28 : 1.02;
+      const tall = puff.layer === 0 ? 1.12 : puff.layer === 1 ? 0.92 : 0.72;
       _dummy.position.set(x, puff.y, z);
-      _dummy.scale.set(puff.s * 1.55, puff.s * 1.12, 1);
+      _dummy.scale.set(puff.s * grow, puff.s * tall, 1);
       _dummy.rotation.set(0, 0, 0);
       _dummy.updateMatrix();
       inst.setMatrixAt(i, _dummy.matrix);
@@ -531,7 +426,7 @@ function Cirrus() {
     map.generateMipmaps = true;
     map.minFilter = THREE.LinearMipmapLinearFilter;
     map.magFilter = THREE.LinearFilter;
-    map.anisotropy = Math.min(4, gl.capabilities.getMaxAnisotropy());
+    map.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
     map.premultiplyAlpha = true;
     map.needsUpdate = true;
     return map;
@@ -616,7 +511,7 @@ function Farmland({ shadows }: { shadows: ShadowBlob[] }) {
     map.generateMipmaps = true;
     map.minFilter = THREE.LinearMipmapLinearFilter;
     map.magFilter = THREE.LinearFilter;
-    map.anisotropy = Math.min(4, gl.capabilities.getMaxAnisotropy());
+    map.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
     map.needsUpdate = true;
     return map;
   }, [gl]);
@@ -629,7 +524,7 @@ function Farmland({ shadows }: { shadows: ShadowBlob[] }) {
     map.minFilter = THREE.LinearMipmapLinearFilter;
     map.magFilter = THREE.LinearFilter;
     map.flipY = false;
-    map.anisotropy = Math.min(4, gl.capabilities.getMaxAnisotropy());
+    map.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
     map.needsUpdate = true;
     return map;
   }, [gl, shadows]);
@@ -873,6 +768,72 @@ function QualityRig() {
   return null;
 }
 
+function Glider() {
+  const root = useRef<THREE.Group>(null);
+  const body = useMemo(() => new THREE.MeshLambertMaterial({ color: "#f4f7fb", fog: false }), []);
+  const wing = useMemo(() => new THREE.MeshLambertMaterial({ color: "#c5d4e4", fog: false }), []);
+  const tip = useMemo(() => new THREE.MeshLambertMaterial({ color: "#2c6eae", fog: false }), []);
+  const nose = useMemo(() => new THREE.MeshLambertMaterial({ color: "#f3e2b8", fog: false }), []);
+  useEffect(
+    () => () => {
+      body.dispose();
+      wing.dispose();
+      tip.dispose();
+      nose.dispose();
+    },
+    [body, wing, tip, nose],
+  );
+
+  useFrame(({ camera, size }) => {
+    const g = root.current;
+    if (!g) return;
+    g.visible = runtime.playing;
+    if (!runtime.playing) return;
+    const persp = camera as THREE.PerspectiveCamera;
+    const dist = 4.8;
+    const vFov = THREE.MathUtils.degToRad(persp.fov || 68);
+    const visH = 2 * Math.tan(vFov / 2) * dist;
+    const visW = visH * (size.width / Math.max(1, size.height));
+    const sc = visW / 6 / GLIDER_SPAN;
+    _gliderOffset.set(0, -visH * 0.22, -dist);
+    _gliderOffset.applyQuaternion(camera.quaternion);
+    g.position.copy(camera.position).add(_gliderOffset);
+    _gliderEuler.set(-runtime.craft.pitch * 0.75, 0, runtime.craft.roll * 1.25, "YXZ");
+    _gliderQuat.setFromEuler(_gliderEuler);
+    g.quaternion.copy(camera.quaternion).multiply(_gliderQuat);
+    g.scale.setScalar(sc);
+  });
+
+  return (
+    <group ref={root} frustumCulled={false}>
+      <mesh material={body} position={[0, 0, 0.02]}>
+        <boxGeometry args={[0.16, 0.1, 0.78]} />
+      </mesh>
+      <mesh material={nose} position={[0, 0.01, -0.46]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.07, 0.26, 6]} />
+      </mesh>
+      <mesh material={wing} position={[-0.46, 0.02, 0.04]} rotation={[0, 0.08, 0]}>
+        <boxGeometry args={[0.78, 0.025, 0.28]} />
+      </mesh>
+      <mesh material={wing} position={[0.46, 0.02, 0.04]} rotation={[0, -0.08, 0]}>
+        <boxGeometry args={[0.78, 0.025, 0.28]} />
+      </mesh>
+      <mesh material={tip} position={[-0.86, 0.02, 0.02]}>
+        <boxGeometry args={[0.08, 0.03, 0.16]} />
+      </mesh>
+      <mesh material={tip} position={[0.86, 0.02, 0.02]}>
+        <boxGeometry args={[0.08, 0.03, 0.16]} />
+      </mesh>
+      <mesh material={body} position={[0, 0.02, 0.46]}>
+        <boxGeometry args={[0.42, 0.02, 0.14]} />
+      </mesh>
+      <mesh material={wing} position={[0, 0.12, 0.46]}>
+        <boxGeometry args={[0.02, 0.2, 0.16]} />
+      </mesh>
+    </group>
+  );
+}
+
 function LightRig() {
   const amb = useRef<THREE.AmbientLight>(null);
   const dir = useRef<THREE.DirectionalLight>(null);
@@ -939,6 +900,7 @@ export function World() {
       <SpaceField />
       <ReefField />
       <GodRays />
+      <Glider />
       <FogRig />
       <FlightLoop />
       <QualityRig />

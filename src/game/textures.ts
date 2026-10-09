@@ -204,144 +204,109 @@ const TULIPS: Array<[number, number, number]> = [
   [246, 244, 242],
 ];
 
-/** One repeating tile of irregular fields, short hedges, and a few tulip rows. */
+/** One seamless tile of fields. Edges match so the repeat has no seam.
+ *  Hedge lines and darker field borders are part of the tile. */
 export function createFieldTexture() {
-  const size = 512;
+  const size = 2048;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("No 2d context");
-  const rng = mulberry32(19);
+  const img = ctx.createImageData(size, size);
+  const px = img.data;
   const cols = 8;
   const rows = 8;
-  const jx: number[][] = [];
-  const jy: number[][] = [];
-  for (let j = 0; j < rows; j++) {
-    jx[j] = [];
-    jy[j] = [];
-    for (let i = 0; i < cols; i++) {
-      jx[j][i] = (rng() - 0.5) * 0.55;
-      jy[j][i] = (rng() - 0.5) * 0.55;
-    }
-  }
-  const vx = (i: number, j: number) => {
-    const ii = ((i % cols) + cols) % cols;
-    const jj = ((j % rows) + rows) % rows;
-    return ((i + 0.5 + jx[jj][ii]) / cols) * size;
-  };
-  const vy = (i: number, j: number) => {
-    const ii = ((i % cols) + cols) % cols;
-    const jj = ((j % rows) + rows) % rows;
-    return ((j + 0.5 + jy[jj][ii]) / rows) * size;
-  };
-  const mix = (a: [number, number], b: [number, number], t: number): [number, number] => [
-    a[0] + (b[0] - a[0]) * t,
-    a[1] + (b[1] - a[1]) * t,
-  ];
-  type Pt = [number, number];
-
-  ctx.fillStyle = "#7ea872";
-  ctx.fillRect(0, 0, size, size);
-  ctx.lineWidth = 1.25;
-  ctx.lineCap = "round";
-  ctx.strokeStyle = "rgba(48, 78, 46, 0.4)";
-
-  const paint = (pts: Pt[], edges: Array<[Pt, Pt]>, tulip: boolean, wheat: boolean) => {
-    const palette = wheat ? FIELD_WHEAT : FIELD_GREENS;
-    const base = palette[Math.floor(rng() * palette.length)];
-    const minX = Math.min(...pts.map((p) => p[0]));
-    const maxX = Math.max(...pts.map((p) => p[0]));
-    const minY = Math.min(...pts.map((p) => p[1]));
-    const maxY = Math.max(...pts.map((p) => p[1]));
-    const oxs = [0];
-    const oys = [0];
-    if (minX < 1) oxs.push(size);
-    if (maxX > size - 1) oxs.push(-size);
-    if (minY < 1) oys.push(size);
-    if (maxY > size - 1) oys.push(-size);
-    const color = TULIPS[Math.floor(rng() * TULIPS.length)];
-    const horizontal = rng() < 0.5;
-    const step = 4 + Math.floor(rng() * 3);
-    const marks = edges.map(([a, b]) => {
-      const tree = rng() < 0.22;
-      const along = 0.3 + rng() * 0.4;
-      const rad = 1.6 + rng() * 1.8;
-      return { a, b, tree, along, rad };
+  const rng = mulberry32(19);
+  const cells: Array<{ r: number; g: number; b: number; kind: number; stripe: number }> = [];
+  for (let n = 0; n < cols * rows; n++) {
+    const wheat = rng() < 0.3;
+    const tulip = !wheat && rng() < 0.14;
+    const pal = wheat ? FIELD_WHEAT : FIELD_GREENS;
+    const base = pal[Math.floor(rng() * pal.length)];
+    const tint = tulip ? TULIPS[Math.floor(rng() * TULIPS.length)] : base;
+    cells.push({
+      r: tulip ? Math.round(base[0] * 0.55 + tint[0] * 0.45) : base[0],
+      g: tulip ? Math.round(base[1] * 0.55 + tint[1] * 0.45) : base[1],
+      b: tulip ? Math.round(base[2] * 0.55 + tint[2] * 0.45) : base[2],
+      kind: tulip ? 2 : wheat ? 1 : 0,
+      stripe: 5 + Math.floor(rng() * 4),
     });
-    for (const ox of oxs) {
-      for (const oy of oys) {
-        ctx.beginPath();
-        ctx.moveTo(pts[0][0] + ox, pts[0][1] + oy);
-        for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0] + ox, pts[k][1] + oy);
-        ctx.closePath();
-        ctx.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
-        ctx.fill();
-        if (tulip) {
-          ctx.save();
-          ctx.clip();
-          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},0.55)`;
-          if (horizontal) {
-            for (let y = minY + 2; y < maxY - 1; y += step) ctx.fillRect(minX + ox, y + oy, maxX - minX, 1);
-          } else {
-            for (let x = minX + 2; x < maxX - 1; x += step) ctx.fillRect(x + ox, minY + oy, 1, maxY - minY);
-          }
-          ctx.restore();
-        }
-        for (const mark of marks) {
-          const p0 = mix(mark.a, mark.b, 0.16);
-          const p1 = mix(mark.a, mark.b, 0.72);
-          ctx.beginPath();
-          ctx.moveTo(p0[0] + ox, p0[1] + oy);
-          ctx.lineTo(p1[0] + ox, p1[1] + oy);
-          ctx.stroke();
-          if (mark.tree) {
-            const dot = mix(mark.a, mark.b, mark.along);
-            ctx.fillStyle = "rgba(42, 68, 40, 0.45)";
-            ctx.beginPath();
-            ctx.arc(dot[0] + ox, dot[1] + oy, mark.rad, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      }
-    }
+  }
+  const hashN = (ix: number, iy: number, periodX: number, periodY: number) => {
+    const a = ((ix % periodX) + periodX) % periodX;
+    const b = ((iy % periodY) + periodY) % periodY;
+    let h = Math.imul(a + 1, 374761393) ^ Math.imul(b + 1, 668265263);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   };
-
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < cols; i++) {
-      const p00: Pt = [vx(i, j), vy(i, j)];
-      const p10: Pt = [vx(i + 1, j), vy(i + 1, j)];
-      const p11: Pt = [vx(i + 1, j + 1), vy(i + 1, j + 1)];
-      const p01: Pt = [vx(i, j + 1), vy(i, j + 1)];
-      const wide = Math.hypot(p10[0] - p00[0], p10[1] - p00[1]) >= Math.hypot(p01[0] - p00[0], p01[1] - p00[1]);
-      if (rng() < 0.25) {
-        const t = 0.38 + rng() * 0.24;
-        if (wide) {
-          const a = mix(p00, p10, t);
-          const b = mix(p01, p11, t);
-          const tulipA = rng() < 0.11;
-          const wheatA = !tulipA && rng() < 0.34;
-          paint([p00, a, b, p01], [[p00, a], [a, b]], tulipA, wheatA);
-          const tulipB = rng() < 0.11;
-          const wheatB = !tulipB && rng() < 0.34;
-          paint([a, p10, p11, b], [[a, p10], [p10, p11]], tulipB, wheatB);
-        } else {
-          const a = mix(p00, p01, t);
-          const b = mix(p10, p11, t);
-          const tulipA = rng() < 0.11;
-          const wheatA = !tulipA && rng() < 0.34;
-          paint([p00, p10, b, a], [[p00, p10], [a, b]], tulipA, wheatA);
-          const tulipB = rng() < 0.11;
-          const wheatB = !tulipB && rng() < 0.34;
-          paint([a, b, p11, p01], [[b, p11], [p11, p01]], tulipB, wheatB);
-        }
-      } else {
-        const tulip = rng() < 0.11;
-        const wheat = !tulip && rng() < 0.34;
-        paint([p00, p10, p11, p01], [[p10, p11], [p11, p01]], tulip, wheat);
+  const wrapNoise = (u: number, v: number, periodX: number, periodY: number) => {
+    const x0 = Math.floor(u);
+    const y0 = Math.floor(v);
+    const fx = u - x0;
+    const fy = v - y0;
+    const sx = fx * fx * (3 - 2 * fx);
+    const sy = fy * fy * (3 - 2 * fy);
+    const a = hashN(x0, y0, periodX, periodY);
+    const b = hashN(x0 + 1, y0, periodX, periodY);
+    const c = hashN(x0, y0 + 1, periodX, periodY);
+    const d = hashN(x0 + 1, y0 + 1, periodX, periodY);
+    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+  };
+  const clampByte = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const n1 = wrapNoise(u * 2, v * 2, 2, 2);
+      const n2 = wrapNoise(u * 2 + 5.2, v * 2 + 1.7, 2, 2);
+      const wu = u * cols + (n1 - 0.5) * 0.55;
+      const wv = v * rows + (n2 - 0.5) * 0.55;
+      let i = Math.floor(wu);
+      let j = Math.floor(wv);
+      const fu = wu - i;
+      const fv = wv - j;
+      i = ((i % cols) + cols) % cols;
+      j = ((j % rows) + rows) % rows;
+      const cell = cells[j * cols + i];
+      const edge = Math.min(fu, 1 - fu, fv, 1 - fv);
+      let r = cell.r;
+      let g = cell.g;
+      let b = cell.b;
+      const grain = wrapNoise(u * 24, v * 24, 24, 24);
+      const lift = (grain - 0.5) * 16;
+      r += lift;
+      g += lift * 1.04;
+      b += lift * 0.65;
+      if (cell.kind === 1 && Math.floor(x / cell.stripe) % 2 === 0) {
+        r += 12;
+        g += 8;
+        b -= 6;
+      } else if (cell.kind === 2 && Math.floor((x + y * 0.35) / (cell.stripe + 2)) % 2 === 0) {
+        r = r * 0.62 + 78;
+        g = g * 0.62 + 46;
+        b = b * 0.7 + 58;
       }
+      if (edge < 0.09) {
+        const t = 1 - edge / 0.09;
+        const k = 1 - t * 0.34;
+        r *= k;
+        g *= k;
+        b *= k;
+      }
+      if (edge < 0.016) {
+        r = 36;
+        g = 58;
+        b = 34;
+      }
+      const o = (y * size + x) * 4;
+      px[o] = clampByte(r);
+      px[o + 1] = clampByte(g);
+      px[o + 2] = clampByte(b);
+      px[o + 3] = 255;
     }
   }
+  ctx.putImageData(img, 0, 0);
   return canvas;
 }
 
