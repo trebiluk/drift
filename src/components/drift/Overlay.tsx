@@ -130,7 +130,10 @@ function ThrottleRail({ kph }: { kph: number }) {
     const el = rail.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    persistCruise(1 - (clientY - r.top) / Math.max(1, r.height));
+    const inset = 22;
+    const span = Math.max(1, r.height - inset * 2);
+    const t = (clientY - r.top - inset) / span;
+    persistCruise(1 - Math.min(1, Math.max(0, t)));
   };
 
   useEffect(() => {
@@ -146,6 +149,8 @@ function ThrottleRail({ kph }: { kph: number }) {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  const leverTop = (t: number) => `calc(22px + ${1 - t} * (100% - 44px))`;
+
   return (
     <div className="throttle-slot cockpit-plate pointer-events-auto touch-auto" dir="ltr">
       <p className="cockpit-lever-label">
@@ -153,7 +158,7 @@ function ThrottleRail({ kph }: { kph: number }) {
         <span>{line(lang, "fast")}</span>
       </p>
       <div className="throttle-row">
-        <div className="throttle-bubble" style={{ top: `${(1 - cruise) * 100}%` }}>
+        <div className="throttle-bubble" style={{ top: leverTop(cruise) }}>
           {kph.toLocaleString()} km/h
         </div>
         <div
@@ -199,9 +204,9 @@ function ThrottleRail({ kph }: { kph: number }) {
         >
           <div className="throttle-spine" />
           {NOTCHES.map((n) => (
-            <span key={n} className="throttle-notch" style={{ top: `${(1 - n) * 100}%` }} />
+            <span key={n} className="throttle-notch" style={{ top: leverTop(n) }} />
           ))}
-          <div className="throttle-knob" style={{ top: `${(1 - cruise) * 100}%` }}>
+          <div className="throttle-knob" style={{ top: leverTop(cruise) }}>
             <span className="throttle-grip" />
           </div>
         </div>
@@ -806,18 +811,20 @@ export function Overlay({ onStart }: OverlayProps) {
             <div className="door-flow-inner mx-auto mt-auto w-full max-w-xl origin-bottom animate-[drift-in_var(--motion-slow)_var(--ease-out)] pb-3">
               <div className="door-left">
                 <div className="door-copy-col">
-                  <div className="door-brand">
-                    <p data-version="1.12.3" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] text-cloud uppercase">
-                      {line(lang, "slow")} · 1.12.3
-                    </p>
-                    {alias ? <p className="mb-3 font-sans text-sm text-cloud">{alias}</p> : null}
-                    <h1 className="door-title font-display text-[clamp(2.5rem,8vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] text-cloud italic">
-                      <bdi>Drift</bdi>
-                    </h1>
-                  </div>
-                  <div className="door-lede">
-                    <p data-lede="desk" className="copy-desk mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeDesk")}</p>
-                    <p data-lede="touch" className="copy-touch mt-4 max-w-md text-base leading-relaxed text-cloud/90 sm:text-lg">{line(lang, "ledeTouch")}</p>
+                  <div className="door-hero cockpit-plate">
+                    <div className="door-brand">
+                      <p data-version="1.12.4" className="mb-3 font-sans text-xs font-medium tracking-[0.22em] uppercase">
+                        {line(lang, "slow")} · 1.12.4
+                      </p>
+                      {alias ? <p className="mb-3 font-sans text-sm">{alias}</p> : null}
+                      <h1 className="door-title font-display text-[clamp(2.5rem,8vw,5.5rem)] leading-[0.9] font-medium tracking-[-0.035em] italic">
+                        <bdi>Drift</bdi>
+                      </h1>
+                    </div>
+                    <div className="door-lede">
+                      <p data-lede="desk" className="copy-desk mt-4 max-w-md text-base leading-relaxed sm:text-lg">{line(lang, "ledeDesk")}</p>
+                      <p data-lede="touch" className="copy-touch mt-4 max-w-md text-base leading-relaxed sm:text-lg">{line(lang, "ledeTouch")}</p>
+                    </div>
                   </div>
                 </div>
                 <div ref={newsCue.ref} className={cn("door-news", newsCue.overflowing && "is-overflowing")}>
@@ -830,7 +837,7 @@ export function Overlay({ onStart }: OverlayProps) {
                 </div>
               </div>
               <div ref={sideCue.ref} className={cn("door-side", sideCue.overflowing && "is-overflowing")}>
-                <div className="door-sound">
+                <div className="door-sound cockpit-plate">
                   <p className="mt-4 font-sans text-xs tracking-[0.16em] text-cloud/80 uppercase">{sharedLine("sound")}</p>
                   <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={sharedLine("sound")}>
                     {MUSIC_OPTS.map((opt) => (
@@ -872,7 +879,7 @@ export function Overlay({ onStart }: OverlayProps) {
           </div>
           <div className="door-pick shrink-0 px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-12 sm:pb-8">
             <div className="door-pick-inner mx-auto flex w-full max-w-xl flex-col gap-2">
-              <div className="door-world flex flex-wrap gap-2" role="radiogroup" aria-label={line(lang, "world")}>
+              <div className="door-world cockpit-plate flex flex-wrap gap-2" role="radiogroup" aria-label={line(lang, "world")}>
                 {WORLD_OPTS.map((opt) => (
                   <button
                     key={opt.id}

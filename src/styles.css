@@ -345,6 +345,14 @@ html[data-input="touch"] .warp-range {
     margin-top: 0;
   }
 
+  .door-hero.cockpit-plate,
+  .door-sound.cockpit-plate,
+  .door-world.cockpit-plate {
+    padding: 6px 8px;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
   .door-sheet .door-brand > p {
     margin-bottom: 0.1rem;
   }
@@ -403,6 +411,39 @@ html[data-input="touch"] .warp-range {
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   border-radius: 14px !important;
   box-shadow: 0 3px 0 #0006 !important;
+}
+
+.door-hero.cockpit-plate,
+.door-sound.cockpit-plate,
+.door-world.cockpit-plate {
+  padding: 12px 14px;
+}
+
+.door-hero.cockpit-plate {
+  margin-bottom: 0.35rem;
+}
+
+.door-sound.cockpit-plate {
+  margin-top: 0.75rem;
+}
+
+.door-hero.cockpit-plate p,
+.door-hero.cockpit-plate h1,
+.door-sound.cockpit-plate > p {
+  color: #f2f7ff !important;
+}
+
+.door-sound.cockpit-plate button[aria-checked="false"],
+.door-world.cockpit-plate button[aria-checked="false"] {
+  background: rgba(242, 247, 255, 0.16) !important;
+  color: #f2f7ff !important;
+  border: 1px solid rgba(242, 247, 255, 0.45);
+}
+
+.door-sound.cockpit-plate button[aria-checked="true"],
+.door-world.cockpit-plate button[aria-checked="true"] {
+  background: #f2f7ff !important;
+  color: #0b1020 !important;
 }
 
 .cockpit-hud {
