@@ -1,6 +1,8 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import pkg from '../package.json'
 
+document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
 document.body.style.overflow = 'hidden'
 document.body.style.height = '100dvh'
@@ -49,7 +51,7 @@ function App() {
           whiteSpace: 'nowrap',
         }}
       >
-        v2.0.0-a
+        v{pkg.version}
       </div>
     </main>
   )
