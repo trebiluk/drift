@@ -150,3 +150,32 @@ export function cloudImmersion(y: number) {
   const band = Math.exp(-((y - 110) * (y - 110)) / (2 * 70 * 70))
   return clamp(low * 0.85 + band * 0.35, 0, 1)
 }
+
+/** Fixed integration step. 30 fps and 60 fps take the same steps for the same time. */
+export const STEP_DT = 1 / 60
+/** A hitch longer than this is clamped so one frame cannot skip the sky. */
+export const MAX_DT = 1 / 15
+
+export type SimState = {
+  craft: Craft
+  actions: Actions
+  mode: WorldMode
+  accumulator: number
+}
+
+export function createSimState(
+  actions: Actions = { yaw: 0, pitch: 0, throttle: 0, cruise: DEFAULT_CRUISE },
+  mode: WorldMode = "sky",
+): SimState {
+  return { craft: createCraft(), actions, mode, accumulator: 0 }
+}
+
+/** Step `state` by `dt` seconds at STEP_DT. `dt` is clamped to MAX_DT. */
+export function advance(state: SimState, dt: number): SimState {
+  state.accumulator += clamp(dt, 0, MAX_DT)
+  while (state.accumulator >= STEP_DT) {
+    stepCraft(state.craft, state.actions, STEP_DT, state.mode)
+    state.accumulator -= STEP_DT
+  }
+  return state
+}
