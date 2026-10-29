@@ -1,3 +1,7 @@
+## 2.0.0-d
+
+Cloud fly-through logic: slow white (peak 65%, 40% at night), grey, then clear. Never a flash. Tests only, no picture yet.
+
 ## 2.0.0-c
 
 Flight sim and pull-steer input, with tests.
