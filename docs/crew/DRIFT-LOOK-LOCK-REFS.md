@@ -57,7 +57,7 @@ The 65% peak is **Diego's pick** and is the cap. The grey (about 50%) and night 
 - Reduced motion and Calm switch to the 8 s ramps automatically.
 
 **Tests (added to the S15 flash audit; also runs in S5 for the sky world)**
-- A script flies a fixed path through, past and along the edge of a cloud, at 1366x768, 1024x768 and 412x915, records every frame, and checks: peak average brightness at most the cap, per-frame step at most 2%, per-second change at most 6%, and no repeats of more than 3 brightness swings in one second.
+- A script flies a fixed path through, past and along the edge of a cloud, at 1366x768, 1024x768 and 412x915, records every frame, and checks: peak average brightness at most the cap, per-frame step at most 2%, per-second change at most 6%, and no more than 3 brightness swings in one second (a swing is a reversal of 1% of full range or more; smaller ripples are allowed and are too small to see).
 - It runs for day and night, with Soft and Off, and with reduced motion on.
 - The repo's `DRIFT-2-DESIGN.md` (section 10) says "no full-screen luminance step above about 15% within 200 ms". **This section is stricter and wins** for clouds.
 
