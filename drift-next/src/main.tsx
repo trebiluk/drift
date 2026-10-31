@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import pkg from '../package.json'
 import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
+import { mountPause } from './ui/pause.ts'
 import { wantsDebug } from './ui/debug.ts'
 
 document.documentElement.dataset.version = pkg.version
@@ -14,12 +15,20 @@ const rootEl = document.getElementById('root')
 
 function App() {
   const host = useRef<HTMLDivElement>(null)
+  const shell = useRef<HTMLElement>(null)
   useEffect(() => {
-    if (!host.current) return
-    return mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    if (!host.current || !shell.current) return
+    const demo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
+    const pause = mountPause(document, shell.current, { onPause: () => demo.setPaused(true), onResume: () => demo.setPaused(false) })
+    return () => {
+      pause.unmount()
+      demo.stop()
+    }
   }, [])
   return (
     <main
+      ref={shell}
       style={{
         position: 'relative',
         height: '100dvh',
