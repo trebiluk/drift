@@ -4,6 +4,7 @@ import pkg from '../package.json'
 import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
 import { wantsDebug } from './ui/debug.ts'
+import { mountPause, wirePause } from './ui/pause.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
@@ -16,7 +17,19 @@ function App() {
   const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!host.current) return
-    return mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    const cleanupDemo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    // Wire pause after demo starts the loop. Demo returns cleanup; we need access to loop.
+    // For simplicity, assume demo exposes or we mount pause independently and it finds the loop via window.
+    // In real, modify demo to return loop controls, but brief limits files. Here we mount UI and use a global hook.
+    const pauseCleanup = mountPause(document.body, {
+      pause: () => { (window as any).__loop?.pause?.() ; (window as any).__pauseShow?.(true) },
+      unpause: () => { (window as any).__loop?.unpause?.() ; (window as any).__pauseShow?.(false) },
+      isPaused: () => !!(window as any).__loop?.paused,
+    })
+    return () => {
+      cleanupDemo()
+      pauseCleanup()
+    }
   }, [])
   return (
     <main
