@@ -4,6 +4,8 @@ import pkg from '../package.json'
 import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
 import { wantsDebug } from './ui/debug.ts'
+import { createAmbient } from './audio/ambient.ts'
+import { mountSound } from './ui/sound.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
@@ -16,7 +18,20 @@ function App() {
   const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!host.current) return
-    return mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    const stopDemo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    // Soft ambient pad, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
+    const ambient = createAmbient(() => (typeof AudioContext === 'undefined' ? null : new AudioContext()))
+    let store: Storage | null = null
+    try {
+      store = window.localStorage
+    } catch {
+      store = null
+    }
+    const sound = mountSound(document, document.body, ambient, store)
+    return () => {
+      sound.unmount()
+      stopDemo()
+    }
   }, [])
   return (
     <main
