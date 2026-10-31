@@ -66,10 +66,10 @@ function App() {
       <div
         style={{
           position: 'fixed',
-          right: 'max(16px, env(safe-area-inset-right))',
-          bottom: 'max(16px, env(safe-area-inset-bottom))',
+          right: 'max(20px, env(safe-area-inset-right))',
+          bottom: 'max(20px, env(safe-area-inset-bottom))',
           margin: 0,
-          padding: '8px 14px',
+          padding: '10px 16px',
           borderRadius: '999px',
           background: '#ffffff',
           color: '#111111',
@@ -77,6 +77,8 @@ function App() {
           lineHeight: 1.2,
           whiteSpace: 'nowrap',
           pointerEvents: 'none',
+          boxSizing: 'border-box',
+          maxWidth: 'calc(100vw - 40px)',
         }}
       >
         v{pkg.version}

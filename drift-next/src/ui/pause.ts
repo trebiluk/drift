@@ -1,6 +1,6 @@
 /** Pause UI for Drift: always-visible Pause button, calm panel on pause.
  * Keyboard: P and Esc pause. Panel: Resume (focused first), Home.
- * Auto-pause on tab hidden via visibilitychange (handled in loop).
+ * Auto-pause on tab hidden (visibilitychange) and window blur / focus loss.
  * No flash, respects reduced motion (no fade if prefers-reduced-motion).
  * Targets 44px+, icon+text, contrast AA, visible focus.
  */
@@ -15,21 +15,21 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
   const doc = host.ownerDocument
   const reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches
 
-  // Always-visible Pause button
+  // Always-visible Pause button — forced 44x44+ hit target
   const btn = doc.createElement("button")
   btn.type = "button"
   btn.setAttribute("aria-label", "Pause")
-  btn.textContent = "Pause"
-  // Simple icon via unicode or SVG, but text + icon
-  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="4" height="14"/><rect x="12" y="3" width="4" height="14"/></svg> Pause`
+  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0"><rect x="4" y="3" width="4" height="14"/><rect x="12" y="3" width="4" height="14"/></svg><span>Pause</span>`
   Object.assign(btn.style, {
     position: "fixed",
     top: "max(12px, env(safe-area-inset-top))",
     left: "max(12px, env(safe-area-inset-left))",
     zIndex: "20",
+    height: "44px",
     minHeight: "44px",
     minWidth: "44px",
-    padding: "8px 16px",
+    padding: "0 16px",
+    boxSizing: "border-box",
     border: "none",
     borderRadius: "10px",
     background: "rgba(8, 16, 30, 0.88)",
@@ -39,9 +39,18 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: "8px",
+    lineHeight: "1",
   })
-  btn.addEventListener("click", () => controls.pause())
+  // Explicit first-tap handler that always opens the panel
+  btn.addEventListener("click", (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!controls.isPaused()) {
+      controls.pause()
+    }
+  })
   host.appendChild(btn)
 
   // Calm panel (hidden by default)
@@ -80,14 +89,18 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
 
   const resume = doc.createElement("button")
   resume.type = "button"
-  resume.textContent = "Resume"
-  resume.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><polygon points="5,3 17,10 5,17"/></svg> Resume`
+  resume.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0"><polygon points="5,3 17,10 5,17"/></svg><span>Resume</span>`
   Object.assign(resume.style, {
-    display: "block",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
     width: "100%",
+    height: "44px",
     minHeight: "44px",
     marginBottom: "12px",
-    padding: "10px 16px",
+    padding: "0 16px",
+    boxSizing: "border-box",
     border: "none",
     borderRadius: "10px",
     background: "#2563EB",
@@ -100,13 +113,17 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
 
   const home = doc.createElement("button")
   home.type = "button"
-  home.textContent = "Home"
-  home.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2 L18 8 V18 H12 V12 H8 V18 H2 V8 Z"/></svg> Home`
+  home.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0"><path d="M10 2 L18 8 V18 H12 V12 H8 V18 H2 V8 Z"/></svg><span>Home</span>`
   Object.assign(home.style, {
-    display: "block",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
     width: "100%",
+    height: "44px",
     minHeight: "44px",
-    padding: "10px 16px",
+    padding: "0 16px",
+    boxSizing: "border-box",
     border: "1px solid #102033",
     borderRadius: "10px",
     background: "transparent",
@@ -115,7 +132,6 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
     cursor: "pointer",
   })
   home.addEventListener("click", () => {
-    // same-origin hub
     window.location.href = "https://apps.kulibert.net"
   })
   box.appendChild(home)
@@ -129,7 +145,6 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
       panel.style.pointerEvents = "auto"
       if (!reduced) requestAnimationFrame(() => { panel.style.opacity = "1" })
       else panel.style.opacity = "1"
-      // Focus Resume first
       setTimeout(() => resume.focus(), 0)
     } else {
       if (!reduced) {
@@ -153,18 +168,19 @@ export function mountPause(host: HTMLElement, controls: PauseControls): () => vo
   }
   doc.addEventListener("keydown", onKey)
 
-  // Poll or expose sync; for simplicity, caller syncs via controls
-  // But to auto-show, we need the loop to notify. For now, assume caller calls show when paused.
-  // Better: return a setter or observe.
-  // Simple: export a way, but for demo, we'll have controls include onChange or just check in RAF, but keep light.
+  // Auto-pause on window blur / focus loss (in addition to visibilitychange in loop)
+  const onBlur = () => {
+    if (!controls.isPaused()) controls.pause()
+  }
+  window.addEventListener("blur", onBlur)
 
   const cleanup = () => {
     btn.remove()
     panel.remove()
     doc.removeEventListener("keydown", onKey)
+    window.removeEventListener("blur", onBlur)
   }
 
-  // Expose show for external (from loop or main)
   ;(window as any).__pauseShow = showPanel
 
   return cleanup
