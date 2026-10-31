@@ -149,9 +149,10 @@ export type LoopHooks = {
 export function startLoop(env: LoopEnv, hooks: LoopHooks, pacer: Pacer = createPacer()) {
   let id = 0
   let running = true
+  let paused = false
   const frame = (ts: number) => {
     id = 0
-    if (!running || env.hidden()) return
+    if (!running || env.hidden() || paused) return
     id = env.raf(frame)
     const dt = tick(pacer, ts)
     if (dt <= 0) return
@@ -173,10 +174,14 @@ export function startLoop(env: LoopEnv, hooks: LoopHooks, pacer: Pacer = createP
   }
   const off = env.onVisibility(() => {
     if (!running) return
-    if (env.hidden()) cancel()
-    else {
+    if (env.hidden()) {
+      cancel()
+      // auto-pause on hide: set paused so panel can show
+      paused = true
+      if (typeof (window as any).__pauseShow === "function") (window as any).__pauseShow(true)
+    } else {
       resume(pacer)
-      if (!id) id = env.raf(frame)
+      if (!paused && !id) id = env.raf(frame)
     }
   })
   function stop() {
@@ -184,8 +189,19 @@ export function startLoop(env: LoopEnv, hooks: LoopHooks, pacer: Pacer = createP
     cancel()
     off()
   }
+  function pause() {
+    if (paused) return
+    paused = true
+    cancel()
+  }
+  function unpause() {
+    if (!paused) return
+    paused = false
+    resume(pacer)
+    if (!env.hidden() && !id) id = env.raf(frame)
+  }
   if (!env.hidden()) id = env.raf(frame)
-  return { stop, pacer }
+  return { stop, pause, unpause, pacer, get paused() { return paused } }
 }
 
 export function browserLoopEnv(): LoopEnv {

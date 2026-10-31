@@ -495,6 +495,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     },
   }
   const loop = startLoop(browserLoopEnv(), hooks, pacer)
+  ;(window as any).__loop = loop
   const stopDebug = opts.debug
     ? mountDebug(host, () => ({
         version: opts.version,
