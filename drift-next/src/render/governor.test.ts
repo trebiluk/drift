@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { contextLost, createGovernor, debugLine, sample, setCap, type Change, type Governor } from "./governor.ts"
+import { contextLost, createGovernor, debugLine, glUnavailable, sample, setCap, type Change, type Governor } from "./governor.ts"
 import type { Tier } from "./tiers.ts"
 
 type At = Change & { t: number }
@@ -98,6 +98,18 @@ test("one lost context pauses, a second gives up on WebGL for good", () => {
   assert.deepEqual([c?.tier, c?.why], ["still", "lost"])
   assert.equal(feed(g, 8, 300).length, 0)
   assert.equal(g.tier, "still")
+})
+
+test("no WebGL at all: the governor drops to the 2D picture for the session and never climbs back", () => {
+  const g = createGovernor("balanced")
+  const c = glUnavailable(g)
+  assert.deepEqual([c?.tier, c?.why, c?.scale], ["still", "lost", 1])
+  assert.equal(g.locked, true)
+  assert.equal(g.dead, true)
+  assert.equal(glUnavailable(g), null, "a second call changes nothing")
+  assert.equal(feed(g, 8, 300).length, 0)
+  assert.equal(g.tier, "still")
+  assert.equal(glUnavailable(createGovernor("still"))?.tier, "still", "a governor that started on still is simply marked dead")
 })
 
 test("the debug line is plain words", () => {

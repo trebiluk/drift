@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import pkg from '../package.json'
+import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
 import { wantsDebug } from './ui/debug.ts'
 
@@ -24,7 +25,7 @@ function App() {
         height: '100dvh',
         width: '100%',
         overflow: 'hidden',
-        background: '#8ec9f0',
+        background: PAGE_BG,
         margin: 0,
         fontFamily: 'system-ui, sans-serif',
         color: '#102033',

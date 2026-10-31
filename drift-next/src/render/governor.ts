@@ -162,7 +162,17 @@ export function setCap(g: Governor, cap: Tier): Change | null {
   return commit(g, "capped")
 }
 
-/** First loss: the caller pauses and waits for a restore. A second loss gives up on WebGL for the session. */
+/** The tier asked for WebGL but the page could not get a context at all. Stay on the 2D picture for the whole session. */
+export function glUnavailable(g: Governor): Change | null {
+  if (g.dead) return null
+  g.dead = true
+  g.locked = true
+  g.tier = "still"
+  g.scale = 1
+  return commit(g, "lost")
+}
+
+/** First loss: the caller keeps going with the 2D picture and waits for a restore. A second loss gives up on WebGL for the session. */
 export function contextLost(g: Governor): Change | null {
   g.losses++
   if (g.losses < 2) return null

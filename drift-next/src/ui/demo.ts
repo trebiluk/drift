@@ -3,9 +3,17 @@ import { BRIGHT_CAP, VEIL_LEVEL, createGuard, createPass, proximity, stepGuard, 
 import { advance, clamp, createSimState, layerId, WORLD_HOME, type SimState } from "../sim/craft.ts"
 import { steerFromPull } from "../input/pull.ts"
 import { browserLoopEnv, createPacer, setCeiling, startLoop } from "../loop/loop.ts"
-import { BODY_ALPHA, CLOUD_BODY, CLOUD_SHADE, SEA_FAR, SEA_HORIZON, SHADE_ALPHA, SKY_HORIZON, SKY_TOP, css, hazeRgb } from "../render/palette.ts"
+import { contextLost, glUnavailable, setCap } from "../render/governor.ts"
+import { createGlWorld, type GlWorld } from "../render/gl/renderer.ts"
+import { bridgeAdd, bridgeCover, bridgeStep, bridgeSwitch, createBridge } from "../render/bridge.ts"
+import { CLOUD_BODY, css, hazeRgb } from "../render/palette.ts"
+import { PAGE_BG, PAGE_LEVEL, levelColor } from "../render/page.ts"
 import { browserEnv } from "../render/probe.ts"
 import { MAX_PUFFS, capFromSearch, frameDone, planOf, puffLimitFromSearch, startQuality } from "../render/quality.ts"
+import { lookOf, seedFor, shadowInto } from "../render/scene.ts"
+import { TIER_TABLE, type Tier } from "../render/tiers.ts"
+import type { DrawPath, Proj, Shad, WorldFrame } from "../render/types.ts"
+import { paintWorld2d } from "../render/world2d.ts"
 import { mountDebug } from "./debug.ts"
 import { METER_EVERY_MS, createMeter } from "./meter.ts"
 
@@ -54,7 +62,7 @@ export function bankView(roll: number, reducedMotion: boolean): Bank {
   return { world: -BANK_WORLD_SHARE * rad, glider: (1 - BANK_WORLD_SHARE) * rad, rad }
 }
 
-export type Proj = { x: number; y: number; r: number; a: number; z: number }
+export type { Proj }
 type Pose = { x: number; y: number; z: number; yaw: number; pitch: number }
 
 /**
@@ -92,24 +100,32 @@ type Stick = { active: boolean; id: number; ox: number; oy: number; x: number; y
 
 export type DemoOpts = { version: string; debug: boolean; search?: string; lowPower?: boolean }
 
-const BODY = css(CLOUD_BODY)
-const SHADE = css(CLOUD_SHADE)
-const SKY_TOP_CSS = css(SKY_TOP)
-const SKY_HORIZON_CSS = css(SKY_HORIZON)
-const SEA_HORIZON_CSS = css(SEA_HORIZON)
-const SEA_FAR_CSS = css(SEA_FAR)
 const VEIL_CSS = css(hazeRgb(VEIL_LEVEL))
+const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: the cloud colour, never white
+const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   const doc = host.ownerDocument
+  // Two canvases stacked. The GL canvas underneath draws the world on the Lite, Normal and Fancy tiers. The 2D canvas on top
+  // draws the guard's veil, the pull marker and the glider, and also draws the whole world on the Still tier or if GL fails.
+  const glCanvas = doc.createElement("canvas")
+  Object.assign(glCanvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%", display: "block", pointerEvents: "none" })
+  glCanvas.setAttribute("aria-hidden", "true")
+  // Behind the GL canvas, which is opaque while it works. If the browser takes the GPU context away, the canvas goes clear for the
+  // moment before the 2D picture is painted; this flat sky blue, kept as bright as the picture, is what shows through.
+  glCanvas.style.background = PAGE_BG
+  const hostBackground = host.style.background
+  let backdropAt = PAGE_LEVEL
   const canvas = doc.createElement("canvas")
   Object.assign(canvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%", touchAction: "none", display: "block" })
   canvas.setAttribute("role", "img")
   canvas.setAttribute("aria-label", "A glider flying among clouds. Drag, or use the arrow keys, to steer.")
+  host.appendChild(glCanvas)
   host.appendChild(canvas)
   const ctx = canvas.getContext("2d")
   if (!ctx) {
     canvas.remove()
+    glCanvas.remove()
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
@@ -123,8 +139,10 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   const testLimit = opts.debug ? puffLimitFromSearch(opts.search ?? window.location.search) : null
   const pickPuffs = () => puffs.slice(0, Math.min(plan.puffs, testLimit ?? MAX_PUFFS))
   let active: Puff[] = pickPuffs()
-  const pool: Proj[] = puffs.map(() => ({ x: 0, y: 0, r: 0, a: 0, z: 0 }))
+  const pool: Proj[] = puffs.map((_, i) => ({ x: 0, y: 0, r: 0, a: 0, z: 0, seed: seedFor(i) }))
+  const shadowPool: Shad[] = puffs.map(() => ({ x: 0, y: 0, rx: 0, ry: 0, a: 0 }))
   const order: Proj[] = []
+  const shadowList: Shad[] = []
   const pass = createPass()
   let haze: PassOut = { coverage: 0, level: SKY_DAY, screen: SKY_DAY, inside: false }
   const keys = new Set<string>()
@@ -145,6 +163,21 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   let guardOut: GuardOut = { veil: 0, out: SKY_DAY }
   let metered: number | null = null // the picture's measured brightness before the veil; null until the first reading
   let meterAt = -Infinity
+  let hold = false // for testers: freezes the flight so two tiers can be shot from exactly the same place
+  let path: DrawPath = "canvas2d" // how the world was drawn last frame
+  let glw: GlWorld | null = null
+  // When the picture changes how it is drawn, the two are never quite as bright; the bridge hides the gap and lets it close slowly.
+  const bridge = createBridge()
+  let warmFrom: number | null = null // WebGL is back but stays hidden until its first brightness reading, so the swap can be matched
+  let warmSince = 0
+  let lastDrawAt = 0
+  // What the last picture was made of, so a tier step (clouds come or go, the look changes) is noticed on the frame it happens.
+  let drawnCount = -1
+  let drawnTier: Tier = quality.gov.tier
+  let drawnShade = false
+  let starting = true // the page colour is still on screen: the first picture is matched to it, then eased in
+  const startedAt = performance.now()
+  const frame: WorldFrame = { w: 0, h: 0, f: 1, cx: 0, cy: 0, horizon: 0, tilt: 0, tier: "still", shade: false, puffs: order, shadows: shadowList, haze: 0, hazeLevel: SKY_DAY, pose: state.craft }
 
   const release = () => {
     stick.active = false
@@ -207,6 +240,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   canvas.addEventListener("contextmenu", noMenu)
 
   const step = (dt: number) => {
+    if (hold) return
     const k = keyActions(keys)
     const pull = steerFromPull(stick.active, stick.x, stick.y, stick.mouse)
     const yawIn = clamp(k.yaw + pull.yaw, -1, 1)
@@ -233,79 +267,19 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     dpr = nd
     canvas.width = Math.round(w * dpr)
     canvas.height = Math.round(h * dpr)
+    glCanvas.width = canvas.width
+    glCanvas.height = canvas.height
   }
 
-  type View = { f: number; cx: number; cy: number; horizon: number; big: number; tilt: number }
-
-  /**
-   * The picture without the guard's veil, the pull marker and the glider: sky, sea, clouds, and the haze while in a cloud.
-   * The brightness meter paints this same thing small, so what it measures is what the player is about to see.
-   */
-  const paintWorld = (g: CanvasRenderingContext2D, v: View) => {
-    g.save()
-    g.translate(v.cx, v.cy)
-    g.rotate(v.tilt)
-    g.translate(-v.cx, -v.cy)
-    const sky = g.createLinearGradient(0, v.horizon - h, 0, v.horizon)
-    sky.addColorStop(0, SKY_TOP_CSS)
-    sky.addColorStop(1, SKY_HORIZON_CSS)
-    g.fillStyle = sky
-    g.fillRect(-v.big, v.horizon - v.big * 2, w + v.big * 2, v.big * 2)
-    const sea = g.createLinearGradient(0, v.horizon, 0, v.horizon + h)
-    sea.addColorStop(0, SEA_HORIZON_CSS)
-    sea.addColorStop(1, SEA_FAR_CSS)
-    g.fillStyle = sea
-    g.fillRect(-v.big, v.horizon, w + v.big * 2, v.big * 2)
-
-    for (const q of order) {
-      if (plan.shade) {
-        g.globalAlpha = q.a * SHADE_ALPHA
-        g.fillStyle = SHADE
-        g.beginPath()
-        g.arc(q.x, q.y + q.r * 0.2, q.r, 0, Math.PI * 2)
-        g.fill()
-      }
-      g.globalAlpha = q.a * BODY_ALPHA
-      g.fillStyle = BODY
-      g.beginPath()
-      g.arc(q.x, q.y, q.r * 0.92, 0, Math.PI * 2)
-      g.fill()
+  /** The guard's veil goes over the picture and under the pull marker and the glider, which stay plain and easy to see. */
+  const paintTop = () => {
+    const cover = bridgeCover(bridge, metered ?? 0.5, VEIL_LEVEL, BODY_LEVEL)
+    if (cover.alpha > 0.002 && !(cover.light && guardOut.veil > 0.002)) {
+      ctx.globalAlpha = cover.alpha
+      ctx.fillStyle = cover.light ? HAZE_CSS : VEIL_CSS
+      ctx.fillRect(0, 0, w, h)
+      ctx.globalAlpha = 1
     }
-    g.restore()
-
-    // Inside a cloud the whole picture fades to a soft tinted haze and back. It is drawn under the glider and the pull marker.
-    if (haze.coverage > 0.002) {
-      g.globalAlpha = haze.coverage
-      g.fillStyle = css(hazeRgb(haze.level))
-      g.fillRect(0, 0, w, h)
-    }
-    g.globalAlpha = 1
-  }
-
-  const draw = () => {
-    fit()
-    const c = state.craft
-    const f = Math.min(h / 2 / Math.tan((36 * Math.PI) / 180), w / 2 / Math.tan((30 * Math.PI) / 180))
-    const cx = w / 2
-    const cy = h * 0.46
-    bank = bankView(c.roll, reduced)
-    const view: View = { f, cx, cy, horizon: cy + f * Math.tan(c.pitch), big: Math.hypot(w, h), tilt: bank.world }
-
-    order.length = 0
-    for (let i = 0; i < active.length; i++) if (projectInto(pool[i], active[i], c, f, cx, cy)) order.push(pool[i])
-    order.sort((a, b) => b.z - a.z)
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    paintWorld(ctx, view)
-
-    // The guard's eyes: every so often, paint the same picture small and read its brightness back.
-    const now = performance.now()
-    if (meter && now - meterAt >= METER_EVERY_MS) {
-      meterAt = now
-      const m = meter.measure((g) => paintWorld(g, view), w, h)
-      if (m !== null) metered = m
-    }
-    // The guard's veil goes over the picture and under the pull marker and the glider, which stay plain and easy to see.
     if (guardOut.veil > 0.002) {
       ctx.globalAlpha = guardOut.veil
       ctx.fillStyle = VEIL_CSS
@@ -328,7 +302,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
 
     const s = Math.max(24, Math.min(w, h) * 0.06)
     ctx.save()
-    ctx.translate(cx, h * 0.78)
+    ctx.translate(frame.cx, h * 0.78)
     ctx.rotate(bank.glider)
     ctx.beginPath()
     ctx.moveTo(0, -s * 1.2)
@@ -344,16 +318,176 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     ctx.restore()
   }
 
+  /** Projects the first `count` clouds (and, where the look casts them, their shadows) into `order` and `shadowList` for the look of tier `t`. */
+  const compose = (count: number, t: Tier, shade: boolean, c: SimState["craft"], f: number, cx: number, cy: number) => {
+    const look = lookOf(t)
+    frame.tier = t
+    frame.shade = shade
+    order.length = 0
+    shadowList.length = 0
+    for (let i = 0; i < count; i++) {
+      if (!projectInto(pool[i], puffs[i], c, f, cx, cy)) continue
+      order.push(pool[i])
+      if (look.shadows > 0 && shadowInto(shadowPool[i], wrapRel(puffs[i].x - c.x, FIELD), wrapRel(puffs[i].z - c.z, FIELD), c.y, puffs[i].r, pool[i].a, c.yaw, c.pitch, f, cx, cy, look.shadows as 1 | 2)) shadowList.push(shadowPool[i])
+    }
+    order.sort((a, b) => b.z - a.z)
+  }
+
+  /** WebGL draws the world on Lite, Normal and Fancy. Still, a missing or lost GL context, and a dead one use Canvas 2D. */
+  const wantsGl = () => glw !== null && !glw.isLost() && !quality.gov.dead && TIER_TABLE[quality.gov.tier].renderer === "gl"
+
+  const draw = () => {
+    fit()
+    const c = state.craft
+    const f = Math.min(h / 2 / Math.tan((36 * Math.PI) / 180), w / 2 / Math.tan((30 * Math.PI) / 180))
+    const cx = w / 2
+    const cy = h * 0.46
+    bank = bankView(c.roll, reduced)
+    const tier = quality.gov.tier
+    frame.w = w
+    frame.h = h
+    frame.f = f
+    frame.cx = cx
+    frame.cy = cy
+    frame.horizon = cy + f * Math.tan(c.pitch)
+    frame.tilt = bank.world
+    frame.haze = haze.coverage
+    frame.hazeLevel = haze.level
+
+    // A tier step changes the picture in one frame (clouds come or go). On the 2D picture the small replica IS the picture, so measure
+    // it with the old make-up and the new, once, and let the bridge hide the difference. (WebGL steps are small and its replica is a
+    // brighter, flatter picture, so correcting those with it would overshoot: they are left alone.)
+    let recomposed = 0
+    if (path === "canvas2d" && drawnCount >= 0 && meter && !starting && (drawnCount !== active.length || drawnTier !== tier || drawnShade !== plan.shade)) {
+      compose(drawnCount, drawnTier, drawnShade, c, f, cx, cy)
+      const was = meter.measure((g) => paintWorld2d(g, frame), w, h)
+      compose(active.length, tier, plan.shade, c, f, cx, cy)
+      const is = meter.measure((g) => paintWorld2d(g, frame), w, h)
+      if (was !== null && is !== null) recomposed = was - is
+    } else compose(active.length, tier, plan.shade, c, f, cx, cy)
+    drawnCount = active.length
+    drawnTier = tier
+    drawnShade = plan.shade
+    let switchedNow = false // the picture changed how it is drawn this frame: that bridge already includes any change of make-up
+
+    // The guard's eyes: every so often, measure the picture that is about to be seen.
+    const now = performance.now()
+    const due = now - meterAt >= METER_EVERY_MS
+    if (due) meterAt = now
+    bridgeStep(bridge, lastDrawAt > 0 ? (now - lastDrawAt) / 1000 : 0)
+    lastDrawAt = now
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    if (wantsGl() && glw) {
+      if (path === "gl") {
+        warmFrom = null
+        glw.draw(frame, due)
+        ctx.clearRect(0, 0, w, h) // the world is underneath; this canvas holds only the veil, the marker and the glider
+        const r = glw.reading()
+        if (r !== null) {
+          metered = r
+          if (Math.abs(r - backdropAt) > 0.004) {
+            backdropAt = r
+            glCanvas.style.background = levelColor(r)
+            host.style.background = levelColor(r) // a lost canvas shows what is behind it, which is the host: keep it as bright as the picture
+          }
+        }
+        if (starting) {
+          // Keep the page colour on screen until the first brightness reading is in, then ease the picture in from it.
+          if (r === null && glw.state().meterOk && now - startedAt < 700) return
+          bridgeSwitch(bridge, PAGE_LEVEL, r)
+          switchedNow = true
+          starting = false
+          glCanvas.style.visibility = "visible"
+        }
+        if (r === null && due && meter && !glw.state().meterOk) {
+          const m = meter.measure((g) => paintWorld2d(g, frame), w, h) // GL cannot be read back here: use the flat replica
+          if (m !== null) metered = m
+        }
+      } else {
+        // WebGL can draw again, but a 2D picture is on screen. Draw GL hidden until its first brightness reading arrives,
+        // keep showing the 2D picture meanwhile, then swap with the bridge set to the difference.
+        const st = glw.state()
+        if (warmFrom === null) {
+          warmFrom = st.readings
+          warmSince = now
+        }
+        glw.draw(frame, true)
+        paintWorld2d(ctx, frame)
+        if (meter) {
+          const m = meter.measure((g) => paintWorld2d(g, frame), w, h)
+          if (m !== null) metered = m
+        }
+        const g2 = glw.state()
+        const fresh = g2.readings > warmFrom ? glw.reading() : null
+        if (fresh !== null || now - warmSince > 600 || !g2.meterOk) {
+          bridgeSwitch(bridge, metered, fresh)
+          switchedNow = true
+          if (fresh !== null) metered = fresh
+          glCanvas.style.visibility = "visible"
+          path = "gl"
+          warmFrom = null
+          ctx.clearRect(0, 0, w, h)
+        }
+      }
+    } else {
+      const switched = path !== "canvas2d"
+      if (switched) {
+        glCanvas.style.visibility = "hidden"
+        path = "canvas2d"
+      }
+      warmFrom = null
+      paintWorld2d(ctx, frame)
+      if (meter && (due || switched || starting)) {
+        const m = meter.measure((g) => paintWorld2d(g, frame), w, h)
+        if (m !== null) {
+          // Only a real change of drawer sets the bridge. A reading taken on a plain tick must not: the picture's own changes
+          // (a cloud coming near, the fade into one) are not a gap to hide.
+          if (switched || starting) {
+            bridgeSwitch(bridge, starting ? PAGE_LEVEL : metered, m)
+            switchedNow = true
+          }
+          metered = m
+        }
+      }
+      starting = false
+    }
+    if (recomposed !== 0 && !switchedNow) bridgeAdd(bridge, recomposed)
+    paintTop()
+  }
+
   let failed = false
   const pacer = createPacer(plan.fps)
+  const applyChange = () => {
+    plan = planOf(quality)
+    active = pickPuffs()
+    setCeiling(pacer, plan.fps)
+  }
+  if (TIER_TABLE[quality.gov.tier].renderer === "gl") {
+    glw = createGlWorld(
+      glCanvas,
+      {
+        // The first loss: keep flying on the 2D picture until the browser gives the context back. The second: stay on it.
+        onLost: () => {
+          if (contextLost(quality.gov)) applyChange()
+          draw() // paint the 2D picture right now (with the new cloud count, if the tier changed), so no frame is blank, stale or unmatched
+        },
+        onRestored: () => {},
+      },
+      { capacity: MAX_PUFFS },
+    )
+    if (!glw && glUnavailable(quality.gov)) applyChange() // this browser has no WebGL2: the 2D picture for the session
+    if (glw) {
+      path = "gl" // nothing was drawn yet, so there is no other picture to match
+      glCanvas.style.visibility = "hidden" // shown at the first brightness reading (see draw)
+    }
+  }
   const hooks = {
     step,
     draw,
     onFrame: (elapsedMs: number, workMs: number) => {
       if (!frameDone(quality, elapsedMs, workMs)) return
-      plan = planOf(quality)
-      active = pickPuffs()
-      setCeiling(pacer, plan.fps)
+      applyChange()
     },
     onError: (e: unknown) => {
       failed = true
@@ -380,6 +514,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
         bankMax: BANK_MAX_DEG,
         bright: guardOut.out,
         veil: guardOut.veil,
+        draw: path,
+        clouds: order.length,
+        lost: glw ? glw.state().losses : 0,
       }))
     : () => {}
   const hookWindow = window as unknown as { __controlsTest?: unknown }
@@ -404,6 +541,21 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
       /** The tilt on screen: `deg` is the glider against the horizon, `world` and `glider` are what each is turned by (radians). */
       getBank: () => ({ deg: (bank.rad * 180) / Math.PI, world: bank.world, glider: bank.glider, max: BANK_MAX_DEG }),
       getGuard: () => ({ cap: guardCap, measured: metered, out: guardOut.out, veil: guardOut.veil, metered: metered !== null }),
+      /** Which drawer made the last picture, and what it drew. */
+      getRender: () => ({ path, tier: quality.gov.tier, clouds: order.length, shadows: shadowList.length, gl: glw ? glw.state() : null, hold, bridge: bridge.gap, warm: warmFrom !== null }),
+      /** For testers: freeze the flight (the picture keeps drawing), so two tiers can be shot from exactly the same place. */
+      setHold: (v: boolean) => {
+        hold = v
+      },
+      /** For testers: have the browser take the GL context away, or give it back. */
+      /** For testers: lower the tier the way the low-power cap does (a heavier tier steps down now), to see what a tier change looks like. */
+      capTo: (t: Tier) => {
+        const change = setCap(quality.gov, t)
+        if (change) applyChange()
+        return change !== null
+      },
+      loseGl: () => (glw ? glw.testLose() : false),
+      restoreGl: () => (glw ? glw.testRestore() : false),
     }
   }
 
@@ -414,6 +566,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     window.removeEventListener("keyup", onKeyUp)
     window.removeEventListener("blur", clearInput)
     doc.removeEventListener("visibilitychange", onHide)
+    glw?.dispose()
+    glCanvas.remove()
+    host.style.background = hostBackground
     canvas.remove()
     if (opts.debug) delete hookWindow.__controlsTest
   }

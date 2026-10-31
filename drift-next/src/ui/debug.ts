@@ -1,3 +1,8 @@
+import type { DrawPath } from "../render/types.ts"
+
+/** The names a person sees for the tiers. The ids (full, balanced, light, still) stay in the code and in `data-tier`. */
+export const TIER_NAMES: Record<string, string> = { full: "Fancy", balanced: "Normal", light: "Lite", still: "Still" }
+
 export type DebugInfo = {
   version: string
   fps: number
@@ -16,6 +21,9 @@ export type DebugInfo = {
   bankMax: number // the most it can ever bank, degrees
   bright: number // mean brightness of the picture after the guard, 0..1
   veil: number // how much of the guard's dark veil is on, 0..1 (0 in normal play)
+  draw: DrawPath // gl: WebGL draws the world; canvas2d: Canvas 2D does (Still, or GL missing or lost)
+  clouds: number // how many clouds are on the screen this frame
+  lost: number // how many times the browser has taken the GL context away
 }
 
 /** ?debug=1 turns the readout on. */
@@ -31,10 +39,11 @@ export function debugLines(i: DebugInfo): string[] {
   return [
     `Drift ${i.version}`,
     `${Math.round(i.fps)} fps · cap ${i.cap} · step ${i.stepMs.toFixed(1)} ms`,
-    `tier ${i.tier} · scale ${i.scale.toFixed(2)} · p95 ${i.p95 === null ? "-" : i.p95.toFixed(0) + " ms"}`,
+    `tier ${TIER_NAMES[i.tier] ?? i.tier} (${i.tier}) · p95 ${i.p95 === null ? "-" : i.p95.toFixed(0) + " ms"}`,
     `speed ${i.speed.toFixed(1)} · altitude ${Math.round(i.altitude)} · ${i.layer}`,
     `haze ${Math.round(i.haze * 100)}% · tint ${i.tint === null ? "-" : Math.round(i.tint * 100) + "%"}${i.pinned ? " · tier pinned" : ""}`,
     `bank ${Math.round(Math.abs(i.bankDeg))}° of ${Math.round(i.bankMax)}° · bright ${Math.round(i.bright * 100)}% · veil ${Math.round(i.veil * 100)}%`,
+    `draw ${i.draw === "gl" ? "gl" : "2d"} · scale ${i.scale.toFixed(2)} · ${i.clouds} clouds · lost ${i.lost}`,
   ]
 }
 

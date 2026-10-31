@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { BANK_MAX_DEG, FIELD, ROLL_FULL, approach, bankView, keyActions, levelAssist, projectInto, wrapRel, type Proj } from "./demo.ts"
-import { debugLines, wantsDebug } from "./debug.ts"
+import { debugLines, wantsDebug, type DebugInfo } from "./debug.ts"
 import { createMeter, meanLuma, meterSize } from "./meter.ts"
 import { BODY_ALPHA, CLOUD_BODY, SKY_TOP, hazeRgb, luma } from "../render/palette.ts"
 import { VEIL_LEVEL } from "../sim/cloudpass.ts"
@@ -9,7 +9,7 @@ import { advance, createSimState } from "../sim/craft.ts"
 
 const here = { x: 0, y: 148, z: 0, yaw: 0, pitch: 0 }
 const puff = (x: number, y: number, z: number, r = 60) => ({ x, y, z, r })
-const out = (): Proj => ({ x: 0, y: 0, r: 0, a: 0, z: 0 })
+const out = (): Proj => ({ x: 0, y: 0, r: 0, a: 0, z: 0, seed: 0.5 })
 const F = 528
 const W = 1366
 const H = 768
@@ -117,23 +117,29 @@ test("?debug=1 turns the readout on, nothing else does", () => {
 })
 
 test("the readout is plain words with the version, fps, step, tier and sim state", () => {
-  const info = { version: "2.0.0-i", fps: 59.6, cap: 60, stepMs: 0.42, speed: 24.04, altitude: 147.6, layer: "among-clouds", tier: "light", scale: 0.85, p95: 17.4, pinned: false, haze: 0, tint: null, bankDeg: 12.4, bankMax: 25, bright: 0.509, veil: 0 }
+  const info: DebugInfo = { version: "2.0.0-j", fps: 59.6, cap: 60, stepMs: 0.42, speed: 24.04, altitude: 147.6, layer: "among-clouds", tier: "light", scale: 0.85, p95: 17.4, pinned: false, haze: 0, tint: null, bankDeg: 12.4, bankMax: 25, bright: 0.509, veil: 0, draw: "gl", clouds: 48, lost: 0 }
   const lines = debugLines(info)
   assert.deepEqual(lines, [
-    "Drift 2.0.0-i",
+    "Drift 2.0.0-j",
     "60 fps · cap 60 · step 0.4 ms",
-    "tier light · scale 0.85 · p95 17 ms",
+    "tier Lite (light) · p95 17 ms",
     "speed 24.0 · altitude 148 · among-clouds",
     "haze 0% · tint -",
     "bank 12° of 25° · bright 51% · veil 0%",
+    "draw gl · scale 0.85 · 48 clouds · lost 0",
   ])
   const inside = debugLines({ ...info, pinned: true, p95: null, haze: 1, tint: 0.397 })
-  assert.equal(inside[2], "tier light · scale 0.85 · p95 -")
+  assert.equal(inside[2], "tier Lite (light) · p95 -")
   assert.equal(inside[4], "haze 100% · tint 40% · tier pinned")
   // the bank is shown as an angle either way, and the guard's veil as a share
   const worst = debugLines({ ...info, bankDeg: -25, bright: 0.58, veil: 0.525 })
   assert.equal(worst[5], "bank 25° of 25° · bright 58% · veil 53%")
-  for (const l of [...lines, ...inside, ...worst]) assert.ok(l.length <= 44, `short enough for a 412 px screen: ${l}`)
+  // the tiers go by the names a person knows, and the drawer that is live is always said
+  for (const [id, name] of [["full", "Fancy"], ["balanced", "Normal"], ["light", "Lite"], ["still", "Still"]] as const) assert.equal(debugLines({ ...info, tier: id })[2], `tier ${name} (${id}) · p95 17 ms`)
+  const fallback = debugLines({ ...info, tier: "full", draw: "canvas2d", clouds: 140, lost: 2 })
+  assert.equal(fallback[6], "draw 2d · scale 0.85 · 140 clouds · lost 2")
+  const every = ["full", "balanced", "light", "still"].flatMap((t) => debugLines({ ...info, tier: t, draw: "canvas2d", clouds: 140, lost: 2, p95: null }))
+  for (const l of [...lines, ...inside, ...worst, ...every]) assert.ok(l.length <= 44, `short enough for a 412 px screen: ${l}`)
 })
 
 test("flying at a cloud at top speed moves the average brightness by under 5% in any second", () => {
