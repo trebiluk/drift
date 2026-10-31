@@ -1,0 +1,23 @@
+{
+  "name": "drift-next",
+  "version": "2.0.0-j",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --base ./",
+    "preview": "vite preview",
+    "test": "node --import tsx --test src/sim/craft.test.ts src/input/pull.test.ts src/sim/cloudpass.test.ts src/render/scene.test.ts src/render/bridge.test.ts src/render/page.test.ts src/render/gl/shaders.test.ts src/render/probe.test.ts src/render/governor.test.ts src/render/quality.test.ts src/loop/loop.test.ts src/ui/ui.test.ts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}

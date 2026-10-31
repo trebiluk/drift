@@ -1,0 +1,181 @@
+export type WorldMode = "sky" | "space" | "reef"
+export type MusicId =
+  | "off"
+  | "rain"
+  | "bowls"
+  | "ocean"
+  | "focus"
+  | "keys"
+  | "haze"
+  | "drift"
+  | "tide"
+  | "void"
+
+export const BASE_SPEED = 24
+export const MIN_SPEED = 8
+export const MAX_SPEED = 64
+export const YAW_RATE = 0.95
+export const PITCH_RATE = 0.72
+export const FLOOR_Y = 72
+export const CEILING_Y = 2300
+export const DEFAULT_CRUISE = 0.32
+
+export const WORLD_HOME: Record<WorldMode, { y: number; pitch: number }> = {
+  sky: { y: 148, pitch: -0.08 },
+  space: { y: 1680, pitch: 0.06 },
+  reef: { y: 28, pitch: -0.16 },
+}
+
+export const MUSIC_FOR_WORLD: Record<WorldMode, "haze" | "void" | "tide"> = {
+  sky: "haze",
+  space: "void",
+  reef: "tide",
+}
+
+export function worldBounds(mode: WorldMode) {
+  if (mode === "space") return { floor: 240, ceiling: 3200 }
+  if (mode === "reef") return { floor: 14, ceiling: 74 }
+  return { floor: FLOOR_Y, ceiling: CEILING_Y }
+}
+
+export type Actions = {
+  /** +1 = player-visible left (A / stick left / pointer left) */
+  yaw: number
+  /** +1 = nose up / climb */
+  pitch: number
+  /** +1 = temporary burst toward max */
+  throttle: number
+  /** 0 = crawl, 1 = rush */
+  cruise: number
+}
+
+export type Craft = {
+  x: number
+  y: number
+  z: number
+  yaw: number
+  pitch: number
+  roll: number
+  speed: number
+}
+
+export function clamp(v: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, v))
+}
+
+export function cruiseSpeed(cruise: number) {
+  return MIN_SPEED + clamp(cruise, 0, 1) * (MAX_SPEED - MIN_SPEED)
+}
+
+/** yaw = 0 faces world −Z; +yaw is CCW about +Y (nose toward −X). */
+export function createCraft(): Craft {
+  const sunX = 1.15
+  const sunZ = 0.42
+  return {
+    x: 0,
+    y: 148,
+    z: 0,
+    yaw: Math.atan2(-sunX, -sunZ) + 0.72,
+    pitch: -0.08,
+    roll: 0,
+    speed: cruiseSpeed(DEFAULT_CRUISE),
+  }
+}
+
+export function stepCraft(c: Craft, a: Actions, dt: number, mode: WorldMode = "sky") {
+  c.yaw += a.yaw * YAW_RATE * dt
+  c.pitch += a.pitch * PITCH_RATE * dt
+  c.pitch = clamp(c.pitch, -1.18, 1.28)
+
+  // A (+yaw) banks left: negative camera Z with YXZ order.
+  const targetRoll = -a.yaw * 0.4
+  c.roll += (targetRoll - c.roll) * Math.min(1, dt * 3.2)
+
+  const base = cruiseSpeed(a.cruise)
+  const burst = a.throttle * (MAX_SPEED - base) * 0.7
+  const dive = Math.max(-c.pitch, 0) * 7 - Math.max(c.pitch, 0) * 2.2
+  const targetSpeed = clamp(base + burst + dive, MIN_SPEED, MAX_SPEED + 10)
+  c.speed += (targetSpeed - c.speed) * Math.min(1, dt * 2.4)
+
+  const cp = Math.cos(c.pitch)
+  const sp = Math.sin(c.pitch)
+  const sy = Math.sin(c.yaw)
+  const cy = Math.cos(c.yaw)
+  const fx = -sy * cp
+  const fy = sp
+  const fz = -cy * cp
+
+  c.x += fx * c.speed * dt
+  c.y += fy * c.speed * dt
+  c.z += fz * c.speed * dt
+
+  const { floor, ceiling } = worldBounds(mode)
+  if (c.y < floor) {
+    c.y += (floor - c.y) * Math.min(1, dt * 1.4)
+    if (c.pitch < 0.08) c.pitch += dt * 0.18
+  }
+  if (c.y > ceiling) {
+    c.y += (ceiling - c.y) * Math.min(1, dt * 0.35)
+    if (c.pitch > 0) c.pitch -= dt * 0.1
+  }
+}
+
+export function spaceFactor(y: number, world: WorldMode = "sky") {
+  if (world === "space") return 1
+  if (world === "reef") return 0
+  return clamp((y - 780) / 900, 0, 1)
+}
+
+/** Stable ids for the old English layer names. Look up copy elsewhere. */
+export function layerId(y: number, world: WorldMode = "sky") {
+  if (world === "space") {
+    if (y > 2300) return "deep-space"
+    if (y > 1750) return "among-worlds"
+    return "outer-dark"
+  }
+  if (world === "reef") {
+    if (y > 52) return "near-surface"
+    if (y > 22) return "above-reef"
+    return "shallows"
+  }
+  if (y > 1450) return "open-space"
+  if (y > 920) return "stratosphere"
+  if (y > 240) return "above-clouds"
+  if (y > 90) return "among-clouds"
+  return "inside-clouds"
+}
+
+export function cloudImmersion(y: number) {
+  const low = 1 - clamp((y - 18) / 90, 0, 1)
+  const band = Math.exp(-((y - 110) * (y - 110)) / (2 * 70 * 70))
+  return clamp(low * 0.85 + band * 0.35, 0, 1)
+}
+
+/** Fixed integration step. 30 fps and 60 fps take the same steps for the same time. */
+export const STEP_DT = 1 / 60
+/** A hitch longer than this is clamped so one frame cannot skip the sky. */
+export const MAX_DT = 1 / 15
+
+export type SimState = {
+  craft: Craft
+  actions: Actions
+  mode: WorldMode
+  accumulator: number
+}
+
+export function createSimState(
+  actions: Actions = { yaw: 0, pitch: 0, throttle: 0, cruise: DEFAULT_CRUISE },
+  mode: WorldMode = "sky",
+): SimState {
+  return { craft: createCraft(), actions, mode, accumulator: 0 }
+}
+
+/** Step `state` by `dt` seconds at STEP_DT. `dt` is clamped to MAX_DT. */
+export function advance(state: SimState, dt: number): SimState {
+  state.accumulator += clamp(dt, 0, MAX_DT)
+  while (state.accumulator >= STEP_DT) {
+    stepCraft(state.craft, state.actions, STEP_DT, state.mode)
+    state.accumulator -= STEP_DT
+  }
+  return state
+}
