@@ -1,8 +1,11 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { FIELD, approach, keyActions, levelAssist, projectInto, wrapRel, type Proj } from "./demo.ts"
+import { BANK_MAX_DEG, FIELD, ROLL_FULL, approach, bankView, keyActions, levelAssist, projectInto, wrapRel, type Proj } from "./demo.ts"
 import { debugLines, wantsDebug } from "./debug.ts"
-import { BODY_ALPHA, CLOUD_BODY, SKY_TOP, luma } from "../render/palette.ts"
+import { createMeter, meanLuma, meterSize } from "./meter.ts"
+import { BODY_ALPHA, CLOUD_BODY, SKY_TOP, hazeRgb, luma } from "../render/palette.ts"
+import { VEIL_LEVEL } from "../sim/cloudpass.ts"
+import { advance, createSimState } from "../sim/craft.ts"
 
 const here = { x: 0, y: 148, z: 0, yaw: 0, pitch: 0 }
 const puff = (x: number, y: number, z: number, r = 60) => ({ x, y, z, r })
@@ -114,19 +117,23 @@ test("?debug=1 turns the readout on, nothing else does", () => {
 })
 
 test("the readout is plain words with the version, fps, step, tier and sim state", () => {
-  const info = { version: "2.0.0-h", fps: 59.6, cap: 60, stepMs: 0.42, speed: 24.04, altitude: 147.6, layer: "among-clouds", tier: "light", scale: 0.85, p95: 17.4, pinned: false, haze: 0, tint: null }
+  const info = { version: "2.0.0-i", fps: 59.6, cap: 60, stepMs: 0.42, speed: 24.04, altitude: 147.6, layer: "among-clouds", tier: "light", scale: 0.85, p95: 17.4, pinned: false, haze: 0, tint: null, bankDeg: 12.4, bankMax: 25, bright: 0.509, veil: 0 }
   const lines = debugLines(info)
   assert.deepEqual(lines, [
-    "Drift 2.0.0-h",
+    "Drift 2.0.0-i",
     "60 fps · cap 60 · step 0.4 ms",
     "tier light · scale 0.85 · p95 17 ms",
     "speed 24.0 · altitude 148 · among-clouds",
     "haze 0% · tint -",
+    "bank 12° of 25° · bright 51% · veil 0%",
   ])
   const inside = debugLines({ ...info, pinned: true, p95: null, haze: 1, tint: 0.397 })
   assert.equal(inside[2], "tier light · scale 0.85 · p95 -")
   assert.equal(inside[4], "haze 100% · tint 40% · tier pinned")
-  for (const l of [...lines, ...inside]) assert.ok(l.length <= 44, `short enough for a 412 px screen: ${l}`)
+  // the bank is shown as an angle either way, and the guard's veil as a share
+  const worst = debugLines({ ...info, bankDeg: -25, bright: 0.58, veil: 0.525 })
+  assert.equal(worst[5], "bank 25° of 25° · bright 58% · veil 53%")
+  for (const l of [...lines, ...inside, ...worst]) assert.ok(l.length <= 44, `short enough for a 412 px screen: ${l}`)
 })
 
 test("flying at a cloud at top speed moves the average brightness by under 5% in any second", () => {
@@ -148,4 +155,124 @@ test("flying at a cloud at top speed moves the average brightness by under 5% in
     }
   }
   assert.ok(worst < 0.05, `worst change in one second ${(worst * 100).toFixed(1)}%`)
+})
+
+// ---- bank angle ----
+
+const deg = (r: number) => (r * 180) / Math.PI
+
+test("the glider never banks more than 25 degrees against the horizon, whatever the roll", () => {
+  assert.equal(BANK_MAX_DEG, 25)
+  let widest = 0
+  for (let roll = -Math.PI; roll <= Math.PI; roll += 0.01) {
+    const b = bankView(roll, false)
+    widest = Math.max(widest, Math.abs(deg(b.glider - b.world)), Math.abs(deg(b.rad)))
+    assert.ok(Math.abs(deg(b.world)) <= 10 + 1e-9 && Math.abs(deg(b.glider)) <= 15 + 1e-9, `each part is smaller still at roll ${roll.toFixed(2)}`)
+  }
+  assert.ok(widest <= 25 + 1e-9 && widest > 24.9, `reaches 25 and no more: ${widest}`)
+  for (const bad of [Infinity, -Infinity, Number.NaN]) assert.deepEqual(bankView(bad, false), { world: 0, glider: 0, rad: 0 })
+})
+
+test("full steering banks the glider all the way to 25 degrees, half steering half of that, in proportion", () => {
+  assert.ok(Math.abs(deg(bankView(0.4, false).rad) - 25) < 1e-9)
+  assert.ok(Math.abs(deg(bankView(0.2, false).rad) - 12.5) < 1e-9)
+  assert.equal(bankView(0, false).rad, 0)
+  assert.ok(Math.abs(deg(bankView(ROLL_FULL, false).glider) - 15) < 1e-9, "the glider takes 60% of it")
+  assert.ok(Math.abs(deg(bankView(ROLL_FULL, false).world) + 10) < 1e-9, "the horizon takes 40%, the other way round")
+})
+
+test("the sim's own roll fits the mapping: full steering for as long as you like never banks past 25", () => {
+  for (const yaw of [1, -1]) {
+    const s = createSimState()
+    s.actions.yaw = yaw
+    let top = 0
+    for (let i = 0; i < 60 * 8; i++) {
+      advance(s, 1 / 60)
+      top = Math.max(top, Math.abs(deg(bankView(s.craft.roll, false).rad)))
+    }
+    assert.ok(Math.abs(s.craft.roll) <= ROLL_FULL + 1e-9, `the sim rolls to ${s.craft.roll}, the mapping expects ${ROLL_FULL}`)
+    assert.ok(top <= 25 + 1e-9 && top > 24, `banked ${top.toFixed(2)} degrees at most`)
+  }
+})
+
+test("steering left banks the glider left, steering right banks it right, as before", () => {
+  const s = createSimState()
+  s.actions.yaw = 1 // A / left
+  for (let i = 0; i < 120; i++) advance(s, 1 / 60)
+  const left = bankView(s.craft.roll, false)
+  assert.ok(left.glider < 0 && left.world > 0, "a left bank turns the glider counter-clockwise (negative on a canvas)")
+  s.actions.yaw = -1
+  for (let i = 0; i < 240; i++) advance(s, 1 / 60)
+  const right = bankView(s.craft.roll, false)
+  assert.ok(right.glider > 0 && right.world < 0)
+})
+
+test("reduced motion draws no tilt at all, however hard you steer", () => {
+  for (const roll of [-0.4, -0.1, 0.1, 0.4, 2]) assert.deepEqual(bankView(roll, true), { world: 0, glider: 0, rad: 0 })
+})
+
+// ---- the brightness meter ----
+
+test("meanLuma uses the same weights as the palette, ignores alpha, and reads an empty image as 0", () => {
+  const px = (r: number, g: number, b: number, a = 255) => [r, g, b, a]
+  assert.equal(meanLuma([]), 0)
+  assert.ok(Math.abs(meanLuma(Uint8ClampedArray.from(px(255, 255, 255))) - 1) < 1e-12, "white reads as 1")
+  assert.equal(meanLuma(Uint8ClampedArray.from(px(0, 0, 0))), 0)
+  for (const c of [[255, 0, 0], [0, 255, 0], [0, 0, 255], [36, 88, 152], [208, 220, 236]] as const) {
+    assert.ok(Math.abs(meanLuma(Uint8ClampedArray.from(px(...c, 40))) - luma(c)) < 1e-12, `same as the palette for ${c}`)
+  }
+  assert.ok(Math.abs(meanLuma(Uint8ClampedArray.from([...px(255, 255, 255), ...px(0, 0, 0)])) - 0.5) < 1e-12, "the mean of white and black")
+  assert.ok(Math.abs(meanLuma(Uint8ClampedArray.from([...px(255, 255, 255), ...px(0, 0, 0), ...px(0, 0, 0), ...px(0, 0, 0)])) - 0.25) < 1e-12)
+})
+
+test("the meter's small canvas keeps the screen's shape and stays small", () => {
+  for (const [w, h] of [[1366, 768], [412, 915], [1024, 768], [800, 800], [0, 0]] as const) {
+    const { mw, mh } = meterSize(w, h)
+    assert.ok(mw * mh >= 600 && mw * mh <= 1000, `${w}x${h} -> ${mw}x${mh}`)
+    if (w > 0) assert.ok(Math.abs(mw / mh - w / h) / (w / h) < 0.15, `shape kept for ${w}x${h}: ${mw}x${mh}`)
+  }
+})
+
+function fakeCanvasDoc(read: (w: number, h: number) => Uint8ClampedArray, opts: { noContext?: boolean; throwOnRead?: boolean } = {}) {
+  const calls: string[] = []
+  const g = {
+    setTransform: (...a: number[]) => void calls.push("transform " + a.map((v) => +v.toFixed(4)).join(" ")),
+    getImageData: (_x: number, _y: number, w: number, h: number) => {
+      calls.push(`read ${w}x${h}`)
+      if (opts.throwOnRead) throw new Error("no readback")
+      return { data: read(w, h) }
+    },
+  }
+  const canvas = { width: 0, height: 0, getContext: () => (opts.noContext ? null : g) }
+  return { doc: { createElement: () => canvas } as unknown as Document, calls }
+}
+const grey = (v: number) => (w: number, h: number) => new Uint8ClampedArray(w * h * 4).map((_, i) => (i % 4 === 3 ? 255 : v))
+
+test("the meter paints the picture small, scaled to fit, and reads its mean brightness back", () => {
+  const { doc, calls } = fakeCanvasDoc(grey(128))
+  const meter = createMeter(doc)
+  assert.ok(meter)
+  let painted = 0
+  const m = meter.measure(() => void painted++, 1366, 768)
+  assert.equal(painted, 1)
+  assert.ok(m !== null && Math.abs(m - 128 / 255) < 1e-9)
+  const { mw, mh } = meterSize(1366, 768)
+  assert.equal(calls[0], `transform ${+(mw / 1366).toFixed(4)} 0 0 ${+(mh / 768).toFixed(4)} 0 0`)
+  assert.ok(calls.includes(`read ${mw}x${mh}`))
+})
+
+test("a browser that cannot read a canvas back gives no meter, or stops trying after one failure", () => {
+  assert.equal(createMeter(fakeCanvasDoc(grey(0), { noContext: true }).doc), null)
+  const { doc, calls } = fakeCanvasDoc(grey(0), { throwOnRead: true })
+  const meter = createMeter(doc)
+  assert.ok(meter)
+  assert.equal(meter.measure(() => {}, 800, 600), null)
+  const reads = calls.filter((c) => c.startsWith("read")).length
+  assert.equal(meter.measure(() => {}, 800, 600), null)
+  assert.equal(calls.filter((c) => c.startsWith("read")).length, reads, "no second try")
+})
+
+test("the veil is drawn in the color the guard assumes: a dark, cool grey at 20% brightness", () => {
+  assert.equal(VEIL_LEVEL, 0.2)
+  assert.ok(Math.abs(luma(hazeRgb(VEIL_LEVEL)) - 0.2) < 0.005)
 })

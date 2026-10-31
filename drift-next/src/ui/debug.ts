@@ -12,6 +12,10 @@ export type DebugInfo = {
   pinned: boolean
   haze: number // 0 clear .. 1 inside a cloud
   tint: number | null // brightness level of the haze, 0..1; null while there is none
+  bankDeg: number // how far the glider is banked against the horizon, degrees, always 0 or more
+  bankMax: number // the most it can ever bank, degrees
+  bright: number // mean brightness of the picture after the guard, 0..1
+  veil: number // how much of the guard's dark veil is on, 0..1 (0 in normal play)
 }
 
 /** ?debug=1 turns the readout on. */
@@ -30,6 +34,7 @@ export function debugLines(i: DebugInfo): string[] {
     `tier ${i.tier} · scale ${i.scale.toFixed(2)} · p95 ${i.p95 === null ? "-" : i.p95.toFixed(0) + " ms"}`,
     `speed ${i.speed.toFixed(1)} · altitude ${Math.round(i.altitude)} · ${i.layer}`,
     `haze ${Math.round(i.haze * 100)}% · tint ${i.tint === null ? "-" : Math.round(i.tint * 100) + "%"}${i.pinned ? " · tier pinned" : ""}`,
+    `bank ${Math.round(Math.abs(i.bankDeg))}° of ${Math.round(i.bankMax)}° · bright ${Math.round(i.bright * 100)}% · veil ${Math.round(i.veil * 100)}%`,
   ]
 }
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { CLOUD_BODY, CLOUD_SHADE, HAZE_TINT, SEA_FAR, SEA_HORIZON, SKY_HORIZON, SKY_TOP, BODY_ALPHA, hazeRgb, luma } from "./palette.ts"
 import type { ProbeEnv } from "./probe.ts"
-import { MAX_PUFFS, drawPlan, frameDone, planOf, puffLimitFromSearch, startQuality, tierFromSearch } from "./quality.ts"
+import { MAX_PUFFS, capFromSearch, drawPlan, frameDone, planOf, puffLimitFromSearch, startQuality, tierFromSearch } from "./quality.ts"
 import { TIERS, TIER_TABLE } from "./tiers.ts"
 
 const good: ProbeEnv = { context: () => ({}), renderer: () => "ANGLE (Intel, Mesa Intel UHD)", cores: 8, memoryGb: 8, userAgent: "Mozilla/5.0 (X11; Linux x86_64)", media: () => false }
@@ -105,4 +105,11 @@ test("the haze keeps the brightness it is asked for, is tinted blue-grey, and is
   }
   assert.deepEqual(hazeRgb(2), hazeRgb(1))
   assert.deepEqual(hazeRgb(-1), [0, 0, 0])
+})
+
+test("?cap= can only lower the brightness cap, to 40-58 percent; anything else is ignored", () => {
+  assert.equal(capFromSearch("?debug=1&cap=45"), 0.45)
+  assert.equal(capFromSearch("?cap=58"), 0.58)
+  assert.equal(capFromSearch("?cap=40"), 0.4)
+  for (const s of ["", "?cap=", "?cap=39", "?cap=59", "?cap=60", "?cap=99", "?cap=100", "?cap=4", "?cap=4.5", "?cap=-45", "?cap=x"]) assert.equal(capFromSearch(s), null, s)
 })

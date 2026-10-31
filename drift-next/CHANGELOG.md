@@ -1,3 +1,7 @@
+## 2.0.0-i
+
+A brightness guard and a gentler tilt. The guard watches the picture that actually reaches the screen and, if its average brightness ever passes 58%, lays a dark veil over it until it is back at 58%; in normal play (clear sky about 51%, worst cloud about 56%) it never switches on. The glider now banks at most 25 degrees against the horizon, down from about 57; reduced motion still draws no tilt. ?debug=1 shows the bank angle, the brightness and the veil on a new line; ?debug=1&cap=45 lowers the cap to 45% so a tester can watch the guard work. No lockfile yet: npm could not be reached while this was written, so RepoCoder generates package-lock.json.
+
 ## 2.0.0-h
 
 Real sky and clouds: the quality tiers, start probe and frame governor now run the demo (?debug=1 shows the tier; ?q=light pins one). The sky and clouds are darker and off-white, about half brightness in clear sky and never pure white. Flying into a cloud fades to a soft tinted haze and back out, and never gets brighter than the sky. Reduced motion keeps the fade, slower, with no tilt.

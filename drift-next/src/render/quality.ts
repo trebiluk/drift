@@ -1,3 +1,4 @@
+import { BRIGHT_CAP, BRIGHT_FLOOR } from "../sim/cloudpass.ts"
 import { createGovernor, sample, setCap, type Change, type Governor } from "./governor.ts"
 import { detectCaps, startTier, type Caps, type ProbeEnv } from "./probe.ts"
 import { TIERS, TIER_TABLE, type Tier } from "./tiers.ts"
@@ -58,6 +59,21 @@ export function frameDone(q: Quality, elapsedMs: number, workMs: number): Change
 
 export function planOf(q: Quality): DrawPlan {
   return drawPlan(q.gov.tier, q.gov.scale)
+}
+
+/**
+ * `?debug=1&cap=NN` lowers the brightness cap to NN percent (40 to 58) so a tester can watch the guard work.
+ * It can only lower the cap; anything else is ignored. Only read when debug is on.
+ */
+export function capFromSearch(search: string): number | null {
+  try {
+    const v = new URLSearchParams(search).get("cap")
+    if (v === null || !/^\d{2}$/.test(v)) return null
+    const n = Number(v) / 100
+    return n >= BRIGHT_FLOOR - 1e-9 && n <= BRIGHT_CAP + 1e-9 ? n : null
+  } catch {
+    return null
+  }
 }
 
 /** `?debug=1&puffs=N` limits the clouds, so a tester can look at clear sky (`puffs=0`). Only read when debug is on. */

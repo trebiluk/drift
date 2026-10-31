@@ -29,6 +29,40 @@ function smooth(a: number, b: number, v: number) {
   return t * t * (3 - 2 * t)
 }
 
+// The brightness guard. The cloud pass above keeps the tint under the clear sky, but nothing there looks at the picture
+// that actually reaches the screen. The guard does: it is told the measured mean brightness of the picture and, if that is
+// over the cap, lays a dark veil over it until the picture is exactly at the cap. It is the last word for light-sensitive
+// players, whatever the sky, the clouds or the haze do. In normal play the picture is under the cap and the veil stays 0.
+export const BRIGHT_CAP = 0.58 // the picture's mean brightness is never allowed above this (Diego's limit is 60%)
+export const BRIGHT_FLOOR = 0.4 // a test may lower the cap, never below this
+export const VEIL_LEVEL = 0.2 // brightness of the veil color: a dark blue-grey, never black
+export const VEIL_MAX = 0.75 // the most the veil can cover, so a bad reading can never black the screen out
+export const VEIL_RELEASE_S = 0.04 // the veil lifts no faster than this per second; it drops on at once (it only ever dims)
+
+export type Guard = { veil: number }
+export type GuardOut = { veil: number; out: number }
+
+export const createGuard = (): Guard => ({ veil: 0 })
+
+/** The veil that brings a picture of brightness `base` down to `cap`: 0 when it is already under. */
+export function veilFor(base: number, cap = BRIGHT_CAP): number {
+  if (!(base > cap)) return 0
+  return clamp((base - cap) / (base - VEIL_LEVEL), 0, VEIL_MAX)
+}
+
+/**
+ * One frame of the guard. `base` is the picture's measured mean brightness before the veil, `cap` can only be lowered.
+ * Dimming is immediate, so the picture never goes over the cap; lifting is slow, so the veil cannot make the screen pump.
+ * `out` is the brightness after the veil. A reading that is not a number changes nothing.
+ */
+export function stepGuard(g: Guard, base: number, dt: number, cap = BRIGHT_CAP): GuardOut {
+  const c = clamp(Number.isFinite(cap) ? cap : BRIGHT_CAP, BRIGHT_FLOOR, BRIGHT_CAP)
+  if (!Number.isFinite(base)) return { veil: g.veil, out: NaN }
+  const want = veilFor(base, c)
+  g.veil = Math.max(want, g.veil - clamp(dt, 0, MAX_DT) * VEIL_RELEASE_S)
+  return { veil: g.veil, out: base * (1 - g.veil) + VEIL_LEVEL * g.veil }
+}
+
 export const createPass = (): CloudPass => ({ depth: 0, settle: 0 })
 
 const wrapBy = (v: number, span: number) => (span > 0 ? v - Math.round(v / span) * span : v)

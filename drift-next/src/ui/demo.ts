@@ -1,12 +1,13 @@
 import { buildClouds } from "../sim/clouds.ts"
-import { createPass, proximity, stepPass, SKY_DAY, type PassOpts, type PassOut, type Puff } from "../sim/cloudpass.ts"
+import { BRIGHT_CAP, VEIL_LEVEL, createGuard, createPass, proximity, stepGuard, stepPass, SKY_DAY, type GuardOut, type PassOpts, type PassOut, type Puff } from "../sim/cloudpass.ts"
 import { advance, clamp, createSimState, layerId, WORLD_HOME, type SimState } from "../sim/craft.ts"
 import { steerFromPull } from "../input/pull.ts"
 import { browserLoopEnv, createPacer, setCeiling, startLoop } from "../loop/loop.ts"
 import { BODY_ALPHA, CLOUD_BODY, CLOUD_SHADE, SEA_FAR, SEA_HORIZON, SHADE_ALPHA, SKY_HORIZON, SKY_TOP, css, hazeRgb } from "../render/palette.ts"
 import { browserEnv } from "../render/probe.ts"
-import { MAX_PUFFS, frameDone, planOf, puffLimitFromSearch, startQuality } from "../render/quality.ts"
+import { MAX_PUFFS, capFromSearch, frameDone, planOf, puffLimitFromSearch, startQuality } from "../render/quality.ts"
 import { mountDebug } from "./debug.ts"
+import { METER_EVERY_MS, createMeter } from "./meter.ts"
 
 /** The seeded cloud field repeats this often, so the sky never runs out as you fly. */
 export const FIELD = 3200
@@ -30,6 +31,27 @@ export const levelAssist = (pitch: number, home: number) => clamp((home - pitch)
 function smooth(a: number, b: number, v: number) {
   const t = clamp((v - a) / (b - a), 0, 1)
   return t * t * (3 - 2 * t)
+}
+
+/** The most the glider ever banks against the horizon, in degrees. Full steering reaches it; nothing goes past it. */
+export const BANK_MAX_DEG = 25
+/** The sim rolls to this many radians at full steering (craft.ts: targetRoll = -yaw * 0.4). Full steering maps to BANK_MAX_DEG. */
+export const ROLL_FULL = 0.4
+/** Of the bank, this share tilts the horizon and the rest tilts the glider, so neither swings far on its own. */
+const BANK_WORLD_SHARE = 0.4
+
+export type Bank = { world: number; glider: number; rad: number }
+
+/**
+ * How the sim's roll is drawn. `rad` is the angle between the glider and the horizon, never over BANK_MAX_DEG either way.
+ * `world` is the turn given to the horizon, `glider` the turn given to the glider (radians, as ctx.rotate takes them).
+ * Reduced motion draws nothing tilted at all.
+ */
+export function bankView(roll: number, reducedMotion: boolean): Bank {
+  if (reducedMotion || !Number.isFinite(roll)) return { world: 0, glider: 0, rad: 0 }
+  const max = (BANK_MAX_DEG * Math.PI) / 180
+  const rad = clamp((roll / ROLL_FULL) * max, -max, max)
+  return { world: -BANK_WORLD_SHARE * rad, glider: (1 - BANK_WORLD_SHARE) * rad, rad }
 }
 
 export type Proj = { x: number; y: number; r: number; a: number; z: number }
@@ -76,6 +98,7 @@ const SKY_TOP_CSS = css(SKY_TOP)
 const SKY_HORIZON_CSS = css(SKY_HORIZON)
 const SEA_HORIZON_CSS = css(SEA_HORIZON)
 const SEA_FAR_CSS = css(SEA_FAR)
+const VEIL_CSS = css(hazeRgb(VEIL_LEVEL))
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   const doc = host.ownerDocument
@@ -113,7 +136,15 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   let w = 0
   let h = 0
   let dpr = 1
-  let drawRoll = 0 // the tilt actually drawn: always 0 under reduced motion
+  let bank: Bank = { world: 0, glider: 0, rad: 0 } // the tilt actually drawn: always 0 under reduced motion
+  // The brightness guard: the meter reads the picture, the guard dims it if it is over the cap.
+  const guard = createGuard()
+  const meter = createMeter(doc)
+  const search = opts.search ?? window.location.search
+  const guardCap = (opts.debug ? capFromSearch(search) : null) ?? BRIGHT_CAP // a test can only lower it
+  let guardOut: GuardOut = { veil: 0, out: SKY_DAY }
+  let metered: number | null = null // the picture's measured brightness before the veil; null until the first reading
+  let meterAt = -Infinity
 
   const release = () => {
     stick.active = false
@@ -188,6 +219,8 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     advance(state, dt)
     const c = state.craft
     haze = stepPass(pass, proximity(c.x, c.y, c.z, active, FIELD), dt, passOpts)
+    // With no reading yet (or a browser that cannot read a canvas back) the guard uses the model's number instead.
+    guardOut = stepGuard(guard, metered ?? haze.screen, dt, guardCap)
   }
 
   const fit = () => {
@@ -202,58 +235,83 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     canvas.height = Math.round(h * dpr)
   }
 
+  type View = { f: number; cx: number; cy: number; horizon: number; big: number; tilt: number }
+
+  /**
+   * The picture without the guard's veil, the pull marker and the glider: sky, sea, clouds, and the haze while in a cloud.
+   * The brightness meter paints this same thing small, so what it measures is what the player is about to see.
+   */
+  const paintWorld = (g: CanvasRenderingContext2D, v: View) => {
+    g.save()
+    g.translate(v.cx, v.cy)
+    g.rotate(v.tilt)
+    g.translate(-v.cx, -v.cy)
+    const sky = g.createLinearGradient(0, v.horizon - h, 0, v.horizon)
+    sky.addColorStop(0, SKY_TOP_CSS)
+    sky.addColorStop(1, SKY_HORIZON_CSS)
+    g.fillStyle = sky
+    g.fillRect(-v.big, v.horizon - v.big * 2, w + v.big * 2, v.big * 2)
+    const sea = g.createLinearGradient(0, v.horizon, 0, v.horizon + h)
+    sea.addColorStop(0, SEA_HORIZON_CSS)
+    sea.addColorStop(1, SEA_FAR_CSS)
+    g.fillStyle = sea
+    g.fillRect(-v.big, v.horizon, w + v.big * 2, v.big * 2)
+
+    for (const q of order) {
+      if (plan.shade) {
+        g.globalAlpha = q.a * SHADE_ALPHA
+        g.fillStyle = SHADE
+        g.beginPath()
+        g.arc(q.x, q.y + q.r * 0.2, q.r, 0, Math.PI * 2)
+        g.fill()
+      }
+      g.globalAlpha = q.a * BODY_ALPHA
+      g.fillStyle = BODY
+      g.beginPath()
+      g.arc(q.x, q.y, q.r * 0.92, 0, Math.PI * 2)
+      g.fill()
+    }
+    g.restore()
+
+    // Inside a cloud the whole picture fades to a soft tinted haze and back. It is drawn under the glider and the pull marker.
+    if (haze.coverage > 0.002) {
+      g.globalAlpha = haze.coverage
+      g.fillStyle = css(hazeRgb(haze.level))
+      g.fillRect(0, 0, w, h)
+    }
+    g.globalAlpha = 1
+  }
+
   const draw = () => {
     fit()
     const c = state.craft
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     const f = Math.min(h / 2 / Math.tan((36 * Math.PI) / 180), w / 2 / Math.tan((30 * Math.PI) / 180))
     const cx = w / 2
     const cy = h * 0.46
-    const horizon = cy + f * Math.tan(c.pitch)
-    const big = Math.hypot(w, h)
-
-    ctx.save()
-    drawRoll = reduced ? 0 : c.roll
-    ctx.translate(cx, cy)
-    ctx.rotate(-drawRoll)
-    ctx.translate(-cx, -cy)
-    const sky = ctx.createLinearGradient(0, horizon - h, 0, horizon)
-    sky.addColorStop(0, SKY_TOP_CSS)
-    sky.addColorStop(1, SKY_HORIZON_CSS)
-    ctx.fillStyle = sky
-    ctx.fillRect(-big, horizon - big * 2, w + big * 2, big * 2)
-    const sea = ctx.createLinearGradient(0, horizon, 0, horizon + h)
-    sea.addColorStop(0, SEA_HORIZON_CSS)
-    sea.addColorStop(1, SEA_FAR_CSS)
-    ctx.fillStyle = sea
-    ctx.fillRect(-big, horizon, w + big * 2, big * 2)
+    bank = bankView(c.roll, reduced)
+    const view: View = { f, cx, cy, horizon: cy + f * Math.tan(c.pitch), big: Math.hypot(w, h), tilt: bank.world }
 
     order.length = 0
     for (let i = 0; i < active.length; i++) if (projectInto(pool[i], active[i], c, f, cx, cy)) order.push(pool[i])
     order.sort((a, b) => b.z - a.z)
-    for (const q of order) {
-      if (plan.shade) {
-        ctx.globalAlpha = q.a * SHADE_ALPHA
-        ctx.fillStyle = SHADE
-        ctx.beginPath()
-        ctx.arc(q.x, q.y + q.r * 0.2, q.r, 0, Math.PI * 2)
-        ctx.fill()
-      }
-      ctx.globalAlpha = q.a * BODY_ALPHA
-      ctx.fillStyle = BODY
-      ctx.beginPath()
-      ctx.arc(q.x, q.y, q.r * 0.92, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    ctx.restore()
 
-    // Inside a cloud the whole picture fades to a soft tinted haze and back. It is drawn under the glider and the pull marker.
-    if (haze.coverage > 0.002) {
-      ctx.globalAlpha = haze.coverage
-      ctx.fillStyle = css(hazeRgb(haze.level))
-      ctx.fillRect(0, 0, w, h)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    paintWorld(ctx, view)
+
+    // The guard's eyes: every so often, paint the same picture small and read its brightness back.
+    const now = performance.now()
+    if (meter && now - meterAt >= METER_EVERY_MS) {
+      meterAt = now
+      const m = meter.measure((g) => paintWorld(g, view), w, h)
+      if (m !== null) metered = m
     }
-    ctx.globalAlpha = 1
+    // The guard's veil goes over the picture and under the pull marker and the glider, which stay plain and easy to see.
+    if (guardOut.veil > 0.002) {
+      ctx.globalAlpha = guardOut.veil
+      ctx.fillStyle = VEIL_CSS
+      ctx.fillRect(0, 0, w, h)
+      ctx.globalAlpha = 1
+    }
 
     if (stick.active) {
       ctx.lineWidth = 3
@@ -271,7 +329,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     const s = Math.max(24, Math.min(w, h) * 0.06)
     ctx.save()
     ctx.translate(cx, h * 0.78)
-    ctx.rotate(drawRoll * 1.5)
+    ctx.rotate(bank.glider)
     ctx.beginPath()
     ctx.moveTo(0, -s * 1.2)
     ctx.lineTo(-s * 1.4, s * 0.6)
@@ -318,6 +376,10 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
         pinned: quality.pinned,
         haze: haze.coverage,
         tint: haze.coverage > 0.002 ? haze.level : null,
+        bankDeg: (Math.abs(bank.rad) * 180) / Math.PI,
+        bankMax: BANK_MAX_DEG,
+        bright: guardOut.out,
+        veil: guardOut.veil,
       }))
     : () => {}
   const hookWindow = window as unknown as { __controlsTest?: unknown }
@@ -338,8 +400,10 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
       getTier: () => ({ tier: quality.gov.tier, scale: quality.gov.scale, pinned: quality.pinned, puffs: plan.puffs, fps: plan.fps }),
       getHaze: () => ({ coverage: haze.coverage, level: haze.level, inside: haze.inside }),
       getVisible: () => order.length,
-      getDrawRoll: () => drawRoll,
       getRoll: () => state.craft.roll,
+      /** The tilt on screen: `deg` is the glider against the horizon, `world` and `glider` are what each is turned by (radians). */
+      getBank: () => ({ deg: (bank.rad * 180) / Math.PI, world: bank.world, glider: bank.glider, max: BANK_MAX_DEG }),
+      getGuard: () => ({ cap: guardCap, measured: metered, out: guardOut.out, veil: guardOut.veil, metered: metered !== null }),
     }
   }
 
