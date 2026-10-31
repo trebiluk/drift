@@ -1,3 +1,7 @@
+## 2.0.0-h
+
+Real sky and clouds: the quality tiers, start probe and frame governor now run the demo (?debug=1 shows the tier; ?q=light pins one). The sky and clouds are darker and off-white, about half brightness in clear sky and never pure white. Flying into a cloud fades to a soft tinted haze and back out, and never gets brighter than the sky. Reduced motion keeps the fade, slower, with no tilt.
+
 ## 2.0.0-g
 
 First moving frame: a frame loop (cap 60, drops to 30 when frames run long, pauses when the tab is hidden), a ?debug=1 readout, and a glider you can steer with a mouse, a finger or the arrow keys.

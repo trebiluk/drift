@@ -1,8 +1,10 @@
 /**
  * Cloud fly-through: how the screen tints while the craft is in a cloud.
  * Pure, slow, and capped on purpose (Diego is light-sensitive). See docs/crew/DRIFT-LOOK-LOCK-REFS.md 0.1.
- * Beats: white thickens (peak 65% of full white), settles to a vague grey, then clears. Never a flash.
- * Every number here is a starting value; S5 re-measures sky and peak on real renders.
+ * Beats: a pale tint thickens, settles to a vague grey, then clears. Never a flash.
+ * The tint is capped at Diego's 65% and is never brighter than the clear sky, so going into a cloud dims the screen
+ * and tints it; it does not brighten it. Brightness here is the sRGB-coded value (see render/palette.ts).
+ * SKY_DAY is measured on the demo's real picture at level flight (S5); night is still an estimate.
  */
 export type Puff = { x: number; y: number; z: number; r: number }
 export type CloudPass = { depth: number; settle: number }
@@ -12,7 +14,7 @@ export type PassOut = { coverage: number; level: number; screen: number; inside:
 export const CLOUD_PEAK = 0.65 // brightest the tint may be, share of full white (Diego's pick)
 export const CLOUD_PEAK_NIGHT = 0.4
 export const GREY_SHARE = 0.77 // the grey settles to this share of the peak
-export const SKY_DAY = 0.42 // average screen brightness under clear sky (estimate)
+export const SKY_DAY = 0.51 // average screen brightness under clear sky, measured on the demo at level flight
 export const SKY_NIGHT = 0.12
 export const RAMP_S = 5 // seconds to go in, and again to come out
 export const RAMP_CALM_S = 8 // reduced motion or Calm
@@ -29,14 +31,19 @@ function smooth(a: number, b: number, v: number) {
 
 export const createPass = (): CloudPass => ({ depth: 0, settle: 0 })
 
-/** 0 clear of every cloud, 1 in a cloud core. Soft edge from 0.55 to 1.25 radii. */
-export function proximity(x: number, y: number, z: number, puffs: readonly Puff[]) {
+const wrapBy = (v: number, span: number) => (span > 0 ? v - Math.round(v / span) * span : v)
+
+/**
+ * 0 clear of every cloud, 1 in a cloud core. Soft edge from 0.55 to 1.25 radii.
+ * `wrap` is the span a repeating cloud field comes round again (0 for a field that does not repeat).
+ */
+export function proximity(x: number, y: number, z: number, puffs: readonly Puff[], wrap = 0) {
   let best = 0
   for (let i = 0; i < puffs.length; i++) {
     const p = puffs[i]
-    const dx = x - p.x
+    const dx = wrapBy(x - p.x, wrap)
     const dy = y - p.y
-    const dz = z - p.z
+    const dz = wrapBy(z - p.z, wrap)
     const d = Math.sqrt(dx * dx + dy * dy + dz * dz) / p.r
     const v = 1 - smooth(0.55, 1.25, d)
     if (v > best) best = v
@@ -52,8 +59,8 @@ export function stepPass(s: CloudPass, target: number, dt: number, o: PassOpts):
   const inside = s.depth > 0.98
   s.settle = clamp(s.settle + (inside ? rate : -rate), 0, s.depth)
   const n = clamp(o.night, 0, 1)
-  const peak = lerp(CLOUD_PEAK, CLOUD_PEAK_NIGHT, n)
   const sky = lerp(SKY_DAY, SKY_NIGHT, n)
+  const peak = Math.min(lerp(CLOUD_PEAK, CLOUD_PEAK_NIGHT, n), sky)
   const c = s.depth
   const level = c > 1e-4 ? peak - (peak - peak * GREY_SHARE) * (s.settle / c) : peak
   return { coverage: c, level, screen: (1 - c) * sky + c * level, inside }

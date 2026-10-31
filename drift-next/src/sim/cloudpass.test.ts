@@ -3,7 +3,7 @@ import { test } from "node:test"
 import { bandCounts, buildClouds } from "./clouds.ts"
 import { createPass, proximity, stepPass, type PassOpts } from "./cloudpass.ts"
 
-// The 0.65, 0.4, 0.06 and 0.02 below are written out on purpose, so the tests can't agree with a changed constant.
+// The 0.65, 0.4, 0.51, 0.06 and 0.02 below are written out on purpose, so the tests can't agree with a changed constant.
 const day: PassOpts = { night: 0, calm: false, mist: "soft" }
 const night: PassOpts = { night: 1, calm: false, mist: "soft" }
 
@@ -24,10 +24,20 @@ test("white never passes Diego's caps: 65% by day, 40% at night", () => {
   }
 })
 
-test("it settles to a lower grey after the white", () => {
+test("it settles to a lower grey after the tint", () => {
   const v = run(() => 1, 40, 60, day)
   assert.ok(v[v.length - 1] < Math.max(...v) - 0.1)
-  assert.ok(Math.abs(v[v.length - 1] - 0.65 * 0.77) < 0.01)
+  // the tint is capped by the clear sky (0.51), and the grey is 77% of that
+  assert.ok(Math.abs(v[v.length - 1] - 0.51 * 0.77) < 0.01, `settled at ${v[v.length - 1]}`)
+})
+
+test("going into a cloud never brightens the screen: day, night and calm, in and out", () => {
+  for (const [o, sky] of [[day, 0.51], [night, 0.12], [{ ...day, calm: true }, 0.51]] as const) {
+    const v = run(inThenOut, 40, 60, o)
+    assert.ok(Math.abs(v[0] - sky) < 1e-9, "starts at the clear sky")
+    assert.ok(Math.max(...v) <= sky + 1e-9, `highest ${Math.max(...v)} against sky ${sky}`)
+    assert.ok(Math.min(...v) < sky * 0.85, "and it does dim, by at least a sixth")
+  }
 })
 
 test("going in takes at least 5 s, calm at least 8 s", () => {
@@ -84,6 +94,14 @@ test("proximity: 1 in a core, 0 far off, soft between", () => {
   assert.equal(proximity(500, 148, 0, p), 0)
   const edge = proximity(50, 148, 0, p)
   assert.ok(edge > 0 && edge < 1)
+})
+
+test("proximity wraps with a repeating field: a cloud one field away counts as here", () => {
+  const p = [{ x: 0, y: 148, z: 0, r: 50 }]
+  assert.equal(proximity(3200, 148, -3200, p), 0, "without a wrap it is far off")
+  assert.equal(proximity(3200, 148, -3200, p, 3200), 1)
+  assert.equal(proximity(3200 + 500, 148, 0, p, 3200), 0)
+  assert.equal(proximity(-6400, 148, 6400, p, 3200), 1)
 })
 
 test("clouds repeat, and 40% or more sit at eye level", () => {

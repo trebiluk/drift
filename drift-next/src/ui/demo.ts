@@ -1,8 +1,11 @@
 import { buildClouds } from "../sim/clouds.ts"
-import type { Puff } from "../sim/cloudpass.ts"
+import { createPass, proximity, stepPass, SKY_DAY, type PassOpts, type PassOut, type Puff } from "../sim/cloudpass.ts"
 import { advance, clamp, createSimState, layerId, WORLD_HOME, type SimState } from "../sim/craft.ts"
 import { steerFromPull } from "../input/pull.ts"
-import { browserLoopEnv, startLoop } from "../loop/loop.ts"
+import { browserLoopEnv, createPacer, setCeiling, startLoop } from "../loop/loop.ts"
+import { BODY_ALPHA, CLOUD_BODY, CLOUD_SHADE, SEA_FAR, SEA_HORIZON, SHADE_ALPHA, SKY_HORIZON, SKY_TOP, css, hazeRgb } from "../render/palette.ts"
+import { browserEnv } from "../render/probe.ts"
+import { MAX_PUFFS, frameDone, planOf, puffLimitFromSearch, startQuality } from "../render/quality.ts"
 import { mountDebug } from "./debug.ts"
 
 /** The seeded cloud field repeats this often, so the sky never runs out as you fly. */
@@ -34,7 +37,8 @@ type Pose = { x: number; y: number; z: number; yaw: number; pitch: number }
 
 /**
  * Where a cloud lands on screen, written into `out`. Returns false when it is behind you or too close.
- * Clouds fade out as you reach them, and big close ones fade further, so flying at a cloud never floods the screen white.
+ * Clouds fade out as you reach them, and big close ones fade much sooner (from about a fifth of the view), so flying at a
+ * cloud at top speed never changes the average brightness by more than a few percent in a second.
  */
 export function projectInto(out: Proj, p: Puff, c: Pose, f: number, cx: number, cy: number): boolean {
   const dx = wrapRel(p.x - c.x, FIELD)
@@ -51,7 +55,7 @@ export function projectInto(out: Proj, p: Puff, c: Pose, f: number, cx: number, 
   const near = smooth(1, 2.4, dist / p.r)
   const far = 1 - smooth(900, 1500, dist)
   const r = (f * p.r) / Math.max(zc, dist * 0.7)
-  const big = 1 - smooth(0.45 * f, 0.9 * f, r)
+  const big = 1 - smooth(0.22 * f, 0.5 * f, r)
   const a = near * far * big
   if (a < 0.01) return false
   out.x = cx + (f * xc) / zc
@@ -64,7 +68,16 @@ export function projectInto(out: Proj, p: Puff, c: Pose, f: number, cx: number, 
 
 type Stick = { active: boolean; id: number; ox: number; oy: number; x: number; y: number; mouse: boolean }
 
-export function mountDemo(host: HTMLElement, opts: { version: string; debug: boolean }): () => void {
+export type DemoOpts = { version: string; debug: boolean; search?: string; lowPower?: boolean }
+
+const BODY = css(CLOUD_BODY)
+const SHADE = css(CLOUD_SHADE)
+const SKY_TOP_CSS = css(SKY_TOP)
+const SKY_HORIZON_CSS = css(SKY_HORIZON)
+const SEA_HORIZON_CSS = css(SEA_HORIZON)
+const SEA_FAR_CSS = css(SEA_FAR)
+
+export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
   const doc = host.ownerDocument
   const canvas = doc.createElement("canvas")
   Object.assign(canvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%", touchAction: "none", display: "block" })
@@ -81,16 +94,26 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
-  const puffs = buildClouds(19)
+  const quality = startQuality(browserEnv(), opts.search ?? window.location.search, opts.lowPower ?? false)
+  let plan = planOf(quality)
+  const puffs = buildClouds(19, MAX_PUFFS)
+  const testLimit = opts.debug ? puffLimitFromSearch(opts.search ?? window.location.search) : null
+  const pickPuffs = () => puffs.slice(0, Math.min(plan.puffs, testLimit ?? MAX_PUFFS))
+  let active: Puff[] = pickPuffs()
   const pool: Proj[] = puffs.map(() => ({ x: 0, y: 0, r: 0, a: 0, z: 0 }))
   const order: Proj[] = []
+  const pass = createPass()
+  let haze: PassOut = { coverage: 0, level: SKY_DAY, screen: SKY_DAY, inside: false }
   const keys = new Set<string>()
   const stick: Stick = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, mouse: true }
   const steer = { yaw: 0, pitch: 0 }
   const reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches
+  // Reduced motion keeps the fade but slows it to the calm ramp, and drops the roll tilt below.
+  const passOpts: PassOpts = { night: 0, calm: reduced, mist: "soft" }
   let w = 0
   let h = 0
   let dpr = 1
+  let drawRoll = 0 // the tilt actually drawn: always 0 under reduced motion
 
   const release = () => {
     stick.active = false
@@ -163,12 +186,14 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
     state.actions.yaw = steer.yaw
     state.actions.pitch = steer.pitch
     advance(state, dt)
+    const c = state.craft
+    haze = stepPass(pass, proximity(c.x, c.y, c.z, active, FIELD), dt, passOpts)
   }
 
   const fit = () => {
     const nw = host.clientWidth || window.innerWidth
     const nh = host.clientHeight || window.innerHeight
-    const nd = Math.min(window.devicePixelRatio || 1, 1.5)
+    const nd = Math.min(window.devicePixelRatio || 1, plan.scale)
     if (nw === w && nh === h && nd === dpr) return
     w = nw
     h = nh
@@ -188,34 +213,47 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
     const big = Math.hypot(w, h)
 
     ctx.save()
+    drawRoll = reduced ? 0 : c.roll
     ctx.translate(cx, cy)
-    ctx.rotate(reduced ? 0 : -c.roll)
+    ctx.rotate(-drawRoll)
     ctx.translate(-cx, -cy)
     const sky = ctx.createLinearGradient(0, horizon - h, 0, horizon)
-    sky.addColorStop(0, "#2a63b8")
-    sky.addColorStop(1, "#8fc3ea")
+    sky.addColorStop(0, SKY_TOP_CSS)
+    sky.addColorStop(1, SKY_HORIZON_CSS)
     ctx.fillStyle = sky
     ctx.fillRect(-big, horizon - big * 2, w + big * 2, big * 2)
     const sea = ctx.createLinearGradient(0, horizon, 0, horizon + h)
-    sea.addColorStop(0, "#9bbfe0")
-    sea.addColorStop(1, "#5d8cc2")
+    sea.addColorStop(0, SEA_HORIZON_CSS)
+    sea.addColorStop(1, SEA_FAR_CSS)
     ctx.fillStyle = sea
     ctx.fillRect(-big, horizon, w + big * 2, big * 2)
 
     order.length = 0
-    for (let i = 0; i < puffs.length; i++) if (projectInto(pool[i], puffs[i], c, f, cx, cy)) order.push(pool[i])
+    for (let i = 0; i < active.length; i++) if (projectInto(pool[i], active[i], c, f, cx, cy)) order.push(pool[i])
     order.sort((a, b) => b.z - a.z)
     for (const q of order) {
-      ctx.fillStyle = `rgba(140, 165, 200, ${(q.a * 0.55).toFixed(3)})`
-      ctx.beginPath()
-      ctx.arc(q.x, q.y + q.r * 0.2, q.r, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = `rgba(234, 241, 249, ${(q.a * 0.92).toFixed(3)})`
+      if (plan.shade) {
+        ctx.globalAlpha = q.a * SHADE_ALPHA
+        ctx.fillStyle = SHADE
+        ctx.beginPath()
+        ctx.arc(q.x, q.y + q.r * 0.2, q.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = q.a * BODY_ALPHA
+      ctx.fillStyle = BODY
       ctx.beginPath()
       ctx.arc(q.x, q.y, q.r * 0.92, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()
+
+    // Inside a cloud the whole picture fades to a soft tinted haze and back. It is drawn under the glider and the pull marker.
+    if (haze.coverage > 0.002) {
+      ctx.globalAlpha = haze.coverage
+      ctx.fillStyle = css(hazeRgb(haze.level))
+      ctx.fillRect(0, 0, w, h)
+    }
+    ctx.globalAlpha = 1
 
     if (stick.active) {
       ctx.lineWidth = 3
@@ -233,7 +271,7 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
     const s = Math.max(24, Math.min(w, h) * 0.06)
     ctx.save()
     ctx.translate(cx, h * 0.78)
-    ctx.rotate(reduced ? 0 : c.roll * 1.5)
+    ctx.rotate(drawRoll * 1.5)
     ctx.beginPath()
     ctx.moveTo(0, -s * 1.2)
     ctx.lineTo(-s * 1.4, s * 0.6)
@@ -249,14 +287,22 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
   }
 
   let failed = false
-  const loop = startLoop(browserLoopEnv(), {
+  const pacer = createPacer(plan.fps)
+  const hooks = {
     step,
     draw,
-    onError: (e) => {
+    onFrame: (elapsedMs: number, workMs: number) => {
+      if (!frameDone(quality, elapsedMs, workMs)) return
+      plan = planOf(quality)
+      active = pickPuffs()
+      setCeiling(pacer, plan.fps)
+    },
+    onError: (e: unknown) => {
       failed = true
       console.error("Drift stopped:", e)
     },
-  })
+  }
+  const loop = startLoop(browserLoopEnv(), hooks, pacer)
   const stopDebug = opts.debug
     ? mountDebug(host, () => ({
         version: opts.version,
@@ -266,6 +312,12 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
         speed: state.craft.speed,
         altitude: state.craft.y,
         layer: failed ? "stopped" : layerId(state.craft.y),
+        tier: quality.gov.tier,
+        scale: quality.gov.scale,
+        p95: quality.pinned ? null : quality.gov.p95,
+        pinned: quality.pinned,
+        haze: haze.coverage,
+        tint: haze.coverage > 0.002 ? haze.level : null,
       }))
     : () => {}
   const hookWindow = window as unknown as { __controlsTest?: unknown }
@@ -283,6 +335,11 @@ export function mountDemo(host: HTMLElement, opts: { version: string; debug: boo
       setCruise: (v: number) => {
         state.actions.cruise = clamp(v, 0, 1)
       },
+      getTier: () => ({ tier: quality.gov.tier, scale: quality.gov.scale, pinned: quality.pinned, puffs: plan.puffs, fps: plan.fps }),
+      getHaze: () => ({ coverage: haze.coverage, level: haze.level, inside: haze.inside }),
+      getVisible: () => order.length,
+      getDrawRoll: () => drawRoll,
+      getRoll: () => state.craft.roll,
     }
   }
 

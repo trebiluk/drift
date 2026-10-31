@@ -3,7 +3,9 @@ import { TIERS, TIER_TABLE, tierIndex, type Tier } from "./tiers.ts"
 /**
  * Keeps the frame rate steady. Drops fast, climbs slowly, and never goes back to a tier that already failed.
  * It judges the 95th-percentile frame time, not the average: an average hides stutter, which is what a Chromebook gives.
- * `fps` in the tier table is a floor to hit, not a cap: the loop is not throttled, so spare speed shows up as headroom.
+ * `fps` in the tier table is a floor to hit. Two numbers are fed per frame: the time between drawn frames (what the student
+ * sees, judged against the budget) and the time step + draw took (headroom, judged before climbing). A loop that is held to
+ * 30 or 60 by design has long gaps between frames even when it is idle, so the gap alone can never say "comfortable".
  */
 export const WINDOW_MS = 1500 // how much recent history counts
 export const EVAL_MS = 250 // how often to judge
@@ -25,6 +27,7 @@ export type Governor = {
   now: number
   times: Float64Array
   ms: Float32Array
+  work: Float32Array
   head: number
   count: number
   scratch: Float32Array
@@ -37,6 +40,7 @@ export type Governor = {
   dead: boolean
   p50: number
   p95: number
+  w95: number // 95th percentile of the work time
 }
 
 const round2 = (v: number) => Math.round(v * 100) / 100
@@ -49,6 +53,7 @@ export function createGovernor(start: Tier): Governor {
     now: 0,
     times: new Float64Array(RING),
     ms: new Float32Array(RING),
+    work: new Float32Array(RING),
     head: 0,
     count: 0,
     scratch: new Float32Array(RING),
@@ -61,6 +66,7 @@ export function createGovernor(start: Tier): Governor {
     dead: false,
     p50: 0,
     p95: 0,
+    w95: 0,
   }
 }
 
@@ -99,8 +105,11 @@ function faster(g: Governor): Change | null {
   return commit(g, "up-tier", true)
 }
 
-/** Feed one frame's duration. Returns a change only when the tier or scale should move. */
-export function sample(g: Governor, frameMs: number): Change | null {
+/**
+ * Feed one frame. `frameMs` is the gap since the last drawn frame; `workMs` is what step + draw took
+ * (leave it out and the gap stands in for it). Returns a change only when the tier or scale should move.
+ */
+export function sample(g: Governor, frameMs: number, workMs: number = frameMs): Change | null {
   g.now += frameMs
   if (g.dead) return null
   if (!(frameMs > 0) || frameMs > HITCH_MS) {
@@ -109,6 +118,7 @@ export function sample(g: Governor, frameMs: number): Change | null {
   }
   g.times[g.head] = g.now
   g.ms[g.head] = frameMs
+  g.work[g.head] = Number.isFinite(workMs) && workMs >= 0 ? workMs : frameMs
   g.head = (g.head + 1) % RING
   if (g.count < RING) g.count++
   if (g.now < g.nextEval) return null
@@ -118,16 +128,24 @@ export function sample(g: Governor, frameMs: number): Change | null {
   for (let k = 1; k <= g.count; k++) {
     const idx = (g.head - k + RING) % RING
     if (g.times[idx] < g.now - WINDOW_MS) break
-    g.scratch[m++] = g.ms[idx]
+    g.scratch[m++] = g.work[idx]
   }
   if (m < MIN_SAMPLES) return null
+  g.scratch.subarray(0, m).sort()
+  g.w95 = g.scratch[Math.ceil(m * 0.95) - 1]
+  m = 0
+  for (let k = 1; k <= g.count; k++) {
+    const idx = (g.head - k + RING) % RING
+    if (g.times[idx] < g.now - WINDOW_MS) break
+    g.scratch[m++] = g.ms[idx]
+  }
   const sorted = g.scratch.subarray(0, m).sort()
   g.p50 = sorted[Math.ceil(m * 0.5) - 1]
   g.p95 = sorted[Math.ceil(m * 0.95) - 1]
 
   const budget = TIER_TABLE[g.tier].budgetMs
   if (g.p95 > budget) return slower(g)
-  if (g.p95 > budget * COMFY) {
+  if (g.w95 > budget * COMFY) {
     g.steadyFrom = g.now
     return null
   }

@@ -15,6 +15,7 @@ export const MAX_DROPS = 2 // after the second drop it stays at 30 for the sessi
 
 export type Pacer = {
   cap: 60 | 30
+  ceiling: 60 | 30 // the fastest cap allowed: a light tier sets 30 and the loop never climbs past it
   now: number
   last: number // timestamp of the last frame that ran; NaN until the clock starts
   due: number // earliest time the next frame may run
@@ -30,9 +31,9 @@ export type Pacer = {
   winStart: number
 }
 
-export function createPacer(): Pacer {
+export function createPacer(ceiling: 60 | 30 = 60): Pacer {
   return {
-    cap: 60, now: 0, last: NaN, due: 0, ring: new Float32Array(WINDOW), n: 0, head: 0,
+    cap: ceiling, ceiling, now: 0, last: NaN, due: 0, ring: new Float32Array(WINDOW), n: 0, head: 0,
     drops: 0, changedAt: 0, okSince: 0, stepMs: 0, fps: 0, runs: 0, winStart: 0,
   }
 }
@@ -99,6 +100,7 @@ export function done(p: Pacer, workMs: number) {
   if (p.stepMs > WORK_OK_MS) p.okSince = p.now
   if (
     p.cap === 30 &&
+    p.ceiling === 60 &&
     p.drops < MAX_DROPS &&
     p.now - p.okSince >= RISE_AFTER_MS &&
     p.now - p.changedAt >= RISE_GAP_MS
@@ -108,6 +110,18 @@ export function done(p: Pacer, workMs: number) {
     p.due = p.now + frameMs(p)
     clearWindow(p)
   }
+}
+
+/** A quality tier asked for a new top speed. Takes effect now, and the drop counter starts fresh. */
+export function setCeiling(p: Pacer, ceiling: 60 | 30) {
+  if (p.ceiling === ceiling) return
+  p.ceiling = ceiling
+  p.cap = ceiling
+  p.drops = 0
+  p.changedAt = p.now
+  p.okSince = p.now
+  p.due = p.now + frameMs(p)
+  clearWindow(p)
 }
 
 /** The tab came back: forget the clock so the gap is never counted. */
@@ -127,6 +141,8 @@ export type LoopEnv = {
 export type LoopHooks = {
   step: (dtSeconds: number) => void
   draw: () => void
+  /** After each frame that ran: ms since the last drawn frame, and ms spent in step + draw. */
+  onFrame?: (elapsedMs: number, workMs: number) => void
   onError?: (e: unknown) => void
 }
 
@@ -143,12 +159,13 @@ export function startLoop(env: LoopEnv, hooks: LoopHooks, pacer: Pacer = createP
     try {
       hooks.step(dt)
       hooks.draw()
+      const work = env.now() - t0
+      done(pacer, work)
+      hooks.onFrame?.(dt * 1000, work)
     } catch (e) {
       stop()
       hooks.onError?.(e)
-      return
     }
-    done(pacer, env.now() - t0)
   }
   const cancel = () => {
     if (id) env.caf(id)

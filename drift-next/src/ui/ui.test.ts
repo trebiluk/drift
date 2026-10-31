@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { FIELD, approach, keyActions, levelAssist, projectInto, wrapRel, type Proj } from "./demo.ts"
 import { debugLines, wantsDebug } from "./debug.ts"
+import { BODY_ALPHA, CLOUD_BODY, SKY_TOP, luma } from "../render/palette.ts"
 
 const here = { x: 0, y: 148, z: 0, yaw: 0, pitch: 0 }
 const puff = (x: number, y: number, z: number, r = 60) => ({ x, y, z, r })
@@ -59,7 +60,7 @@ test("flying at a cloud never floods the screen: its weight on the picture stays
       }
     }
   }
-  assert.ok(worst < 0.3, `worst weight ${worst.toFixed(3)}`)
+  assert.ok(worst < 0.1, `worst weight ${worst.toFixed(3)}`)
 })
 
 test("a cloud is mostly faded by the time you are about to touch it, and clearer as you back away", () => {
@@ -74,7 +75,7 @@ test("a cloud is mostly faded by the time you are about to touch it, and clearer
     assert.ok(a >= last - 1e-9, `opacity falls as you back away at ${k.toFixed(2)} radii`)
     last = a
   }
-  assert.ok(alphaAt(3) > 0.95, "a cloud at a comfortable distance is fully there")
+  assert.ok(alphaAt(8) > 0.95, "a cloud at a comfortable distance is fully there")
 })
 
 test("a cloud fades in and out smoothly: no jump in opacity between frames at top speed", () => {
@@ -112,8 +113,39 @@ test("?debug=1 turns the readout on, nothing else does", () => {
   for (const s of ["", "?debug=0", "?debug=true", "?debug", "?xdebug=1"]) assert.equal(wantsDebug(s), false)
 })
 
-test("the readout is plain words with the version, fps, step and sim state", () => {
-  const lines = debugLines({ version: "2.0.0-g", fps: 59.6, cap: 60, stepMs: 0.42, speed: 24.04, altitude: 147.6, layer: "among-clouds" })
-  assert.deepEqual(lines, ["Drift 2.0.0-g", "60 fps · cap 60 · step 0.4 ms", "speed 24.0 · altitude 148 · among-clouds"])
-  for (const l of lines) assert.ok(l.length <= 44, "short enough for a 412 px screen")
+test("the readout is plain words with the version, fps, step, tier and sim state", () => {
+  const info = { version: "2.0.0-h", fps: 59.6, cap: 60, stepMs: 0.42, speed: 24.04, altitude: 147.6, layer: "among-clouds", tier: "light", scale: 0.85, p95: 17.4, pinned: false, haze: 0, tint: null }
+  const lines = debugLines(info)
+  assert.deepEqual(lines, [
+    "Drift 2.0.0-h",
+    "60 fps · cap 60 · step 0.4 ms",
+    "tier light · scale 0.85 · p95 17 ms",
+    "speed 24.0 · altitude 148 · among-clouds",
+    "haze 0% · tint -",
+  ])
+  const inside = debugLines({ ...info, pinned: true, p95: null, haze: 1, tint: 0.397 })
+  assert.equal(inside[2], "tier light · scale 0.85 · p95 -")
+  assert.equal(inside[4], "haze 100% · tint 40% · tier pinned")
+  for (const l of [...lines, ...inside]) assert.ok(l.length <= 44, `short enough for a 412 px screen: ${l}`)
+})
+
+test("flying at a cloud at top speed moves the average brightness by under 5% in any second", () => {
+  // Written from the palette, not from a number: the most a cloud can add is its alpha times how much lighter it is than the darkest sky.
+  const contrast = BODY_ALPHA * (luma(CLOUD_BODY) - luma(SKY_TOP))
+  const o = out()
+  let worst = 0
+  for (const [w, h, f] of [[1366, 768, 528], [1024, 768, 528], [412, 915, 356]]) {
+    for (const r of [40, 80, 120]) {
+      for (const side of [0, 0.5 * r, 1.5 * r]) {
+        const weight: number[] = []
+        for (let i = 0; i <= 14 * 60; i++) {
+          const d = 700 - (64 * i) / 60
+          const ok = d > 2 && projectInto(o, puff(side, 148, -d, r), here, f, w / 2, h / 2)
+          weight.push(ok ? o.a * Math.min(1, (Math.PI * o.r * o.r) / (w * h)) : 0)
+        }
+        for (let i = 60; i < weight.length; i++) worst = Math.max(worst, Math.abs(weight[i] - weight[i - 60]) * contrast)
+      }
+    }
+  }
+  assert.ok(worst < 0.05, `worst change in one second ${(worst * 100).toFixed(1)}%`)
 })

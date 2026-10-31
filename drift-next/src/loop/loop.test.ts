@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { createPacer, done, resume, startLoop, tick, type LoopEnv, type Pacer } from "./loop.ts"
+import { createPacer, done, resume, setCeiling, startLoop, tick, type LoopEnv, type Pacer } from "./loop.ts"
 
 type Run = { runs: number; dts: number[]; capAt: number[] }
 /** A display that delivers a frame every `gapMs`; each frame that runs takes `work` ms. */
@@ -203,4 +203,58 @@ test("a tab that starts hidden asks for no frames until it is shown", () => {
   assert.equal(env.pending(), 0)
   env.flip(false)
   assert.equal(env.pending(), 1)
+})
+
+test("a light tier holds the loop at 30 and it never climbs back, however easy the work", () => {
+  const p = createPacer(30)
+  assert.equal(p.cap, 30)
+  const r = display(p, 1000 / 60, 60, 1)
+  assert.equal(p.cap, 30)
+  assert.ok(rate(r, 60) >= 28 && rate(r, 60) <= 31, `${rate(r, 60).toFixed(1)} fps`)
+})
+
+test("a tier change moves the ceiling at once: up lets 60 run, down holds 30", () => {
+  const p = createPacer(30)
+  display(p, 1000 / 60, 3, 1)
+  setCeiling(p, 60)
+  assert.equal(p.cap, 60)
+  const up = display(p, 1000 / 60, 10, 1, p.now + 16)
+  assert.ok(rate(up, 10) >= 57, `${rate(up, 10).toFixed(1)} fps after going up`)
+  setCeiling(p, 30)
+  assert.equal(p.cap, 30)
+  const down = display(p, 1000 / 60, 10, 1, p.now + 16)
+  assert.ok(rate(down, 10) <= 31, `${rate(down, 10).toFixed(1)} fps after going down`)
+  setCeiling(p, 30)
+  assert.equal(p.cap, 30, "asking for the same ceiling changes nothing")
+})
+
+test("after the ceiling goes up, the pacer may still drop to 30 on its own if frames run long", () => {
+  const p = createPacer(30)
+  setCeiling(p, 60)
+  display(p, 40, 4)
+  assert.equal(p.cap, 30)
+  assert.equal(p.ceiling, 60)
+})
+
+test("each frame that runs reports the gap and the work to the hook, in milliseconds", () => {
+  const env = fakeEnv()
+  const seen: Array<[number, number]> = []
+  startLoop(env, { step: () => { env.clock += 3 }, draw: () => {}, onFrame: (gap, work) => seen.push([gap, work]) })
+  let ts = 0
+  for (let i = 0; i < 6; i++) env.fire((ts += 16.7))
+  assert.ok(seen.length >= 4)
+  for (const [gap, work] of seen) {
+    assert.ok(Math.abs(gap - 16.7) < 0.5, `gap ${gap}`)
+    assert.equal(work, 3)
+  }
+})
+
+test("an error thrown by the frame hook stops the loop once, like any other error", () => {
+  const env = fakeEnv()
+  const errors: unknown[] = []
+  startLoop(env, { step: () => {}, draw: () => {}, onFrame: () => { throw new Error("hook") }, onError: (e) => errors.push(e) })
+  let ts = 0
+  for (let i = 0; i < 8; i++) env.fire((ts += 16.7))
+  assert.equal(errors.length, 1)
+  assert.equal(env.pending(), 0)
 })

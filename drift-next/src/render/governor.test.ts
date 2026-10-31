@@ -105,3 +105,28 @@ test("the debug line is plain words", () => {
   feed(g, 16, 3)
   assert.match(debugLine(g), /^tier light · scale 1\.00 · p50 16\.0 ms · p95 16\.0 ms · budget 38 ms$/)
 })
+
+test("a loop held to 30 can still prove it keeps up: a long gap with little work is comfortable", () => {
+  const g = createGovernor("light")
+  let up: Change | null = null
+  for (let i = 0; g.now < 60_000 && !up; i++) up = sample(g, 33.4, 4)
+  assert.ok(up?.why === "up-scale" || up?.why === "up-tier", "climbs when the work is light")
+  assert.ok(g.now >= 10_000, "after the steady wait")
+  const h = createGovernor("light")
+  const none: At[] = feed(h, 33.4, 120) // no work time given: the gap stands in for it, and a 33 ms gap is not comfortable at 38 ms
+  assert.equal(none.length, 0)
+})
+
+test("a screen that arrives late is too slow however little work the code did", () => {
+  const g = createGovernor("balanced")
+  let first: Change | null = null
+  for (let i = 0; i < 400 && !first; i++) first = sample(g, 40, 2)
+  assert.ok(first && first.why === "slow-scale", "40 ms gaps are over the 24 ms budget")
+})
+
+test("heavy work with on-time gaps is not comfortable, so it never climbs", () => {
+  const g = createGovernor("light")
+  let moved = 0
+  for (let i = 0; g.now < 120_000; i++) if (sample(g, 33.4, 30)) moved++
+  assert.equal(moved, 0)
+})
