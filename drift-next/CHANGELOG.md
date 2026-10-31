@@ -1,3 +1,7 @@
+## 2.0.0-m
+
+Settings icon (Sound button) stays fully on screen with safe-area inset (right >= 8px + env(safe-area-inset-right)). When the saved choice is On, the AudioContext does not start until the first tap or key on this page load; a calm "Tap to start sound" hint (icon + text) shows until then. Focus ring uses :focus-visible so mouse clicks leave none.
+
 ## 2.0.0-l
 
 Soft ambient sound, muted by default. A calm pad of three soft voices (sine and triangle, low notes, a slowly sweeping filter) that drifts to another chord every 18 to 30 seconds with a slow glide, never going back and forth and never repeating a stretch it just played. A Sound button (top right, icon and text, "Sound: Off" or "Sound: On") or the M key turns it on or off; it is Off on a first visit and the choice is remembered in this browser. Sound starts only after a click, tap or key, fades in and out over 2.5 seconds with no clicks, and fades out when the tab is hidden. It is a little louder when flying faster (the audio side is ready; the speed feed waits on the pause work in PR #6, see the PR).
