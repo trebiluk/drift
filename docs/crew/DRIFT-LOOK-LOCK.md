@@ -79,6 +79,21 @@ Picks are remembered in the browser until you press Export or Clear.
 - 0 network requests and 0 console errors;
 - Export gives a valid file, and `--compare` reads it end to end.
 
+## Quick runs
+
+`--viewports 1366x768,412x915` shoots only those sizes, and `--no-timing` skips the frame-time pass. Together they take about a minute.
+
+## First S5 try (Nov 4, not shipped)
+
+**Variant A:** clouds spread evenly over a 2,400-unit tile, radius 24–150, and 40 discs on the 2D tier.
+- **2D tier:** coverage goes from 2–3% to 5–7%.
+- **WebGL `balanced`:** 5–11% becomes 7–10%, but with **fewer separate clouds** (13 down to 4–6, so bigger clumps).
+- **Brightness:** unchanged, 47–52%.
+
+It **broke the fade test** (`a cloud fades in and out smoothly…`): the wrap tile must stay **at least 2× the 1,500-unit fade distance**, so FIELD can't go below about 3,000. Reverted.
+
+**Lesson:** density alone won't reach the references. The reference sheet looks **up from the ground**, while the game looks **along the horizon**, with half the frame below it. Before tuning S5 further, Diego picks the references (picker) and we agree which numbers apply to the sky half only.
+
 ## Still to do
 
 - **Diego runs the picker** on the real Grok sheet images and keeps 3 or 4.
