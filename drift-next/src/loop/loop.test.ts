@@ -258,3 +258,64 @@ test("an error thrown by the frame hook stops the loop once, like any other erro
   assert.equal(errors.length, 1)
   assert.equal(env.pending(), 0)
 })
+
+test("pausing stops asking for frames; resuming starts again and never flies the paused time", () => {
+  const env = fakeEnv()
+  const seen: number[] = []
+  const loop = startLoop(env, { step: (dt) => seen.push(dt), draw: () => {} })
+  let ts = 0
+  for (let i = 0; i < 5; i++) env.fire((ts += 16.7))
+  loop.setPaused(true)
+  assert.equal(loop.isPaused(), true)
+  assert.equal(env.pending(), 0, "no frame requested while paused")
+  const before = seen.length
+  loop.setPaused(false)
+  assert.equal(env.pending(), 1)
+  env.fire((ts += 5000))
+  assert.equal(seen.length, before, "the first frame after a 5 s pause only restarts the clock")
+  env.fire((ts += 16.7))
+  assert.ok(seen.length > before)
+  assert.ok(Math.max(...seen) < 0.05, `largest step ${Math.max(...seen)}`)
+})
+
+test("a frame already queued when the game paused does nothing, and pausing twice is harmless", () => {
+  const env = fakeEnv()
+  const seen: number[] = []
+  const loop = startLoop(env, { step: (dt) => seen.push(dt), draw: () => {} })
+  env.fire(16.7)
+  const queued = env.take()
+  loop.setPaused(true)
+  loop.setPaused(true)
+  queued?.(33.4)
+  assert.equal(seen.length, 0)
+  assert.equal(env.pending(), 0)
+  loop.setPaused(false)
+  loop.setPaused(false)
+  assert.equal(env.pending(), 1, "one frame asked for, not two")
+})
+
+test("a paused game stays paused when the tab is hidden and shown again", () => {
+  const env = fakeEnv()
+  const loop = startLoop(env, { step: () => {}, draw: () => {} })
+  loop.setPaused(true)
+  env.flip(true)
+  env.flip(false)
+  assert.equal(env.pending(), 0, "showing the tab does not unpause")
+  loop.setPaused(false)
+  assert.equal(env.pending(), 1)
+})
+
+test("unpausing while the tab is hidden waits for the tab to come back; a stopped loop ignores pause", () => {
+  const env = fakeEnv()
+  const loop = startLoop(env, { step: () => {}, draw: () => {} })
+  loop.setPaused(true)
+  env.flip(true)
+  loop.setPaused(false)
+  assert.equal(env.pending(), 0, "still hidden: no frames")
+  env.flip(false)
+  assert.equal(env.pending(), 1)
+  loop.stop()
+  loop.setPaused(false)
+  loop.setPaused(true)
+  assert.equal(env.pending(), 0)
+})

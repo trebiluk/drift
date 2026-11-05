@@ -104,7 +104,10 @@ const VEIL_CSS = css(hazeRgb(VEIL_LEVEL))
 const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: the cloud colour, never white
 const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
-export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
+/** What main.tsx holds on to: take the demo down, or pause and resume it. */
+export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void }
+
+export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const doc = host.ownerDocument
   // Two canvases stacked. The GL canvas underneath draws the world on the Lite, Normal and Fancy tiers. The 2D canvas on top
   // draws the guard's veil, the pull marker and the glider, and also draws the whole world on the Still tier or if GL fails.
@@ -129,7 +132,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
-    return () => note.remove()
+    return { stop: () => note.remove(), setPaused: () => {} }
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
@@ -559,7 +562,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     }
   }
 
-  return () => {
+  const stop = () => {
     loop.stop()
     stopDebug()
     window.removeEventListener("keydown", onKeyDown)
@@ -572,4 +575,11 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): () => void {
     canvas.remove()
     if (opts.debug) delete hookWindow.__controlsTest
   }
+  // Paused: the loop asks for no frames, so the sim and the picture both hold. Held keys and a drag are let go either way,
+  // so nothing is still steering when the flight starts again.
+  const setPaused = (p: boolean) => {
+    clearInput()
+    loop.setPaused(p)
+  }
+  return { stop, setPaused }
 }
