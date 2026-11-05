@@ -4,6 +4,7 @@ import pkg from '../package.json'
 import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
 import { mountPause } from './ui/pause.ts'
+import { DEFAULT_NOTCH, mountSpeed } from './ui/throttle.ts'
 import { wantsDebug } from './ui/debug.ts'
 import { createAmbient } from './audio/ambient.ts'
 import { mountSound } from './ui/sound.ts'
@@ -32,7 +33,10 @@ function App() {
       store = null
     }
     const sound = mountSound(document, document.body, ambient, store)
+    // Speed: 5 notches, buttons and Q/E; the sim eases to each one.
+    const speed = mountSpeed(document, document.body, DEFAULT_NOTCH, (c) => demo.setCruise(c))
     return () => {
+      speed.unmount()
       sound.unmount()
       pause.unmount()
       demo.stop()

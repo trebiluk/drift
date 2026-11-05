@@ -105,7 +105,7 @@ const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: th
 const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
 /** What main.tsx holds on to: take the demo down, or pause and resume it. */
-export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void }
+export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void }
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const doc = host.ownerDocument
@@ -132,7 +132,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
-    return { stop: () => note.remove(), setPaused: () => {} }
+    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {} }
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
@@ -581,5 +581,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     clearInput()
     loop.setPaused(p)
   }
-  return { stop, setPaused }
+  // The Speed dock (ui/throttle.ts) sets the cruise; the sim eases toward it, so the picture never jumps.
+  const setCruise = (v: number) => {
+    state.actions.cruise = clamp(v, 0, 1)
+  }
+  return { stop, setPaused, setCruise }
 }

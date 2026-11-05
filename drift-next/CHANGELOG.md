@@ -1,3 +1,7 @@
+## 2.0.0-o
+
+Speed you can see and change. A Speed dock at the bottom right has 5 notches, from Slowest to Fastest, shown as a number, a word and filled bars (never colour alone), with ▲ Faster and ▼ Slower buttons (48 px, icon and text). Q and E, or − and +, do the same from the keyboard, and the dock is a slider that a screen reader reads as "Speed 2 of 5, Slow". It starts on notch 2, the same speed as before, and the glider eases to a new speed instead of jumping. It uses the same dark plate as Pause, never brighter than the sky.
+
 ## 2.0.0-n
 
 Pause and soft sound together. This brings 2.0.0-k (Pause and Home) and 2.0.0-l/m (soft ambient sound, Off by default) onto one build, with the look-lock harness and picker as tooling (no change for kids). The Sound button now sits under Pause (both at the top right, 48 px, no overlap); before this they were drawn on top of each other.
