@@ -1,3 +1,7 @@
+## 2.0.0-r
+
+Every word on the flight screen is ready in 8 languages and Simple (English, Simple, Spanish, Ukrainian, Russian, Arabic, Dari, Kinyarwanda, Tigrinya), in one table (`src/i18n/hud.ts`) for the language stage (S8) to switch on. All but English are machine drafts waiting for a native reader; Arabic and Dari are marked right to left; digits stay 1, 2, 3 until Diego picks. Kids see one change today: with "Steer with buttons" on, the hint line says "Drag, use the arrow keys, or hold the buttons to steer".
+
 ## 2.0.0-q
 
 The "Tap to start sound" note now shows only when it should: when Sound was saved as On and is waiting for the first tap or key. Before this it showed on every visit, even with Sound Off, because its style overrode the hidden setting. The Pause button had the same fault: it stayed drawn on top of the Pause panel while paused. It now hides while the panel is open, and comes back on Resume. Nothing else changes.

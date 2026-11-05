@@ -74,7 +74,7 @@ const ICON = (d: PadDir) => `<svg width="22" height="22" viewBox="0 0 20 20" ari
 const AREA: Record<PadDir, string> = { up: "1/2", left: "2/1", right: "2/3", down: "3/2" }
 
 const CSS = `
-.ds-pad{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:calc(max(16px,env(safe-area-inset-bottom)) + 48px);z-index:20;
+.ds-pad{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:calc(max(16px,env(safe-area-inset-bottom)) + var(--ds-hint-h, 36px) + 12px);z-index:20;
   display:grid;grid-template-columns:repeat(3,${PAD_PX}px);grid-template-rows:repeat(3,${PAD_PX}px);gap:6px;padding:8px;border-radius:16px;
   background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};touch-action:none;user-select:none;-webkit-user-select:none}
 .ds-pad[hidden]{display:none}
@@ -94,7 +94,14 @@ export type SteerPad = {
 }
 
 /** Mounts the pad (hidden unless the saved choice is on) and builds its switch. `onAxes` gets {yaw, pitch} on every change. */
-export function mountSteerPad(doc: Document, host: HTMLElement, store: Store, onAxes: (a: { yaw: number; pitch: number }) => void): SteerPad {
+export function mountSteerPad(
+  doc: Document,
+  host: HTMLElement,
+  store: Store,
+  onAxes: (a: { yaw: number; pitch: number }) => void,
+  /** Called with the switch's state at mount and on every change (main.tsx updates the hint line). */
+  onToggle?: (on: boolean) => void,
+): SteerPad {
   const win = doc.defaultView ?? window
   const style = doc.createElement("style")
   style.textContent = CSS
@@ -160,6 +167,7 @@ export function mountSteerPad(doc: Document, host: HTMLElement, store: Store, on
     pad.hidden = !on
     option.setAttribute("aria-pressed", String(on))
     option.innerHTML = `${ICON("up")}<span>${optionLabel(on)}</span>`
+    onToggle?.(on)
   }
   option.addEventListener("click", () => {
     on = !on
