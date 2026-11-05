@@ -1,3 +1,7 @@
+## 2.0.0-q
+
+The "Tap to start sound" note now shows only when it should: when Sound was saved as On and is waiting for the first tap or key. Before this it showed on every visit, even with Sound Off, because its style overrode the hidden setting. The Pause button had the same fault: it stayed drawn on top of the Pause panel while paused. It now hides while the panel is open, and comes back on Resume. Nothing else changes.
+
 ## 2.0.0-p
 
 Steer with buttons, for kids who can't drag. The Pause panel has a new switch, "Steer with buttons: Off" (Off on a first visit, remembered in this browser). Turned On, a pad of four buttons sits at the bottom left: ◀ ▲ ▼ ▶, 56 px each, with names a screen reader says ("Steer left", "Nose up"). Hold a button to steer and let go to level out, the same as the arrow keys; two at once steer both ways. A held button shows a brighter border and fill as well as the arrow, and Space or Enter hold a focused button. Pausing or leaving the tab lets go of every button. Same dark plate as Pause and Speed.

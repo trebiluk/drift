@@ -44,7 +44,8 @@ export const labelFor = (on: boolean) => (on ? SOUND_TEXT.on : SOUND_TEXT.off)
 const ICON_ON = '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 7.5h3L10.5 4v12L6 12.5H3z" fill="currentColor"/><path d="M13 7a4 4 0 0 1 0 6M15.2 5a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 const ICON_OFF = '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 7.5h3L10.5 4v12L6 12.5H3z" fill="currentColor"/><path d="M13 7.5l5 5M18 7.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 
-const CSS = `
+/** Exported for the test that the hint really hides: an author `display` beats the `hidden` attribute unless a `[hidden]` rule says otherwise. */
+export const SOUND_CSS = `
 .ds-sound{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + ${TARGET_PX}px + 8px);right:max(12px,env(safe-area-inset-right));z-index:20;
   display:inline-flex;align-items:center;gap:8px;min-height:${TARGET_PX}px;min-width:${TARGET_PX}px;padding:0 16px;margin:0;
   border:0;border-radius:12px;background:rgba(8,16,30,.82);color:#f2f6fb;font:600 16px/1.2 system-ui,sans-serif;
@@ -55,6 +56,7 @@ const CSS = `
   display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;margin:0;
   border-radius:10px;background:rgba(8,16,30,.82);color:#f2f6fb;font:500 14px/1.2 system-ui,sans-serif;
   pointer-events:none;white-space:nowrap;box-sizing:border-box}
+.ds-sound-hint[hidden]{display:none}
 `
 
 const isTyping = (t: EventTarget | null) =>
@@ -65,7 +67,7 @@ export type SoundUi = { toggle: () => void; isOn: () => boolean; unmount: () => 
 export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient, store: Store): SoundUi {
   const win = doc.defaultView ?? window
   const style = doc.createElement("style")
-  style.textContent = CSS
+  style.textContent = SOUND_CSS
   doc.head.appendChild(style)
   const button = doc.createElement("button")
   button.type = "button"

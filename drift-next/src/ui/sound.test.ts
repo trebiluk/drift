@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { SOUND_KEY, SOUND_TEXT, TARGET_PX, isSoundKey, labelFor, loadSound, saveSound, type SoundKey } from "./sound.ts"
+import { SOUND_KEY, SOUND_TEXT, TARGET_PX, isSoundKey, labelFor, loadSound, saveSound, type SoundKey, SOUND_CSS } from "./sound.ts"
 
 const key = (over: Partial<SoundKey>): SoundKey => ({ code: "", key: "", repeat: false, ctrl: false, meta: false, alt: false, typing: false, ...over })
 const memory = () => {
@@ -47,4 +47,9 @@ test("the button says what it is in words, and is a 44 px target or bigger", () 
   assert.equal(labelFor(true), "Sound: On")
   assert.deepEqual(Object.values(SOUND_TEXT).sort(), ["Sound: Off", "Sound: On"])
   assert.ok(TARGET_PX >= 44)
+})
+
+test("the \"Tap to start sound\" hint really hides when Sound is Off (its display rule would beat the hidden attribute)", () => {
+  assert.match(SOUND_CSS, /\.ds-sound-hint\{[^}]*display:inline-flex/)
+  assert.match(SOUND_CSS, /\.ds-sound-hint\[hidden\]\{display:none\}/)
 })
