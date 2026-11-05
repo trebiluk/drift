@@ -85,6 +85,8 @@ export type PauseOpts = {
   onResume: () => void
   /** Where Home goes. Defaults to the hub. */
   homeHref?: string
+  /** More buttons for the panel, shown between Resume and Home (the steer pad switch). */
+  extra?: HTMLElement[]
 }
 
 export type PauseUi = {
@@ -104,6 +106,7 @@ const CSS = `
   border:0;border-radius:12px;background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};font:600 16px/1.2 system-ui,sans-serif;
   cursor:pointer;touch-action:manipulation}
 .dp-pause:focus-visible{outline:3px solid ${PAUSE_COLORS.plateInk};outline-offset:2px;box-shadow:0 0 0 6px rgba(8,16,30,.9)}
+.dp-pause[hidden]{display:none}
 .dp-back{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:16px;
   background:transparent;opacity:0;transition:opacity ${FADE_MS}ms ease}
 .dp-back[hidden]{display:none}
@@ -156,11 +159,11 @@ export function mountPause(doc: Document, parent: HTMLElement, opts: PauseOpts):
   home.className = "dp-btn"
   home.href = opts.homeHref ?? HUB_HREF
   home.innerHTML = `${ICON_HOME}<span>${PAUSE_TEXT.home}</span>`
-  panel.append(title, resumeBtn, home)
+  panel.append(title, resumeBtn, ...(opts.extra ?? []), home)
   back.appendChild(panel)
   parent.append(button, back)
 
-  const focusables = [resumeBtn, home]
+  const focusables: HTMLElement[] = [resumeBtn, ...(opts.extra ?? []), home]
   let paused = false
   let hideTimer = 0
 

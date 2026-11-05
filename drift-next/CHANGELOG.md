@@ -1,3 +1,19 @@
+## 2.0.0-r
+
+Every word on the flight screen is ready in 8 languages and Simple (English, Simple, Spanish, Ukrainian, Russian, Arabic, Dari, Kinyarwanda, Tigrinya), in one table (`src/i18n/hud.ts`) for the language stage (S8) to switch on. All but English are machine drafts waiting for a native reader; Arabic and Dari are marked right to left; digits stay 1, 2, 3 until Diego picks. Kids see one change today: with "Steer with buttons" on, the hint line says "Drag, use the arrow keys, or hold the buttons to steer".
+
+## 2.0.0-q
+
+The "Tap to start sound" note now shows only when it should: when Sound was saved as On and is waiting for the first tap or key. Before this it showed on every visit, even with Sound Off, because its style overrode the hidden setting. The Pause button had the same fault: it stayed drawn on top of the Pause panel while paused. It now hides while the panel is open, and comes back on Resume. Nothing else changes.
+
+## 2.0.0-p
+
+Steer with buttons, for kids who can't drag. The Pause panel has a new switch, "Steer with buttons: Off" (Off on a first visit, remembered in this browser). Turned On, a pad of four buttons sits at the bottom left: ◀ ▲ ▼ ▶, 56 px each, with names a screen reader says ("Steer left", "Nose up"). Hold a button to steer and let go to level out, the same as the arrow keys; two at once steer both ways. A held button shows a brighter border and fill as well as the arrow, and Space or Enter hold a focused button. Pausing or leaving the tab lets go of every button. Same dark plate as Pause and Speed.
+
+## 2.0.0-o
+
+Speed you can see and change. A Speed dock at the bottom right has 5 notches, from Slowest to Fastest, shown as a number, a word and filled bars (never colour alone), with ▲ Faster and ▼ Slower buttons (48 px, icon and text). Q and E, or − and +, do the same from the keyboard, and the dock is a slider that a screen reader reads as "Speed 2 of 5, Slow". It starts on notch 2, the same speed as before, and the glider eases to a new speed instead of jumping. It uses the same dark plate as Pause, never brighter than the sky.
+
 ## 2.0.0-n
 
 Pause and soft sound together. This brings 2.0.0-k (Pause and Home) and 2.0.0-l/m (soft ambient sound, Off by default) onto one build, with the look-lock harness and picker as tooling (no change for kids). The Sound button now sits under Pause (both at the top right, 48 px, no overlap); before this they were drawn on top of each other.
