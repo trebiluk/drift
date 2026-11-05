@@ -53,8 +53,34 @@ Diego's eye has the last word.
 - **"In the clouds" isn't met yet**, by either build.
 - drift-next's 2D tier stays smooth where 1.12.5 drops to single digits on a software GPU.
 
+## S0a, the picker
+
+Open `drift-next/look-lock/picker.html` straight from disk; it needs no server, no network and no build.
+
+1. **Choose images:** pick the 12 sheet images. They stay on the device.
+2. **Look:**
+   - Previous and Next buttons, or the arrow keys (Home and End jump to the ends).
+   - The strip marks the current image with a thick border and the word "Current".
+   - Each image shows its average brightness as a number.
+3. **Decide:**
+   - **Keep**, **Maybe** or **Skip**, with the buttons or K, M, S.
+   - The counter reads "Kept 2 of 3 to 4", then "Kept 4 of 4, full".
+   - A 5th Keep is refused with a text message.
+   - An optional note of up to 80 characters, with no names.
+4. **Compare (optional):** choose game frames from `look-lock.mjs`, and they show beside the reference.
+5. **Export:** allowed only with 3 or 4 Keeps. It downloads `refs.json` as `{file, decision, note}`.
+6. Put `refs.json` beside the kept images in `shared/drift/visual-eval/refs/` (apps-kulibert), then run `--compare`.
+
+Picks are remembered in the browser until you press Export or Clear.
+
+**Tested** at 1366×768, 1024×768 and 412×915 with 12 made-up sky images:
+- keys and buttons work; the 5th Keep is refused; Home and End work;
+- no sideways scroll, and every control is 44 px or more;
+- 0 network requests and 0 console errors;
+- Export gives a valid file, and `--compare` reads it end to end.
+
 ## Still to do
 
-- **S0a, the picker** (`look-lock/picker.html`): Diego keeps 3 or 4 images and exports `refs.json`.
+- **Diego runs the picker** on the real Grok sheet images and keeps 3 or 4.
 - **A `3e48cfe` build** to shoot, which needs a machine with npm.
 - **`shared/drift/visual-eval/refs/`** in apps-kulibert, for the kept images. They never go in this repo or in `public/`.
