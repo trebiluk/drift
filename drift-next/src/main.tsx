@@ -5,6 +5,8 @@ import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
 import { mountPause } from './ui/pause.ts'
 import { wantsDebug } from './ui/debug.ts'
+import { createAmbient } from './audio/ambient.ts'
+import { mountSound } from './ui/sound.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
@@ -21,7 +23,17 @@ function App() {
     const demo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
     // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
     const pause = mountPause(document, shell.current, { onPause: () => demo.setPaused(true), onResume: () => demo.setPaused(false) })
+    // Soft ambient pad, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
+    const ambient = createAmbient(() => (typeof AudioContext === 'undefined' ? null : new AudioContext()))
+    let store: Storage | null = null
+    try {
+      store = window.localStorage
+    } catch {
+      store = null
+    }
+    const sound = mountSound(document, document.body, ambient, store)
     return () => {
+      sound.unmount()
       pause.unmount()
       demo.stop()
     }
