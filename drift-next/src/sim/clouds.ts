@@ -23,8 +23,10 @@ export function buildClouds(seed = 19, n = 60): Puff[] {
     const band = k < 5 ? 0 : k < 14 ? 1 : 2
     const y = band === 0 ? 60 + rng() * 48 : band === 1 ? HOME_Y - EYE_BAND + rng() * 2 * EYE_BAND : 188 + rng() * 112
     const ang = rng() * Math.PI * 2
-    const dist = 150 + Math.sqrt(rng()) * 1450
-    out.push({ x: Math.cos(ang) * dist, y, z: Math.sin(ang) * dist, r: 18 + Math.pow(rng(), 1.6) * 102 })
+    // a little more of the field sits near the craft than an even spread would give, so there is always cloud to steer past
+    const dist = 140 + Math.pow(rng(), 0.62) * 1460
+    // big, full cumulus (S5b): the old 18 to 120 left the sky mostly empty (2 to 13% cloud against 25 to 50% in the references)
+    out.push({ x: Math.cos(ang) * dist, y, z: Math.sin(ang) * dist, r: 32 + Math.pow(rng(), 1.3) * 160 })
   }
   return out
 }

@@ -1,3 +1,7 @@
+## 2.0.0-t
+
+More clouds to steer through. Clouds are bigger and fuller (radius 32 to 192, from 18 to 120), and a little more of the field sits near you, so there is always cloud beside you with blue gaps between. The two cheapest tiers draw more of them (Lite 48 → 64, the 2D floor 24 → 36), so a Chromebook sky isn't empty. Measured cloud in the top half of the frame: about 50 to 55% on the best tiers at 1366, 35% on Lite, 27% on the 2D floor; on a phone 29 to 31%, 20% and 13%. Frame rate with the CPU 4× slower is unchanged (2D floor 60 fps; Lite 22 → 24 fps on a software GPU). Brightness stays at 45 to 52%, under the 58% cap. Tooling: the look-lock harness now counts shaded and soft-edged cloud as cloud (it only counted white tops, so it under-read every build), and reports the sky half too.
+
 ## 2.0.0-s
 
 A deep blue sky with fluffy white clouds (Diego: "the main core is the fluffy clouds with the deep blue sky"). The sky is a richer, deeper blue overhead and a clear blue at the horizon. Every cloud has a sunlit top and a soft blue-grey base, on every tier: the two cheapest tiers, which drew flat discs, now draw small cumulus shapes (a dome and two side bumps on a flatter base). No cloud pixel got brighter. The deeper sky makes the clouds look whiter, and the picture's average brightness went down (about 52% to 48% on the best tier, 51% to 46% on the 2D floor; Diego's cap is 58%).
