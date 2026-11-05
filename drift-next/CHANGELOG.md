@@ -1,3 +1,7 @@
+## 2.0.0-w
+
+Layouts for phones and Chromebooks (S7 step 3). On an upright phone with "Steer with buttons" on, the steer pad covered the glider; now the glider sits just above whatever docks reach across the middle of the screen (the pad on a phone), and goes back to its usual low spot when the pad is off or the phone is turned sideways. It never goes above the horizon line. Tab now follows the screen: Watch, Pause, Sound, then the steer pad and Speed. The version tag is a dark plate like the rest of the HUD instead of a white patch on the sky. Checked at 412×915, 360×640, 915×412, 1024×768 and 1366×768: nothing overlaps, nothing is off screen, 0 errors.
+
 ## 2.0.0-v
 
 Calm sound tracks, for relaxing or studying, as in 1.12.4: **Calm** (the soft pad), **Rain**, **Ocean** and **Bowls**. All four are made in the browser (no recordings to license or download). Rain is soft filtered noise; Ocean is deep noise that swells like slow waves; Bowls are rubbed singing bowls that swell in over 2.5 s, never struck, every 14 to 22 s. Pick one in the Pause panel ("Sound track: Rain"); switching cross-fades over 2.5 s. While sound is on, the Sound button names the track in words ("Sound: On · Rain"), so nothing is only heard. Choosing a track never turns sound on: Sound is still Off on a first visit, and pausing or hiding the tab fades every track out. Words in all 9 tables (drafts).

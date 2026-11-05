@@ -1,3 +1,4 @@
+import { GLIDER_HALF, gliderY, type Rect } from "./layout.ts"
 import { buildClouds } from "../sim/clouds.ts"
 import { BRIGHT_CAP, VEIL_LEVEL, createGuard, createPass, proximity, stepGuard, stepPass, SKY_DAY, type GuardOut, type PassOpts, type PassOut, type Puff } from "../sim/cloudpass.ts"
 import { advance, clamp, createSimState, layerId, WORLD_HOME, type SimState } from "../sim/craft.ts"
@@ -106,7 +107,7 @@ const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: th
 const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
 /** What main.tsx holds on to: take the demo down, or pause and resume it. */
-export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void; setWatch: (on: boolean) => void }
+export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void; setWatch: (on: boolean) => void; setDocks: (rects: Rect[]) => void }
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const doc = host.ownerDocument
@@ -133,7 +134,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
-    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {}, setWatch: () => {} }
+    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {}, setWatch: () => {}, setDocks: () => {} }
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
@@ -161,6 +162,8 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   let w = 0
   let h = 0
   let dpr = 1
+  let docks: Rect[] = [] // screen boxes of the bottom docks (ui/layout.ts); the glider sits above any that cross the middle
+  let glider = { x: 0, y: 0, s: 0 } // where the glider was last drawn
   let bank: Bank = { world: 0, glider: 0, rad: 0 } // the tilt actually drawn: always 0 under reduced motion
   // The brightness guard: the meter reads the picture, the guard dims it if it is over the cap.
   const guard = createGuard()
@@ -310,8 +313,10 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     }
 
     const s = Math.max(24, Math.min(w, h) * 0.06)
+    // Low in the middle, but always above the docks that reach over the middle (the steer pad on an upright phone).
+    glider = { x: frame.cx, y: gliderY(h, frame.cy, s, frame.cx, docks), s }
     ctx.save()
-    ctx.translate(frame.cx, h * 0.78)
+    ctx.translate(glider.x, glider.y)
     ctx.rotate(bank.glider)
     ctx.beginPath()
     ctx.moveTo(0, -s * 1.2)
@@ -548,6 +553,8 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
       getVisible: () => order.length,
       getRoll: () => state.craft.roll,
       /** The tilt on screen: `deg` is the glider against the horizon, `world` and `glider` are what each is turned by (radians). */
+      /** Where the glider was last drawn (centre, CSS px) and its size; it never sits under a dock. */
+      getGlider: () => ({ ...glider, half: glider.s * GLIDER_HALF }),
       getBank: () => ({ deg: (bank.rad * 180) / Math.PI, world: bank.world, glider: bank.glider, max: BANK_MAX_DEG }),
       getGuard: () => ({ cap: guardCap, measured: metered, out: guardOut.out, veil: guardOut.veil, metered: metered !== null }),
       /** Which drawer made the last picture, and what it drew. */
@@ -600,5 +607,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     if (on && !watchOn) Object.assign(watch, createWatch())
     watchOn = on
   }
-  return { stop, setPaused, setCruise, setPad, setWatch }
+  // The page reports where its bottom docks are (on resize, and when the pad comes or goes); the next frame uses them.
+  const setDocks = (rects: Rect[]) => {
+    docks = rects.slice()
+  }
+  return { stop, setPaused, setCruise, setPad, setWatch, setDocks }
 }

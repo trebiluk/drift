@@ -13,6 +13,7 @@ import { mountSound } from './ui/sound.ts'
 import { mountSteerPad } from './ui/steerpad.ts'
 import { mountWatch } from './ui/watch.ts'
 import { HUD } from './i18n/hud.ts'
+import { rectOf, type Rect } from './ui/layout.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
@@ -25,6 +26,7 @@ function App() {
   const host = useRef<HTMLDivElement>(null)
   const shell = useRef<HTMLElement>(null)
   const hint = useRef<HTMLParagraphElement>(null)
+  const chip = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!host.current || !shell.current) return
     const demo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
@@ -36,6 +38,7 @@ function App() {
     }
     // The hint line says how to steer, and says so when Watch is flying (S8 will pick the language; English for now).
     let padOn = false
+    let reportDocksRef = () => {}
     let watchOn = false
     const showHint = () => {
       if (hint.current) hint.current.textContent = watchOn ? HUD.en.hintWatch : padOn ? HUD.en.hintPad : HUD.en.hint
@@ -44,6 +47,7 @@ function App() {
     const steerPad = mountSteerPad(document, document.body, store, (a) => demo.setPad(a.yaw, a.pitch), (on) => {
       padOn = on
       showHint()
+      requestAnimationFrame(() => reportDocksRef())
     })
     // Soft calm sound, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
     // Four tracks (Calm, Rain, Ocean, Bowls), all made in the browser; the choice is in the Pause panel.
@@ -54,6 +58,14 @@ function App() {
       ambient.setTrack(t)
       soundUi?.setTrackWord(trackName(t))
     })
+    // Tab goes the way the screen reads: Watch (top left), Pause and Sound (top right), then the steer pad and Speed
+    // (bottom). So Watch, Pause and Sound go in the page itself, in that order, and the bottom docks after it.
+    // Watch (off by default): the glider flies itself in slow turns; steering takes over, then Watch eases back in.
+    const watch = mountWatch(document, shell.current, store, (on) => {
+      watchOn = on
+      demo.setWatch(on)
+      showHint()
+    })
     // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
     const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option, trackOption.option] })
     // The steer pad sits just above the hint line, however many lines the hint wraps to.
@@ -63,18 +75,23 @@ function App() {
     sizeHint()
     const hintObs = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(sizeHint)
     if (hint.current) hintObs?.observe(hint.current)
-    // Watch (off by default): the glider flies itself in slow turns; steering takes over, then Watch eases back in.
-    const watch = mountWatch(document, document.body, store, (on) => {
-      watchOn = on
-      demo.setWatch(on)
-      showHint()
-    })
-    const sound = mountSound(document, document.body, ambient, store)
+    const sound = mountSound(document, shell.current, ambient, store)
     soundUi = sound
     sound.setTrackWord(trackName(trackOption.track()))
     // Speed: 5 notches, buttons and Q/E; the sim eases to each one.
     const speed = mountSpeed(document, document.body, DEFAULT_NOTCH, (c) => demo.setCruise(c))
+    // The glider sits above whichever bottom docks reach over the middle of the screen (ui/layout.ts): on an upright
+    // phone that is the steer pad. Re-measured whenever a dock changes size, comes, goes, or the window turns.
+    const dockEls = () => [document.querySelector('.ds-pad'), document.querySelector('.ds-speed'), hint.current, chip.current]
+    const reportDocks = () => demo.setDocks(dockEls().map(rectOf).filter((r): r is Rect => r !== null))
+    reportDocks()
+    reportDocksRef = reportDocks
+    const dockObs = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reportDocks)
+    for (const el of dockEls()) if (el) dockObs?.observe(el)
+    window.addEventListener('resize', reportDocks)
     return () => {
+      window.removeEventListener('resize', reportDocks)
+      dockObs?.disconnect()
       speed.unmount()
       steerPad.unmount()
       watch.unmount()
@@ -122,6 +139,7 @@ function App() {
         {HUD.en.hint}
       </p>
       <div
+        ref={chip}
         style={{
           position: 'fixed',
           right: 'max(16px, env(safe-area-inset-right))',
@@ -129,8 +147,9 @@ function App() {
           margin: 0,
           padding: '8px 14px',
           borderRadius: '999px',
-          background: '#ffffff',
-          color: '#111111',
+          // A dark plate like every other HUD plate: never a white patch on the sky.
+          background: 'rgba(8, 16, 30, 0.82)',
+          color: '#f2f6fb',
           fontSize: '14px',
           lineHeight: 1.2,
           whiteSpace: 'nowrap',
