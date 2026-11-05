@@ -105,7 +105,7 @@ const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: th
 const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
 /** What main.tsx holds on to: take the demo down, or pause and resume it. */
-export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void }
+export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void }
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const doc = host.ownerDocument
@@ -132,7 +132,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
-    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {} }
+    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {} }
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
@@ -151,6 +151,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const keys = new Set<string>()
   const stick: Stick = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, mouse: true }
   const steer = { yaw: 0, pitch: 0 }
+  const pad = { yaw: 0, pitch: 0 } // the steer pad (ui/steerpad.ts), when it is switched on
   const reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches
   // Reduced motion keeps the fade but slows it to the calm ramp, and drops the roll tilt below.
   const passOpts: PassOpts = { night: 0, calm: reduced, mist: "soft" }
@@ -246,8 +247,8 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     if (hold) return
     const k = keyActions(keys)
     const pull = steerFromPull(stick.active, stick.x, stick.y, stick.mouse)
-    const yawIn = clamp(k.yaw + pull.yaw, -1, 1)
-    const pitchIn = clamp(k.pitch + pull.pitch, -1, 1)
+    const yawIn = clamp(k.yaw + pull.yaw + pad.yaw, -1, 1)
+    const pitchIn = clamp(k.pitch + pull.pitch + pad.pitch, -1, 1)
     const pitchWant = pitchIn !== 0 ? pitchIn : levelAssist(state.craft.pitch, WORLD_HOME.sky.pitch)
     steer.yaw = approach(steer.yaw, yawIn, dt, 5.5)
     steer.pitch = approach(steer.pitch, pitchWant, dt, 5.5)
@@ -585,5 +586,10 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const setCruise = (v: number) => {
     state.actions.cruise = clamp(v, 0, 1)
   }
-  return { stop, setPaused, setCruise }
+  // The steer pad holds a direction while a button is down; it sends {0, 0} when let go.
+  const setPad = (yaw: number, pitch: number) => {
+    pad.yaw = clamp(yaw, -1, 1)
+    pad.pitch = clamp(pitch, -1, 1)
+  }
+  return { stop, setPaused, setCruise, setPad }
 }

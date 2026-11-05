@@ -85,6 +85,8 @@ export type PauseOpts = {
   onResume: () => void
   /** Where Home goes. Defaults to the hub. */
   homeHref?: string
+  /** More buttons for the panel, shown between Resume and Home (the steer pad switch). */
+  extra?: HTMLElement[]
 }
 
 export type PauseUi = {
@@ -156,11 +158,11 @@ export function mountPause(doc: Document, parent: HTMLElement, opts: PauseOpts):
   home.className = "dp-btn"
   home.href = opts.homeHref ?? HUB_HREF
   home.innerHTML = `${ICON_HOME}<span>${PAUSE_TEXT.home}</span>`
-  panel.append(title, resumeBtn, home)
+  panel.append(title, resumeBtn, ...(opts.extra ?? []), home)
   back.appendChild(panel)
   parent.append(button, back)
 
-  const focusables = [resumeBtn, home]
+  const focusables: HTMLElement[] = [resumeBtn, ...(opts.extra ?? []), home]
   let paused = false
   let hideTimer = 0
 

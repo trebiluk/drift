@@ -8,6 +8,7 @@ import { DEFAULT_NOTCH, mountSpeed } from './ui/throttle.ts'
 import { wantsDebug } from './ui/debug.ts'
 import { createAmbient } from './audio/ambient.ts'
 import { mountSound } from './ui/sound.ts'
+import { mountSteerPad } from './ui/steerpad.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
@@ -22,21 +23,24 @@ function App() {
   useEffect(() => {
     if (!host.current || !shell.current) return
     const demo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
-    // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
-    const pause = mountPause(document, shell.current, { onPause: () => demo.setPaused(true), onResume: () => demo.setPaused(false) })
-    // Soft ambient pad, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
-    const ambient = createAmbient(() => (typeof AudioContext === 'undefined' ? null : new AudioContext()))
     let store: Storage | null = null
     try {
       store = window.localStorage
     } catch {
       store = null
     }
+    // Steer pad (option, off by default): the switch lives in the Pause panel, the pad at the bottom left.
+    const steerPad = mountSteerPad(document, document.body, store, (a) => demo.setPad(a.yaw, a.pitch))
+    // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
+    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option] })
+    // Soft ambient pad, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
+    const ambient = createAmbient(() => (typeof AudioContext === 'undefined' ? null : new AudioContext()))
     const sound = mountSound(document, document.body, ambient, store)
     // Speed: 5 notches, buttons and Q/E; the sim eases to each one.
     const speed = mountSpeed(document, document.body, DEFAULT_NOTCH, (c) => demo.setCruise(c))
     return () => {
       speed.unmount()
+      steerPad.unmount()
       sound.unmount()
       pause.unmount()
       demo.stop()

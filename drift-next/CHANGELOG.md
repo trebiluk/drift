@@ -1,3 +1,7 @@
+## 2.0.0-p
+
+Steer with buttons, for kids who can't drag. The Pause panel has a new switch, "Steer with buttons: Off" (Off on a first visit, remembered in this browser). Turned On, a pad of four buttons sits at the bottom left: ◀ ▲ ▼ ▶, 56 px each, with names a screen reader says ("Steer left", "Nose up"). Hold a button to steer and let go to level out, the same as the arrow keys; two at once steer both ways. A held button shows a brighter border and fill as well as the arrow, and Space or Enter hold a focused button. Pausing or leaving the tab lets go of every button. Same dark plate as Pause and Speed.
+
 ## 2.0.0-o
 
 Speed you can see and change. A Speed dock at the bottom right has 5 notches, from Slowest to Fastest, shown as a number, a word and filled bars (never colour alone), with ▲ Faster and ▼ Slower buttons (48 px, icon and text). Q and E, or − and +, do the same from the keyboard, and the dock is a slider that a screen reader reads as "Speed 2 of 5, Slow". It starts on notch 2, the same speed as before, and the glider eases to a new speed instead of jumping. It uses the same dark plate as Pause, never brighter than the sky.
