@@ -1,3 +1,7 @@
+## 2.0.0-n
+
+Pause and soft sound together. This brings 2.0.0-k (Pause and Home) and 2.0.0-l/m (soft ambient sound, Off by default) onto one build, with the look-lock harness and picker as tooling (no change for kids). The Sound button now sits under Pause (both at the top right, 48 px, no overlap); before this they were drawn on top of each other.
+
 ## 2.0.0-m
 
 Settings icon (Sound button) stays fully on screen with safe-area inset (right >= 8px + env(safe-area-inset-right)). When the saved choice is On, the AudioContext does not start until the first tap or key on this page load; a calm "Tap to start sound" hint (icon + text) shows until then. Focus ring uses :focus-visible so mouse clicks leave none.
@@ -5,6 +9,9 @@ Settings icon (Sound button) stays fully on screen with safe-area inset (right >
 ## 2.0.0-l
 
 Soft ambient sound, muted by default. A calm pad of three soft voices (sine and triangle, low notes, a slowly sweeping filter) that drifts to another chord every 18 to 30 seconds with a slow glide, never going back and forth and never repeating a stretch it just played. A Sound button (top right, icon and text, "Sound: Off" or "Sound: On") or the M key turns it on or off; it is Off on a first visit and the choice is remembered in this browser. Sound starts only after a click, tap or key, fades in and out over 2.5 seconds with no clicks, and fades out when the tab is hidden. It is a little louder when flying faster (the audio side is ready; the speed feed waits on the pause work in PR #6, see the PR).
+## 2.0.0-k
+
+A calm way to stop. A Pause button (icon and text, top right) is always on screen while flying, and P or Esc do the same. Pausing freezes the flight and the picture, and a small panel offers Resume (focused first) and Home, which goes to the hub on the same site. Hiding the tab pauses too, and the panel is already there on return. The panel is a blue-grey card at about the picture's own brightness, never white, and fades in over 200 ms (no fade with reduced motion). Esc or P on the panel resumes; Tab stays inside the panel; the time spent paused is never flown.
 
 ## 2.0.0-j
 
