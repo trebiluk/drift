@@ -1,7 +1,7 @@
 /**
  * The frame loop. The pacer decides which animation frames run; startLoop wires it to requestAnimationFrame.
  * Cap 60. If frames run long it drops to 30 and tells nobody to panic; it climbs back at most twice.
- * It never advances time across a hidden tab or a stall, so the craft cannot jump.
+ * It never advances time across a hidden tab, a pause or a stall, so the craft cannot jump.
  * Timing uses the timestamps requestAnimationFrame hands in, so tests can feed it any display.
  */
 export const HITCH_MS = 250 // longer than this is a hidden tab or a stall, not a trend
@@ -152,7 +152,7 @@ export function startLoop(env: LoopEnv, hooks: LoopHooks, pacer: Pacer = createP
   let paused = false
   const frame = (ts: number) => {
     id = 0
-    if (!running || env.hidden() || paused) return
+    if (!running || paused || env.hidden()) return
     id = env.raf(frame)
     const dt = tick(pacer, ts)
     if (dt <= 0) return
@@ -174,34 +174,32 @@ export function startLoop(env: LoopEnv, hooks: LoopHooks, pacer: Pacer = createP
   }
   const off = env.onVisibility(() => {
     if (!running) return
-    if (env.hidden()) {
-      cancel()
-      // auto-pause on hide: set paused so panel can show
-      paused = true
-      if (typeof (window as any).__pauseShow === "function") (window as any).__pauseShow(true)
-    } else {
+    if (env.hidden()) cancel()
+    else if (!paused) {
       resume(pacer)
-      if (!paused && !id) id = env.raf(frame)
+      if (!id) id = env.raf(frame)
     }
   })
+  /**
+   * Paused: no frames are asked for, so nothing steps and nothing is drawn (the last picture stays on screen).
+   * Unpaused: the clock starts again from the next frame, so the time spent paused is never flown.
+   */
+  function setPaused(p: boolean) {
+    if (!running || p === paused) return
+    paused = p
+    if (paused) cancel()
+    else if (!env.hidden()) {
+      resume(pacer)
+      if (!id) id = env.raf(frame)
+    }
+  }
   function stop() {
     running = false
     cancel()
     off()
   }
-  function pause() {
-    if (paused) return
-    paused = true
-    cancel()
-  }
-  function unpause() {
-    if (!paused) return
-    paused = false
-    resume(pacer)
-    if (!env.hidden() && !id) id = env.raf(frame)
-  }
   if (!env.hidden()) id = env.raf(frame)
-  return { stop, pause, unpause, pacer, get paused() { return paused } }
+  return { stop, pacer, setPaused, isPaused: () => paused }
 }
 
 export function browserLoopEnv(): LoopEnv {

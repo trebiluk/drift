@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client'
 import pkg from '../package.json'
 import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
+import { mountPause } from './ui/pause.ts'
 import { wantsDebug } from './ui/debug.ts'
-import { mountPause, wirePause } from './ui/pause.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
@@ -15,24 +15,20 @@ const rootEl = document.getElementById('root')
 
 function App() {
   const host = useRef<HTMLDivElement>(null)
+  const shell = useRef<HTMLElement>(null)
   useEffect(() => {
-    if (!host.current) return
-    const cleanupDemo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
-    // Wire pause after demo starts the loop. Demo returns cleanup; we need access to loop.
-    // For simplicity, assume demo exposes or we mount pause independently and it finds the loop via window.
-    // In real, modify demo to return loop controls, but brief limits files. Here we mount UI and use a global hook.
-    const pauseCleanup = mountPause(document.body, {
-      pause: () => { (window as any).__loop?.pause?.() ; (window as any).__pauseShow?.(true) },
-      unpause: () => { (window as any).__loop?.unpause?.() ; (window as any).__pauseShow?.(false) },
-      isPaused: () => !!(window as any).__loop?.paused,
-    })
+    if (!host.current || !shell.current) return
+    const demo = mountDemo(host.current, { version: pkg.version, debug: wantsDebug(window.location.search) })
+    // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
+    const pause = mountPause(document, shell.current, { onPause: () => demo.setPaused(true), onResume: () => demo.setPaused(false) })
     return () => {
-      cleanupDemo()
-      pauseCleanup()
+      pause.unmount()
+      demo.stop()
     }
   }, [])
   return (
     <main
+      ref={shell}
       style={{
         position: 'relative',
         height: '100dvh',
@@ -66,10 +62,10 @@ function App() {
       <div
         style={{
           position: 'fixed',
-          right: 'max(20px, env(safe-area-inset-right))',
-          bottom: 'max(20px, env(safe-area-inset-bottom))',
+          right: 'max(16px, env(safe-area-inset-right))',
+          bottom: 'max(16px, env(safe-area-inset-bottom))',
           margin: 0,
-          padding: '10px 16px',
+          padding: '8px 14px',
           borderRadius: '999px',
           background: '#ffffff',
           color: '#111111',
@@ -77,8 +73,6 @@ function App() {
           lineHeight: 1.2,
           whiteSpace: 'nowrap',
           pointerEvents: 'none',
-          boxSizing: 'border-box',
-          maxWidth: 'calc(100vw - 40px)',
         }}
       >
         v{pkg.version}
