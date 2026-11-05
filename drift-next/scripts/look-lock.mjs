@@ -99,8 +99,10 @@ async function shoot() {
   const host = new URL(url).hostname
   try {
     let clockMode = arg("clock", "fake"); let vpRetry = false
-    for (let vi = 0; vi < VIEWPORTS.length; vi++) {
-      const vp = VIEWPORTS[vi]
+    const only = arg("viewports", "") // e.g. --viewports 1366x768,412x915 for a quick run
+    const VPS = only ? VIEWPORTS.filter((v) => only.split(",").includes(v.name)) : VIEWPORTS
+    for (let vi = 0; vi < VPS.length; vi++) {
+      const vp = VPS[vi]
       // 1. pictures
       vpRetry = false
       for (const pose of POSES) {
@@ -127,6 +129,7 @@ async function shoot() {
         await ctx.close()
       }
       if (vpRetry) { report.shots = report.shots.filter((x) => x.viewport !== vp.name); vi--; continue }
+      if (has("no-timing")) continue
       // 2. real frame times, CPU slowed: the Chromebook-floor stand-in
       const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height } })
       await ctx.addInitScript(SEED_SCRIPT)
