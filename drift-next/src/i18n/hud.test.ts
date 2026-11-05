@@ -5,6 +5,7 @@ import { PAUSE_TEXT } from "../ui/pause.ts"
 import { SOUND_TEXT } from "../ui/sound.ts"
 import { SPEED_TEXT, speedLabel } from "../ui/throttle.ts"
 import { STEER_TEXT } from "../ui/steerpad.ts"
+import { WATCH_TEXT } from "../ui/watch.ts"
 
 const keys = Object.keys(HUD.en) as (keyof HudWords)[]
 const holes = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(",")
@@ -69,6 +70,8 @@ test("the English table matches the words the HUD shows today, word for word", (
   for (const k of ["on", "off", "left", "right", "up", "down"] as const) assert.equal(en[k], STEER_TEXT[k])
   assert.equal(en.steerOption, STEER_TEXT.option)
   assert.equal(en.steerPad, STEER_TEXT.pad)
+  assert.equal(en.watchOn, WATCH_TEXT.on)
+  assert.equal(en.watchOff, WATCH_TEXT.off)
 })
 
 test("language tags fall back sensibly", () => {

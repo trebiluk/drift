@@ -45,6 +45,10 @@ export type HudWords = {
   hint: string
   /** The hint line when "Steer with buttons" is on. */
   hintPad: string
+  watchOn: string
+  watchOff: string
+  /** The hint line while Watch is flying. */
+  hintWatch: string
   /** What a screen reader says for the picture. */
   glider: string
 }
@@ -73,6 +77,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Nose down",
     hint: "Drag to steer, or use the arrow keys",
     hintPad: "Drag, use the arrow keys, or hold the buttons to steer",
+    watchOn: "Watch: On",
+    watchOff: "Watch: Off",
+    hintWatch: "Watch is flying. Steer any time to take over.",
     glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer.",
   },
   simple: {
@@ -98,6 +105,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Go down",
     hint: "Drag or use arrow keys to steer",
     hintPad: "Drag, arrow keys, or hold a button",
+    watchOn: "Watch: On",
+    watchOff: "Watch: Off",
+    hintWatch: "It flies by itself. Steer to take over.",
     glider: "A glider in the clouds. Drag or use arrow keys to steer.",
   },
   es: {
@@ -123,6 +133,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Morro abajo",
     hint: "Arrastra para dirigir o usa las flechas",
     hintPad: "Arrastra, usa las flechas o mantén pulsados los botones",
+    watchOn: "Mirar: Activado",
+    watchOff: "Mirar: Desactivado",
+    hintWatch: "Vuela solo. Dirige cuando quieras para tomar el control.",
     glider: "Un planeador vuela entre las nubes. Arrastra o usa las flechas para dirigir.",
   },
   uk: {
@@ -148,6 +161,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Ніс униз",
     hint: "Тягніть, щоб керувати, або натискайте стрілки",
     hintPad: "Тягніть, натискайте стрілки або тримайте кнопки",
+    watchOn: "Спостерігати: Увімкнено",
+    watchOff: "Спостерігати: Вимкнено",
+    hintWatch: "Летить сам. Керуйте будь-коли, щоб узяти керування.",
     glider: "Планер летить серед хмар. Тягніть або натискайте стрілки, щоб керувати.",
   },
   ru: {
@@ -173,6 +189,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Нос вниз",
     hint: "Тяните, чтобы управлять, или нажимайте стрелки",
     hintPad: "Тяните, нажимайте стрелки или удерживайте кнопки",
+    watchOn: "Наблюдать: Включено",
+    watchOff: "Наблюдать: Выключено",
+    hintWatch: "Летит сам. Управляйте в любой момент, чтобы взять управление.",
     glider: "Планер летит среди облаков. Тяните или нажимайте стрелки, чтобы управлять.",
   },
   ar: {
@@ -198,6 +217,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "المقدمة للأسفل",
     hint: "اسحب للتوجيه، أو استخدم مفاتيح الأسهم",
     hintPad: "اسحب، أو استخدم مفاتيح الأسهم، أو اضغط مطولًا على الأزرار",
+    watchOn: "مشاهدة: مُشغَّل",
+    watchOff: "مشاهدة: مُطفأ",
+    hintWatch: "تطير وحدها. وجّه في أي وقت لتتولى القيادة.",
     glider: "طائرة شراعية تحلّق بين الغيوم. اسحب أو استخدم مفاتيح الأسهم للتوجيه.",
   },
   "fa-AF": {
@@ -223,6 +245,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "دماغه پایین",
     hint: "برای رهنمایی بکشید، یا از کلیدهای تیر استفاده کنید",
     hintPad: "بکشید، از کلیدهای تیر استفاده کنید، یا دکمه‌ها را نگه دارید",
+    watchOn: "تماشا: روشن",
+    watchOff: "تماشا: خاموش",
+    hintWatch: "خودش پرواز می‌کند. هر وقت خواستید رهنمایی کنید.",
     glider: "یک گلایدر میان ابرها پرواز می‌کند. برای رهنمایی بکشید یا از کلیدهای تیر استفاده کنید.",
   },
   rw: {
@@ -248,6 +273,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Manuka",
     hint: "Kurura kugira ngo uyobore, cyangwa ukoreshe utubuto tw'imyambi",
     hintPad: "Kurura, koresha imyambi, cyangwa ufate utubuto",
+    watchOn: "Kureba: Birafunguye",
+    watchOff: "Kureba: Birafunze",
+    hintWatch: "Iraguruka yonyine. Yobora igihe cyose ushaka.",
     glider: "Indege itagira moteri iguruka mu bicu. Kurura cyangwa ukoreshe imyambi kugira ngo uyobore.",
   },
   ti: {
@@ -273,6 +301,9 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "ናብ ታሕቲ",
     hint: "ንምምራሕ ጎትት፣ ወይ ናይ ምልክት መፍትሕታት ተጠቐም",
     hintPad: "ጎትት፣ ናይ ምልክት መፍትሕታት ተጠቐም፣ ወይ መልጎማት ሓዝ",
+    watchOn: "ምርኣይ፡ ክፉት",
+    watchOff: "ምርኣይ፡ ዕጹው",
+    hintWatch: "ባዕሉ ይነፍር። ኣብ ዝኾነ ግዜ ምራሕ።",
     glider: "ኣብ መንጎ ደበና ዝነፍር ግላይደር። ንምምራሕ ጎትት ወይ ናይ ምልክት መፍትሕታት ተጠቐም።",
   },
 }

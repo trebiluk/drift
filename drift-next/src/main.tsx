@@ -9,6 +9,7 @@ import { wantsDebug } from './ui/debug.ts'
 import { createAmbient } from './audio/ambient.ts'
 import { mountSound } from './ui/sound.ts'
 import { mountSteerPad } from './ui/steerpad.ts'
+import { mountWatch } from './ui/watch.ts'
 import { HUD } from './i18n/hud.ts'
 
 document.documentElement.dataset.version = pkg.version
@@ -31,10 +32,16 @@ function App() {
     } catch {
       store = null
     }
+    // The hint line says how to steer, and says so when Watch is flying (S8 will pick the language; English for now).
+    let padOn = false
+    let watchOn = false
+    const showHint = () => {
+      if (hint.current) hint.current.textContent = watchOn ? HUD.en.hintWatch : padOn ? HUD.en.hintPad : HUD.en.hint
+    }
     // Steer pad (option, off by default): the switch lives in the Pause panel, the pad at the bottom left.
     const steerPad = mountSteerPad(document, document.body, store, (a) => demo.setPad(a.yaw, a.pitch), (on) => {
-      // The hint line names the buttons when they are on (S8 will pick the language; English for now).
-      if (hint.current) hint.current.textContent = on ? HUD.en.hintPad : HUD.en.hint
+      padOn = on
+      showHint()
     })
     // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
     const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option] })
@@ -47,12 +54,19 @@ function App() {
     sizeHint()
     const hintObs = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(sizeHint)
     if (hint.current) hintObs?.observe(hint.current)
+    // Watch (off by default): the glider flies itself in slow turns; steering takes over, then Watch eases back in.
+    const watch = mountWatch(document, document.body, store, (on) => {
+      watchOn = on
+      demo.setWatch(on)
+      showHint()
+    })
     const sound = mountSound(document, document.body, ambient, store)
     // Speed: 5 notches, buttons and Q/E; the sim eases to each one.
     const speed = mountSpeed(document, document.body, DEFAULT_NOTCH, (c) => demo.setCruise(c))
     return () => {
       speed.unmount()
       steerPad.unmount()
+      watch.unmount()
       hintObs?.disconnect()
       sound.unmount()
       pause.unmount()

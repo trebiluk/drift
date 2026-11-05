@@ -2,6 +2,7 @@ import { buildClouds } from "../sim/clouds.ts"
 import { BRIGHT_CAP, VEIL_LEVEL, createGuard, createPass, proximity, stepGuard, stepPass, SKY_DAY, type GuardOut, type PassOpts, type PassOut, type Puff } from "../sim/cloudpass.ts"
 import { advance, clamp, createSimState, layerId, WORLD_HOME, type SimState } from "../sim/craft.ts"
 import { steerFromPull } from "../input/pull.ts"
+import { createWatch, stepWatch } from "./watch.ts"
 import { browserLoopEnv, createPacer, setCeiling, startLoop } from "../loop/loop.ts"
 import { contextLost, glUnavailable, setCap } from "../render/governor.ts"
 import { createGlWorld, type GlWorld } from "../render/gl/renderer.ts"
@@ -105,7 +106,7 @@ const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: th
 const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
 /** What main.tsx holds on to: take the demo down, or pause and resume it. */
-export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void }
+export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void; setWatch: (on: boolean) => void }
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const doc = host.ownerDocument
@@ -132,7 +133,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
-    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {} }
+    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {}, setWatch: () => {} }
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
@@ -152,6 +153,8 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const stick: Stick = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, mouse: true }
   const steer = { yaw: 0, pitch: 0 }
   const pad = { yaw: 0, pitch: 0 } // the steer pad (ui/steerpad.ts), when it is switched on
+  const watch = createWatch() // Watch (ui/watch.ts): the glider flies itself; any steering takes over
+  let watchOn = false
   const reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches
   // Reduced motion keeps the fade but slows it to the calm ramp, and drops the roll tilt below.
   const passOpts: PassOpts = { night: 0, calm: reduced, mist: "soft" }
@@ -247,7 +250,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     if (hold) return
     const k = keyActions(keys)
     const pull = steerFromPull(stick.active, stick.x, stick.y, stick.mouse)
-    const yawIn = clamp(k.yaw + pull.yaw + pad.yaw, -1, 1)
+    const steering = k.yaw !== 0 || k.pitch !== 0 || pull.yaw !== 0 || pull.pitch !== 0 || pad.yaw !== 0 || pad.pitch !== 0
+    const auto = watchOn ? stepWatch(watch, dt, steering, reduced) : 0
+    const yawIn = clamp(k.yaw + pull.yaw + pad.yaw + auto, -1, 1)
     const pitchIn = clamp(k.pitch + pull.pitch + pad.pitch, -1, 1)
     const pitchWant = pitchIn !== 0 ? pitchIn : levelAssist(state.craft.pitch, WORLD_HOME.sky.pitch)
     steer.yaw = approach(steer.yaw, yawIn, dt, 5.5)
@@ -591,5 +596,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     pad.yaw = clamp(yaw, -1, 1)
     pad.pitch = clamp(pitch, -1, 1)
   }
-  return { stop, setPaused, setCruise, setPad }
+  const setWatch = (on: boolean) => {
+    if (on && !watchOn) Object.assign(watch, createWatch())
+    watchOn = on
+  }
+  return { stop, setPaused, setCruise, setPad, setWatch }
 }

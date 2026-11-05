@@ -1,3 +1,7 @@
+## 2.0.0-u
+
+Watch: a hands-free glide for relaxing or studying, as in 1.12.4. A "Watch: Off" button at the top left (48 px, an eye icon and words; On also shows a border). Turned on, the glider flies itself in slow, lazy turns left and right through the clouds, with the nose held level. Steering in any way (keys, drag or the steer pad) takes over at once; 2.5 s after you let go, Watch eases back in over 3 s, so the picture never jerks. Speed works as normal. The hint line says "Watch is flying. Steer any time to take over." Gentler turns with reduced motion. Off on a first visit, remembered in this browser. Its words are in all 9 tables (machine drafts).
+
 ## 2.0.0-t
 
 More clouds to steer through. Clouds are bigger and fuller (radius 32 to 192, from 18 to 120), and a little more of the field sits near you, so there is always cloud beside you with blue gaps between. The two cheapest tiers draw more of them (Lite 48 → 64, the 2D floor 24 → 36), so a Chromebook sky isn't empty. Measured cloud in the top half of the frame: about 50 to 55% on the best tiers at 1366, 35% on Lite, 27% on the 2D floor; on a phone 29 to 31%, 20% and 13%. Frame rate with the CPU 4× slower is unchanged (2D floor 60 fps; Lite 22 → 24 fps on a software GPU). Brightness stays at 45 to 52%, under the 58% cap. Tooling: the look-lock harness now counts shaded and soft-edged cloud as cloud (it only counted white tops, so it under-read every build), and reports the sky half too.
