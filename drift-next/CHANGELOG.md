@@ -1,3 +1,7 @@
+## 2.0.0-s
+
+A deep blue sky with fluffy white clouds (Diego: "the main core is the fluffy clouds with the deep blue sky"). The sky is a richer, deeper blue overhead and a clear blue at the horizon. Every cloud has a sunlit top and a soft blue-grey base, on every tier: the two cheapest tiers, which drew flat discs, now draw small cumulus shapes (a dome and two side bumps on a flatter base). No cloud pixel got brighter. The deeper sky makes the clouds look whiter, and the picture's average brightness went down (about 52% to 48% on the best tier, 51% to 46% on the 2D floor; Diego's cap is 58%).
+
 ## 2.0.0-r
 
 Every word on the flight screen is ready in 8 languages and Simple (English, Simple, Spanish, Ukrainian, Russian, Arabic, Dari, Kinyarwanda, Tigrinya), in one table (`src/i18n/hud.ts`) for the language stage (S8) to switch on. All but English are machine drafts waiting for a native reader; Arabic and Dari are marked right to left; digits stay 1, 2, 3 until Diego picks. Kids see one change today: with "Steer with buttons" on, the hint line says "Drag, use the arrow keys, or hold the buttons to steer".

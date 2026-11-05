@@ -84,8 +84,7 @@ test("the colours in the shaders are the palette's, not a second copy that can d
 })
 
 test("a cloud is never brighter than the off-white body colour, on any tier", () => {
-  assert.ok(spriteFrag(1).includes("vec4(BODY,"), "the soft disc is the body colour itself")
-  for (const n of [2, 3] as const) assert.ok(spriteFrag(n).includes("col = min(col, BODY);"), `cloud ${n} clamps to the body colour`)
+  for (const n of [1, 2, 3] as const) assert.ok(spriteFrag(n).includes("col = min(col, BODY);"), `cloud ${n} clamps to the body colour`)
 })
 
 test("the floor does more work on each step up: 1, 2 and 5 lookups, and the horizon haze only on Fancy", () => {
@@ -114,7 +113,8 @@ test("the clouds have one, three and five lobes, and only Fancy has the wobbly e
     assert.ok(!normal.includes(piece), `Normal does not have ${piece}`)
     assert.ok(!lite.includes(piece), `Lite does not have ${piece}`)
   }
-  assert.ok(normal.includes("lit") && fancy.includes("lit") && !lite.includes("lit"), "Normal and Fancy are lit; Lite is flat")
+  assert.ok(normal.includes("lit") && fancy.includes("lit") && !lite.includes("lit"), "Normal and Fancy are lit by a light direction; Lite is shaded top to bottom only")
+  assert.ok(lite.includes("mix(BODY, SHADE,"), "even Lite has a sunny top and a blue-grey base, not a flat disc")
 })
 
 test("the tier table in scene.ts and the shaders line up: each GL tier asks for a different floor and cloud", () => {
