@@ -62,7 +62,7 @@ export const SOUND_CSS = `
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select") !== null)
 
-export type SoundUi = { toggle: () => void; isOn: () => boolean; unmount: () => void }
+export type SoundUi = { toggle: () => void; isOn: () => boolean; unmount: () => void; /** Names the calm track on the button while sound is on ("Sound: On · Rain"), so it is never only heard. */ setTrackWord: (word: string) => void }
 
 export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient, store: Store): SoundUi {
   const win = doc.defaultView ?? window
@@ -83,10 +83,12 @@ export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient,
   hint.hidden = true
   parent.appendChild(hint)
 
+  let trackWord = ""
   const show = () => {
-    button.innerHTML = `${on ? ICON_ON : ICON_OFF}<span>${labelFor(on)}</span>`
+    const label = on && trackWord ? `${labelFor(on)} · ${trackWord}` : labelFor(on)
+    button.innerHTML = `${on ? ICON_ON : ICON_OFF}<span>${label}</span>`
     button.setAttribute("aria-pressed", on ? "true" : "false")
-    button.setAttribute("aria-label", labelFor(on))
+    button.setAttribute("aria-label", label)
     hint.hidden = !waiting
   }
   let waiting = on
@@ -133,6 +135,10 @@ export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient,
   return {
     toggle,
     isOn: () => on,
+    setTrackWord: (word: string) => {
+      trackWord = word
+      show()
+    },
     unmount: () => {
       removeGesture()
       button.removeEventListener("click", onClick)

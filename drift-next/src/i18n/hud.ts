@@ -49,6 +49,12 @@ export type HudWords = {
   watchOff: string
   /** The hint line while Watch is flying. */
   hintWatch: string
+  /** The calm sound tracks (Pause panel and the Sound button). */
+  trackLabel: string
+  trackCalm: string
+  trackRain: string
+  trackOcean: string
+  trackBowls: string
   /** What a screen reader says for the picture. */
   glider: string
 }
@@ -80,6 +86,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "Watch: On",
     watchOff: "Watch: Off",
     hintWatch: "Watch is flying. Steer any time to take over.",
+    trackLabel: "Sound track",
+    trackCalm: "Calm",
+    trackRain: "Rain",
+    trackOcean: "Ocean",
+    trackBowls: "Bowls",
     glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer.",
   },
   simple: {
@@ -108,6 +119,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "Watch: On",
     watchOff: "Watch: Off",
     hintWatch: "It flies by itself. Steer to take over.",
+    trackLabel: "Sound",
+    trackCalm: "Calm",
+    trackRain: "Rain",
+    trackOcean: "Sea",
+    trackBowls: "Bowls",
     glider: "A glider in the clouds. Drag or use arrow keys to steer.",
   },
   es: {
@@ -136,6 +152,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "Mirar: Activado",
     watchOff: "Mirar: Desactivado",
     hintWatch: "Vuela solo. Dirige cuando quieras para tomar el control.",
+    trackLabel: "Pista de sonido",
+    trackCalm: "Calma",
+    trackRain: "Lluvia",
+    trackOcean: "Océano",
+    trackBowls: "Cuencos",
     glider: "Un planeador vuela entre las nubes. Arrastra o usa las flechas para dirigir.",
   },
   uk: {
@@ -164,6 +185,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "Спостерігати: Увімкнено",
     watchOff: "Спостерігати: Вимкнено",
     hintWatch: "Летить сам. Керуйте будь-коли, щоб узяти керування.",
+    trackLabel: "Звукова доріжка",
+    trackCalm: "Спокій",
+    trackRain: "Дощ",
+    trackOcean: "Океан",
+    trackBowls: "Чаші",
     glider: "Планер летить серед хмар. Тягніть або натискайте стрілки, щоб керувати.",
   },
   ru: {
@@ -192,6 +218,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "Наблюдать: Включено",
     watchOff: "Наблюдать: Выключено",
     hintWatch: "Летит сам. Управляйте в любой момент, чтобы взять управление.",
+    trackLabel: "Звуковая дорожка",
+    trackCalm: "Спокойствие",
+    trackRain: "Дождь",
+    trackOcean: "Океан",
+    trackBowls: "Чаши",
     glider: "Планер летит среди облаков. Тяните или нажимайте стрелки, чтобы управлять.",
   },
   ar: {
@@ -220,6 +251,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "مشاهدة: مُشغَّل",
     watchOff: "مشاهدة: مُطفأ",
     hintWatch: "تطير وحدها. وجّه في أي وقت لتتولى القيادة.",
+    trackLabel: "المقطع الصوتي",
+    trackCalm: "هدوء",
+    trackRain: "مطر",
+    trackOcean: "محيط",
+    trackBowls: "أوعية",
     glider: "طائرة شراعية تحلّق بين الغيوم. اسحب أو استخدم مفاتيح الأسهم للتوجيه.",
   },
   "fa-AF": {
@@ -248,6 +284,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "تماشا: روشن",
     watchOff: "تماشا: خاموش",
     hintWatch: "خودش پرواز می‌کند. هر وقت خواستید رهنمایی کنید.",
+    trackLabel: "آهنگ صدا",
+    trackCalm: "آرام",
+    trackRain: "باران",
+    trackOcean: "بحر",
+    trackBowls: "کاسه‌ها",
     glider: "یک گلایدر میان ابرها پرواز می‌کند. برای رهنمایی بکشید یا از کلیدهای تیر استفاده کنید.",
   },
   rw: {
@@ -276,6 +317,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "Kureba: Birafunguye",
     watchOff: "Kureba: Birafunze",
     hintWatch: "Iraguruka yonyine. Yobora igihe cyose ushaka.",
+    trackLabel: "Ijwi ryumvikana",
+    trackCalm: "Ituze",
+    trackRain: "Imvura",
+    trackOcean: "Inyanja",
+    trackBowls: "Ibikombe",
     glider: "Indege itagira moteri iguruka mu bicu. Kurura cyangwa ukoreshe imyambi kugira ngo uyobore.",
   },
   ti: {
@@ -304,6 +350,11 @@ export const HUD: Record<HudLang, HudWords> = {
     watchOn: "ምርኣይ፡ ክፉት",
     watchOff: "ምርኣይ፡ ዕጹው",
     hintWatch: "ባዕሉ ይነፍር። ኣብ ዝኾነ ግዜ ምራሕ።",
+    trackLabel: "ድምጺ ትራክ",
+    trackCalm: "ህድኣት",
+    trackRain: "ዝናብ",
+    trackOcean: "ውቅያኖስ",
+    trackBowls: "ጽዋታት",
     glider: "ኣብ መንጎ ደበና ዝነፍር ግላይደር። ንምምራሕ ጎትት ወይ ናይ ምልክት መፍትሕታት ተጠቐም።",
   },
 }

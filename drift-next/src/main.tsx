@@ -7,6 +7,8 @@ import { mountPause } from './ui/pause.ts'
 import { DEFAULT_NOTCH, mountSpeed } from './ui/throttle.ts'
 import { wantsDebug } from './ui/debug.ts'
 import { createAmbient } from './audio/ambient.ts'
+import { installTracks, trackName } from './audio/tracks.ts'
+import { mountTrackOption } from './ui/soundtrack.ts'
 import { mountSound } from './ui/sound.ts'
 import { mountSteerPad } from './ui/steerpad.ts'
 import { mountWatch } from './ui/watch.ts'
@@ -43,10 +45,17 @@ function App() {
       padOn = on
       showHint()
     })
-    // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
-    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option] })
-    // Soft ambient pad, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
+    // Soft calm sound, Off until the player turns it on (button or M); the audio starts only on that click, tap or key.
+    // Four tracks (Calm, Rain, Ocean, Bowls), all made in the browser; the choice is in the Pause panel.
+    installTracks()
     const ambient = createAmbient(() => (typeof AudioContext === 'undefined' ? null : new AudioContext()))
+    let soundUi: { setTrackWord: (w: string) => void } | null = null
+    const trackOption = mountTrackOption(document, store, (t) => {
+      ambient.setTrack(t)
+      soundUi?.setTrackWord(trackName(t))
+    })
+    // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
+    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option, trackOption.option] })
     // The steer pad sits just above the hint line, however many lines the hint wraps to.
     const sizeHint = () => {
       if (hint.current) document.documentElement.style.setProperty('--ds-hint-h', `${Math.ceil(hint.current.getBoundingClientRect().height)}px`)
@@ -61,6 +70,8 @@ function App() {
       showHint()
     })
     const sound = mountSound(document, document.body, ambient, store)
+    soundUi = sound
+    sound.setTrackWord(trackName(trackOption.track()))
     // Speed: 5 notches, buttons and Q/E; the sim eases to each one.
     const speed = mountSpeed(document, document.body, DEFAULT_NOTCH, (c) => demo.setCruise(c))
     return () => {
@@ -69,6 +80,7 @@ function App() {
       watch.unmount()
       hintObs?.disconnect()
       sound.unmount()
+      trackOption.unmount()
       pause.unmount()
       demo.stop()
     }

@@ -1,3 +1,7 @@
+## 2.0.0-v
+
+Calm sound tracks, for relaxing or studying, as in 1.12.4: **Calm** (the soft pad), **Rain**, **Ocean** and **Bowls**. All four are made in the browser (no recordings to license or download). Rain is soft filtered noise; Ocean is deep noise that swells like slow waves; Bowls are rubbed singing bowls that swell in over 2.5 s, never struck, every 14 to 22 s. Pick one in the Pause panel ("Sound track: Rain"); switching cross-fades over 2.5 s. While sound is on, the Sound button names the track in words ("Sound: On · Rain"), so nothing is only heard. Choosing a track never turns sound on: Sound is still Off on a first visit, and pausing or hiding the tab fades every track out. Words in all 9 tables (drafts).
+
 ## 2.0.0-u
 
 Watch: a hands-free glide for relaxing or studying, as in 1.12.4. A "Watch: Off" button at the top left (48 px, an eye icon and words; On also shows a border). Turned on, the glider flies itself in slow, lazy turns left and right through the clouds, with the nose held level. Steering in any way (keys, drag or the steer pad) takes over at once; 2.5 s after you let go, Watch eases back in over 3 s, so the picture never jerks. Speed works as normal. The hint line says "Watch is flying. Steer any time to take over." Gentler turns with reduced motion. Off on a first visit, remembered in this browser. Its words are in all 9 tables (machine drafts).
