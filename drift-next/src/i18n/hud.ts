@@ -1,8 +1,8 @@
 /**
  * HUD words (DRIFT-S7-HUD-PLAN step 4): every word on the flight screen in 8 languages + Simple, ready for S8.
  *
- * S8 picks the language (Hub setting, `lang` and `dir` on <html>) and the components read from here. Until then the
- * components keep their own English text, and a test checks that it matches `HUD.en` word for word.
+ * S8 (`lang.ts`) picks the language from the Hub's setting and puts these words into every HUD part before the HUD is
+ * built; `lang` and `dir` go on <html>. The parts keep English as their default, and a test checks it matches `HUD.en`.
  *
  * **Every table except English is a machine draft** (`MACHINE_DRAFT`). Dari (fa-AF), Kinyarwanda (rw) and Tigrinya (ti)
  * most need a native reader. Digits stay Western (1, 2, 3) in every language: Arabic-Indic digits are still an open
@@ -57,6 +57,8 @@ export type HudWords = {
   trackBowls: string
   /** What a screen reader says for the picture. */
   glider: string
+  /** The line in the Pause panel under a machine-drafted language (IsoBert's words). Never shown in English. */
+  drafts: string
 }
 
 export const HUD: Record<HudLang, HudWords> = {
@@ -92,6 +94,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "Ocean",
     trackBowls: "Bowls",
     glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer.",
+    drafts: "Words in other languages are drafts. Tell your teacher if one is wrong.",
   },
   simple: {
     speed: "Speed",
@@ -125,6 +128,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "Sea",
     trackBowls: "Bowls",
     glider: "A glider in the clouds. Drag or use arrow keys to steer.",
+    drafts: "Other languages may have mistakes. Tell your teacher.",
   },
   es: {
     speed: "Velocidad",
@@ -158,6 +162,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "Océano",
     trackBowls: "Cuencos",
     glider: "Un planeador vuela entre las nubes. Arrastra o usa las flechas para dirigir.",
+    drafts: "Las palabras en otros idiomas son borradores. Avisa a tu maestro si algo está mal.",
   },
   uk: {
     speed: "Швидкість",
@@ -191,6 +196,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "Океан",
     trackBowls: "Чаші",
     glider: "Планер летить серед хмар. Тягніть або натискайте стрілки, щоб керувати.",
+    drafts: "Переклади — чернетки. Скажи вчителю, якщо щось неправильно.",
   },
   ru: {
     speed: "Скорость",
@@ -224,6 +230,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "Океан",
     trackBowls: "Чаши",
     glider: "Планер летит среди облаков. Тяните или нажимайте стрелки, чтобы управлять.",
+    drafts: "Переводы — черновики. Скажи учителю, если что-то не так.",
   },
   ar: {
     speed: "السرعة",
@@ -257,6 +264,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "محيط",
     trackBowls: "أوعية",
     glider: "طائرة شراعية تحلّق بين الغيوم. اسحب أو استخدم مفاتيح الأسهم للتوجيه.",
+    drafts: "الكلمات في اللغات الأخرى مسودات. أخبر معلمك إذا كان فيها خطأ.",
   },
   "fa-AF": {
     speed: "سرعت",
@@ -290,6 +298,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "بحر",
     trackBowls: "کاسه‌ها",
     glider: "یک گلایدر میان ابرها پرواز می‌کند. برای رهنمایی بکشید یا از کلیدهای تیر استفاده کنید.",
+    drafts: "کلمه‌ها در زبان‌های دیگر پیش‌نویس هستند. اگر غلط بود به معلمت بگو.",
   },
   rw: {
     speed: "Umuvuduko",
@@ -323,6 +332,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "Inyanja",
     trackBowls: "Ibikombe",
     glider: "Indege itagira moteri iguruka mu bicu. Kurura cyangwa ukoreshe imyambi kugira ngo uyobore.",
+    drafts: "Amagambo mu zindi ndimi ni agateganyo. Bwira mwarimu niba hari ikosa.",
   },
   ti: {
     speed: "ፍጥነት",
@@ -356,6 +366,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackOcean: "ውቅያኖስ",
     trackBowls: "ጽዋታት",
     glider: "ኣብ መንጎ ደበና ዝነፍር ግላይደር። ንምምራሕ ጎትት ወይ ናይ ምልክት መፍትሕታት ተጠቐም።",
+    drafts: "ቃላት ብኻልእ ቋንቋታት ረቂቕ እዮም። ጌጋ እንተሎ ንመምህርካ ንገሮ።",
   },
 }
 

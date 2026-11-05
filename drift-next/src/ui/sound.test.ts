@@ -45,7 +45,7 @@ test("M toggles, by key position on any layout; held keys, shortcuts and typing 
 test("the button says what it is in words, and is a 44 px target or bigger", () => {
   assert.equal(labelFor(false), "Sound: Off")
   assert.equal(labelFor(true), "Sound: On")
-  assert.deepEqual(Object.values(SOUND_TEXT).sort(), ["Sound: Off", "Sound: On"])
+  assert.deepEqual(Object.values(SOUND_TEXT).sort(), ["Sound: Off", "Sound: On", "Tap to start sound"])
   assert.ok(TARGET_PX >= 44)
 })
 

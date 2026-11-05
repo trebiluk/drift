@@ -43,6 +43,9 @@ function smooth(a: number, b: number, v: number) {
   return t * t * (3 - 2 * t)
 }
 
+/** What a screen reader says for the picture (S8 swaps in the player's language). */
+export const DEMO_TEXT = { glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer." }
+
 /** The most the glider ever banks against the horizon, in degrees. Full steering reaches it; nothing goes past it. */
 export const BANK_MAX_DEG = 25
 /** The sim rolls to this many radians at full steering (craft.ts: targetRoll = -yaw * 0.4). Full steering maps to BANK_MAX_DEG. */
@@ -124,7 +127,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const canvas = doc.createElement("canvas")
   Object.assign(canvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%", touchAction: "none", display: "block" })
   canvas.setAttribute("role", "img")
-  canvas.setAttribute("aria-label", "A glider flying among clouds. Drag, or use the arrow keys, to steer.")
+  canvas.setAttribute("aria-label", DEMO_TEXT.glider)
   host.appendChild(glCanvas)
   host.appendChild(canvas)
   const ctx = canvas.getContext("2d")

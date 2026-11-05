@@ -22,8 +22,10 @@ export const SPEED_TEXT = {
   speed: "Speed",
   faster: "Faster",
   slower: "Slower",
-  names: ["Slowest", "Slow", "Medium", "Fast", "Fastest"],
-} as const
+  names: ["Slowest", "Slow", "Medium", "Fast", "Fastest"] as readonly string[],
+  /** What a screen reader says: "Speed 2 of 5, Slow". */
+  of: "Speed {n} of {total}, {name}",
+}
 
 export const clampNotch = (n: number) => Math.max(0, Math.min(NOTCHES.length - 1, Math.round(n)))
 
@@ -43,21 +45,22 @@ export function speedKey(k: KeyInput): 1 | -1 | 0 {
 }
 
 /** What a screen reader and the dock both say: "Speed 2 of 5, Slow". */
-export const speedLabel = (notch: number) => `${SPEED_TEXT.speed} ${notch + 1} of ${NOTCHES.length}, ${SPEED_TEXT.names[notch]}`
+export const speedLabel = (notch: number) =>
+  SPEED_TEXT.of.replace("{n}", String(notch + 1)).replace("{total}", String(NOTCHES.length)).replace("{name}", SPEED_TEXT.names[notch])
 
 const CSS = `
 .ds-speed{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 52px);z-index:20;
   display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:8px;border-radius:14px;background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};
-  font:600 15px/1.2 system-ui,sans-serif;touch-action:manipulation;user-select:none}
-.ds-speed button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:${TARGET_PX}px;min-width:${TARGET_PX + 40}px;margin:0;padding:0 12px;
+  font:600 15px/1.2 system-ui,sans-serif;touch-action:manipulation;user-select:none;box-sizing:border-box;width:136px}
+.ds-speed button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:${TARGET_PX}px;min-width:${TARGET_PX}px;margin:0;padding:4px 8px;text-align:center;
   border:2px solid rgba(242,246,251,.35);border-radius:10px;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .ds-speed button:disabled{opacity:.4;cursor:default}
 .ds-speed button:focus-visible,.ds-speed [role=slider]:focus-visible{outline:3px solid ${PAUSE_COLORS.plateInk};outline-offset:2px}
 .ds-speed [role=slider]{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 2px;border-radius:8px}
-.ds-speed .ds-bars{display:flex;gap:3px;align-items:flex-end;height:18px}
+.ds-speed .ds-bars{display:flex;gap:3px;align-items:flex-end;height:18px;direction:ltr}
 .ds-speed .ds-bars i{display:block;width:8px;border-radius:2px;border:1.5px solid ${PAUSE_COLORS.plateInk}}
 .ds-speed .ds-bars i.on{background:${PAUSE_COLORS.plateInk}}
-.ds-speed .ds-word{font-size:14px;white-space:nowrap}
+.ds-speed .ds-word{font-size:14px;text-align:center}
 `
 
 export type SpeedDock = { unmount: () => void; notch: () => number; set: (n: number) => void }

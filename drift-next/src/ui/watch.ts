@@ -11,7 +11,7 @@
 import { PAUSE_COLORS, TARGET_PX } from "./pause.ts"
 
 export const WATCH_KEY = "drift2-watch"
-export const WATCH_TEXT = { on: "Watch: On", off: "Watch: Off" } as const
+export const WATCH_TEXT = { on: "Watch: On", off: "Watch: Off" }
 
 /** Seconds after the player lets go before Watch starts to ease back in, and how long the ease takes. */
 export const RESUME_DELAY_S = 2.5
@@ -75,7 +75,7 @@ export const WATCH_CSS = `
 .ds-watch{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));z-index:20;
   display:inline-flex;align-items:center;gap:8px;min-height:${TARGET_PX}px;min-width:${TARGET_PX}px;padding:0 16px;margin:0;
   border:2px solid transparent;border-radius:12px;background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};
-  font:600 16px/1.2 system-ui,sans-serif;cursor:pointer;touch-action:manipulation;white-space:nowrap;box-sizing:border-box}
+  font:600 16px/1.2 system-ui,sans-serif;cursor:pointer;touch-action:manipulation;box-sizing:border-box;max-width:calc(50vw - 20px);text-align:start}
 .ds-watch[aria-pressed="true"]{border-color:${PAUSE_COLORS.plateInk}}
 .ds-watch:focus{outline:none}
 .ds-watch:focus-visible{outline:3px solid ${PAUSE_COLORS.plateInk};outline-offset:2px;box-shadow:0 0 0 6px rgba(8,16,30,.9)}

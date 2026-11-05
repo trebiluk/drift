@@ -26,7 +26,7 @@ export const STEER_TEXT = {
   right: "Steer right",
   up: "Nose up",
   down: "Nose down",
-} as const
+}
 
 /** Same signs as the arrow keys (demo.ts keyActions): left is +yaw, up is +pitch. Opposite buttons cancel. */
 export function padAxes(held: ReadonlySet<PadDir>) {
@@ -76,7 +76,7 @@ const AREA: Record<PadDir, string> = { up: "1/2", left: "2/1", right: "2/3", dow
 const CSS = `
 .ds-pad{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:calc(max(16px,env(safe-area-inset-bottom)) + var(--ds-hint-h, 36px) + 12px);z-index:20;
   display:grid;grid-template-columns:repeat(3,${PAD_PX}px);grid-template-rows:repeat(3,${PAD_PX}px);gap:6px;padding:8px;border-radius:16px;
-  background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};touch-action:none;user-select:none;-webkit-user-select:none}
+  background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};touch-action:none;user-select:none;-webkit-user-select:none;direction:ltr}
 .ds-pad[hidden]{display:none}
 .ds-pad button{display:flex;align-items:center;justify-content:center;width:${PAD_PX}px;height:${PAD_PX}px;margin:0;padding:0;
   border:2px solid rgba(242,246,251,.35);border-radius:12px;background:transparent;color:inherit;cursor:pointer;touch-action:none}

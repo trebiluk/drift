@@ -12,13 +12,24 @@ import { mountTrackOption } from './ui/soundtrack.ts'
 import { mountSound } from './ui/sound.ts'
 import { mountSteerPad } from './ui/steerpad.ts'
 import { mountWatch } from './ui/watch.ts'
-import { HUD } from './i18n/hud.ts'
+import { markPage, pickLang, useLang, words } from './i18n/lang.ts'
 import { rectOf, type Rect } from './ui/layout.ts'
 
 document.documentElement.dataset.version = pkg.version
 document.documentElement.style.overflow = 'hidden'
 document.body.style.overflow = 'hidden'
 document.body.style.height = '100dvh'
+
+// S8: the player's language, from the Hub's setting (or ?lang=), put into every HUD word before anything is built.
+let prefsStore: Storage | null = null
+try {
+  prefsStore = window.localStorage
+} catch {
+  prefsStore = null
+}
+const LANG = pickLang(window.location.search, prefsStore)
+const DRAFT_NOTE = useLang(LANG)
+markPage(document, LANG)
 
 const rootEl = document.getElementById('root')
 
@@ -36,12 +47,12 @@ function App() {
     } catch {
       store = null
     }
-    // The hint line says how to steer, and says so when Watch is flying (S8 will pick the language; English for now).
+    // The hint line says how to steer, and says so when Watch is flying, in the player's language.
     let padOn = false
     let reportDocksRef = () => {}
     let watchOn = false
     const showHint = () => {
-      if (hint.current) hint.current.textContent = watchOn ? HUD.en.hintWatch : padOn ? HUD.en.hintPad : HUD.en.hint
+      if (hint.current) hint.current.textContent = watchOn ? words().hintWatch : padOn ? words().hintPad : words().hint
     }
     // Steer pad (option, off by default): the switch lives in the Pause panel, the pad at the bottom left.
     const steerPad = mountSteerPad(document, document.body, store, (a) => demo.setPad(a.yaw, a.pitch), (on) => {
@@ -67,7 +78,7 @@ function App() {
       showHint()
     })
     // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
-    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option, trackOption.option] })
+    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option, trackOption.option], note: DRAFT_NOTE })
     // The steer pad sits just above the hint line, however many lines the hint wraps to.
     const sizeHint = () => {
       if (hint.current) document.documentElement.style.setProperty('--ds-hint-h', `${Math.ceil(hint.current.getBoundingClientRect().height)}px`)
@@ -136,7 +147,7 @@ function App() {
           pointerEvents: 'none',
         }}
       >
-        {HUD.en.hint}
+        {words().hint}
       </p>
       <div
         ref={chip}

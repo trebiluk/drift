@@ -16,7 +16,7 @@ import { FADE_S, rng, setTrackMaker, type Ctx, type GainNode_, type Node, type P
 export const TRACKS = ["calm", "rain", "ocean", "bowls"] as const
 export type Track = (typeof TRACKS)[number]
 export const TRACK_KEY = "drift2-track"
-export const TRACK_TEXT = { label: "Sound track", calm: "Calm", rain: "Rain", ocean: "Ocean", bowls: "Bowls" } as const
+export const TRACK_TEXT: Record<"label" | Track, string> = { label: "Sound track", calm: "Calm", rain: "Rain", ocean: "Ocean", bowls: "Bowls" }
 
 /** How loud each track sits under the shared level and fade gains, so the four feel about as loud as each other. */
 // Measured in Chromium (RMS at the speakers): at 0.32 / 0.55 / 0.5 the three came out about 4x quieter than Calm, so they
