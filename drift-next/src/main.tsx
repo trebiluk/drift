@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import pkg from '../package.json'
 import { PAGE_BG } from './render/page.ts'
 import { mountDemo } from './ui/demo.ts'
-import { mountPause } from './ui/pause.ts'
+import { mountPause, classicLink } from './ui/pause.ts'
 import { DEFAULT_NOTCH, mountSpeed } from './ui/throttle.ts'
 import { wantsDebug } from './ui/debug.ts'
 import { createAmbient } from './audio/ambient.ts'
@@ -78,7 +78,7 @@ function App() {
       showHint()
     })
     // Pause (button, P, Esc, a hidden tab) freezes the flight; the panel offers Resume and Home.
-    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option, trackOption.option], note: DRAFT_NOTE })
+    const pause = mountPause(document, shell.current, { onPause: () => { steerPad.clear(); demo.setPaused(true) }, onResume: () => demo.setPaused(false), extra: [steerPad.option, trackOption.option, classicLink()], note: DRAFT_NOTE })
     // The steer pad sits just above the hint line, however many lines the hint wraps to.
     const sizeHint = () => {
       if (hint.current) document.documentElement.style.setProperty('--ds-hint-h', `${Math.ceil(hint.current.getBoundingClientRect().height)}px`)

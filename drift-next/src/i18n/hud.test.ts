@@ -61,6 +61,7 @@ test("the English table matches the words the HUD shows today, word for word", (
   assert.equal(en.paused, PAUSE_TEXT.paused)
   assert.equal(en.resume, PAUSE_TEXT.resume)
   assert.equal(en.home, PAUSE_TEXT.home)
+  assert.equal(en.classic, PAUSE_TEXT.classic)
   assert.equal(en.soundOn, SOUND_TEXT.on)
   assert.equal(en.soundOff, SOUND_TEXT.off)
   assert.equal(en.tapSound, SOUND_TEXT.tap)

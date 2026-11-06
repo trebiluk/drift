@@ -26,7 +26,7 @@ export const PAUSE_COLORS = {
 
 /** Every word the player sees, in one place for the translation pass (S8). */
 /** Every word the player sees. English here; S8 (i18n/lang.ts) swaps in the player's language before the HUD is built. */
-export const PAUSE_TEXT = { pause: "Pause", paused: "Paused", resume: "Resume", home: "Home" }
+export const PAUSE_TEXT = { pause: "Pause", paused: "Paused", resume: "Resume", home: "Home", classic: "Classic Drift: space and reef" }
 
 export type KeyInput = {
   code: string
@@ -131,6 +131,20 @@ const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select") !== null)
 
 /** Builds the Pause button and the panel inside `parent`. Call `unmount` to take everything away again. */
+/** Where Drift 1.12.5 lives on the Hub once Drift 2 is the door (`/drift/classic/`). */
+export const CLASSIC_HREF = "./classic/"
+
+/** The Pause-panel link to classic Drift (space, reef, study timer), which Drift 2 doesn't have yet. Same look as Home. */
+export function classicLink(doc: Document = document, href = CLASSIC_HREF): HTMLAnchorElement {
+  const a = doc.createElement("a")
+  a.className = "dp-btn dp-classic"
+  a.href = href
+  const span = doc.createElement("span")
+  span.textContent = PAUSE_TEXT.classic
+  a.appendChild(span)
+  return a
+}
+
 export function mountPause(doc: Document, parent: HTMLElement, opts: PauseOpts): PauseUi {
   const win = doc.defaultView ?? window
   const style = doc.createElement("style")

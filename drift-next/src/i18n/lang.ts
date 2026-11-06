@@ -70,7 +70,7 @@ export function useLang(l: HudLang): string {
   const w = HUD[l]
   current = w
   currentLang = l
-  Object.assign(PAUSE_TEXT, { pause: w.pause, paused: w.paused, resume: w.resume, home: w.home })
+  Object.assign(PAUSE_TEXT, { pause: w.pause, paused: w.paused, resume: w.resume, home: w.home, classic: w.classic })
   Object.assign(SOUND_TEXT, { on: w.soundOn, off: w.soundOff, tap: w.tapSound })
   Object.assign(SPEED_TEXT, { speed: w.speed, faster: w.faster, slower: w.slower, names: [...w.speedNames], of: w.speedOf })
   Object.assign(STEER_TEXT, { option: w.steerOption, on: w.on, off: w.off, pad: w.steerPad, left: w.left, right: w.right, up: w.up, down: w.down })

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { FADE_MS, HUB_HREF, PAUSE_COLORS, PAUSE_TEXT, TARGET_PX, brightnessOf, contrast, keyAction, nextFocus, visibilityAction, type KeyInput } from "./pause.ts"
+import { CLASSIC_HREF, FADE_MS, HUB_HREF, classicLink, PAUSE_COLORS, PAUSE_TEXT, TARGET_PX, brightnessOf, contrast, keyAction, nextFocus, visibilityAction, type KeyInput } from "./pause.ts"
 
 const key = (over: Partial<KeyInput>): KeyInput => ({ code: "", key: "", repeat: false, ctrl: false, meta: false, alt: false, typing: false, ...over })
 
@@ -70,6 +70,21 @@ test("controls are at least 44 px, the fade is short, Home goes to the hub on th
 })
 
 test("every word on the button and panel is in one table, ready for translation", () => {
-  assert.deepEqual(Object.keys(PAUSE_TEXT).sort(), ["home", "pause", "paused", "resume"])
-  for (const v of Object.values(PAUSE_TEXT)) assert.ok(v.length > 0 && v.length <= 12)
+  assert.deepEqual(Object.keys(PAUSE_TEXT).sort(), ["classic", "home", "pause", "paused", "resume"])
+  // Button words stay short; the Classic link is a full-width panel row that wraps, so it gets more room.
+  for (const [k, v] of Object.entries(PAUSE_TEXT)) assert.ok(v.length > 0 && v.length <= (k === "classic" ? 40 : 12), k)
+})
+
+test("the Classic Drift link opens ./classic/ with the panel's look and its words", () => {
+  type El = { tag: string; className: string; href: string; textContent: string; kids: El[]; appendChild: (c: El) => void }
+  const make = (tag: string): El => {
+    const e: El = { tag, className: "", href: "", textContent: "", kids: [], appendChild: (c) => { e.kids.push(c); e.textContent += c.textContent } }
+    return e
+  }
+  const a = classicLink({ createElement: make } as unknown as Document) as unknown as El
+  assert.equal(CLASSIC_HREF, "./classic/")
+  assert.equal(a.tag, "a")
+  assert.equal(a.href, CLASSIC_HREF)
+  assert.ok(a.className.includes("dp-btn"))
+  assert.equal(a.textContent, PAUSE_TEXT.classic)
 })
