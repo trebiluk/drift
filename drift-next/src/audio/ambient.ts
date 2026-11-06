@@ -148,8 +148,10 @@ export type Ambient = {
   setPaused(paused: boolean): void
   /** The tab is hidden: fade out, then let the audio sleep. */
   setHidden(hidden: boolean): void
-  /** For tests and the debug readout. */
-  state(): { on: boolean; audible: boolean; started: boolean; fade: Ramp; chord: number }
+  /** Which calm track plays (Calm is this pad). Cross-fades over FADE_S; see audio/tracks.ts. */
+  setTrack(track: string): void
+  /** For tests and the debug readout. `playing` is the track you hear (Calm if this browser can't make noise tracks). */
+  state(): { on: boolean; audible: boolean; started: boolean; fade: Ramp; chord: number; track: string; playing: string }
   dispose(): void
 }
 
@@ -157,6 +159,14 @@ export type Ambient = {
  * The engine. `make` creates the audio context; it is called once, the first time sound is turned on.
  * `seed` picks the chord walk. `now` is only for tests that drive time by hand.
  */
+/**
+ * The other tracks plug in here (audio/tracks.ts sets it), so this file needs no import from there and the two never
+ * load in a loop. `build` returns a track's own gain, already connected to `out`, or null if it can't be made here.
+ */
+export type TrackMaker = { build(c: Ctx, track: string, out: Node, seed: number): { gain: GainNode_; stop(): void } | null; level(track: string): number }
+let trackMaker: TrackMaker | null = null
+export const setTrackMaker = (m: TrackMaker) => { trackMaker = m }
+
 export function createAmbient(make: () => Ctx | null, seed: number = Date.now()): Ambient {
   let ctx: Ctx | null = null
   let fadeGain: GainNode_ | null = null
@@ -173,6 +183,33 @@ export function createAmbient(make: () => Ctx | null, seed: number = Date.now())
   let timer: ReturnType<typeof setTimeout> | null = null
   let sleepTimer: ReturnType<typeof setTimeout> | null = null
   const r = rng(seed)
+  let track = "calm"
+  let playing = "calm"
+  const graphs: Record<string, { gain: GainNode_; stop(): void }> = {}
+
+  // the cross-fade between tracks: each track's own gain ramps from where it is to its level (or 0) over FADE_S
+  const switchTo = (instant: boolean) => {
+    if (!ctx || !levelGain) return
+    const c = ctx
+    let want = track
+    if (want !== "calm" && !graphs[want]) {
+      const g = trackMaker?.build(c, want, levelGain, seed) ?? null
+      if (g) graphs[want] = g
+      else want = "calm" // this browser can't make it: stay on the pad, and say so in state()
+    }
+    playing = want
+    const t = c.currentTime
+    for (const [k, g] of Object.entries(graphs)) {
+      const to = k === want ? (trackMaker?.level(k) ?? 1) : 0
+      const p = g.gain.gain
+      p.cancelScheduledValues(t)
+      if (instant) p.setValueAtTime(to, t)
+      else {
+        p.setValueAtTime(p.value, t)
+        p.linearRampToValueAtTime(to, t + FADE_S)
+      }
+    }
+  }
 
   const wanted = () => on && !paused && !hidden
 
@@ -226,11 +263,17 @@ export function createAmbient(make: () => Ctx | null, seed: number = Date.now())
       oscs.push(a, b)
       voices.push({ a, b, amp })
     })
-    filter.connect(levelGain)
+    // the pad has its own gain too, so it can cross-fade with the other tracks
+    const padGain = c.createGain()
+    padGain.gain.setValueAtTime(1, t)
+    filter.connect(padGain)
+    padGain.connect(levelGain)
+    graphs.calm = { gain: padGain, stop: () => {} }
     levelGain.connect(fadeGain)
     fadeGain.connect(c.destination)
     for (const o of oscs) o.start(t)
     schedule()
+    if (track !== "calm") switchTo(true) // the master fade is still at 0, so no ramp is needed here
   }
 
   // the chord walk: every 18-30 s each voice glides to a note of the next chord
@@ -295,6 +338,11 @@ export function createAmbient(make: () => Ctx | null, seed: number = Date.now())
       if (!ctx || !levelGain) return
       levelGain.gain.setTargetAtTime(levelFor(speed), ctx.currentTime, LEVEL_TAU_S)
     },
+    setTrack(v) {
+      if (v === track) return
+      track = v
+      switchTo(false)
+    },
     setPaused(v) {
       paused = v
       apply()
@@ -303,7 +351,7 @@ export function createAmbient(make: () => Ctx | null, seed: number = Date.now())
       hidden = v
       apply()
     },
-    state: () => ({ on, audible: wanted() && ctx !== null, started: ctx !== null, fade: { ...fade }, chord }),
+    state: () => ({ on, audible: wanted() && ctx !== null, started: ctx !== null, fade: { ...fade }, chord, track, playing }),
     dispose() {
       if (timer) clearTimeout(timer)
       if (sleepTimer) clearTimeout(sleepTimer)
@@ -318,6 +366,8 @@ export function createAmbient(make: () => Ctx | null, seed: number = Date.now())
       }
       oscs.length = 0
       voices.length = 0
+      for (const g of Object.values(graphs)) g.stop()
+      for (const k of Object.keys(graphs)) delete graphs[k]
       if (ctx) void ctx.close().catch(() => {})
       ctx = null
     },

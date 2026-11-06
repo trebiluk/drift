@@ -10,7 +10,8 @@ const SEA_FAR_CSS = css(SEA_FAR)
 
 /**
  * The world on a Canvas 2D context: sky, a flat sea, flat cloud discs, and the haze inside a cloud.
- * This is the `still` tier, the floor every browser can draw, and the fallback if WebGL fails.
+ * This is the `still` tier, the floor every browser can draw, and the fallback if WebGL fails. Each cloud is a small
+ * cumulus (a dome and two side lobes on a shaded base), not a flat disc, so the floor still looks fluffy.
  * The brightness meter also paints it small. It draws no veil, pull marker or glider.
  */
 export function paintWorld2d(g: CanvasRenderingContext2D, v: WorldFrame) {
@@ -31,18 +32,25 @@ export function paintWorld2d(g: CanvasRenderingContext2D, v: WorldFrame) {
   g.fillRect(-big, v.horizon, v.w + big * 2, big * 2)
 
   for (const q of v.puffs) {
+    const r = q.r
     if (v.shade) {
+      // the blue-grey base: a wide, flat underside the lobes sit on
       g.globalAlpha = q.a * SHADE_ALPHA
       g.fillStyle = SHADE
       g.beginPath()
-      g.arc(q.x, q.y + q.r * 0.2, q.r, 0, Math.PI * 2)
+      g.ellipse(q.x, q.y + r * 0.3, r * 1.05, r * 0.5, 0, 0, Math.PI * 2)
       g.fill()
     }
+    // the sunlit body: one path, so overlapping lobes never double up and look brighter
     g.globalAlpha = q.a * BODY_ALPHA
     g.fillStyle = BODY
     g.beginPath()
-    g.arc(q.x, q.y, q.r * 0.92, 0, Math.PI * 2)
-    g.fill()
+    g.arc(q.x, q.y - r * 0.12, r * 0.7, 0, Math.PI * 2)
+    g.moveTo(q.x - r * 0.25 + r * 0.5, q.y + r * 0.12)
+    g.arc(q.x - r * 0.5, q.y + r * 0.12, r * 0.5, 0, Math.PI * 2)
+    g.moveTo(q.x + r * 0.5 + r * 0.5, q.y + r * 0.12)
+    g.arc(q.x + r * 0.5, q.y + r * 0.12, r * 0.5, 0, Math.PI * 2)
+    g.fill("nonzero")
   }
   g.restore()
 

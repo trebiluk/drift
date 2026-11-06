@@ -53,14 +53,16 @@ const MEASURE_IN_PAGE = async (dataUrl) => {
   const c = document.createElement("canvas"); c.width = W; c.height = H
   const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H)
   const d = g.getImageData(0, 0, W, H).data
-  const n = W * H; const mask = new Uint8Array(n); const lumas = []; let sum = 0, cloud = 0
+  const n = W * H; const half = W * Math.floor(H / 2); const mask = new Uint8Array(n); const lumas = []; let sum = 0, cloud = 0, cloudTop = 0
   for (let i = 0; i < n; i++) {
     const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2]
     const y = (0.2126 * r + 0.7152 * gg + 0.0722 * b) / 255 // sRGB-coded brightness, as Drift's guard measures it
     sum += y
     const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0
-    // cloud: light and low in colour (sky is a saturated blue, fields are coloured or dark)
-    if (y > 0.42 && sat < 0.22) { mask[i] = 1; cloud++; lumas.push(y) }
+    // cloud: light-ish and low in colour. Every Drift sky and sea colour has saturation 0.58 or more; every cloud colour,
+    // from the blue-grey base (0.41) to the sunlit top (0.12), is under 0.48. The old test (y > 0.42, sat < 0.22) only
+    // counted the white tops, so shaded clouds read as 2 to 8% when they filled far more of the frame.
+    if (y > 0.36 && sat < 0.48) { mask[i] = 1; cloud++; lumas.push(y); if (i < half) cloudTop++ }
   }
   // distinct blobs: 4-connected parts of the cloud mask bigger than 0.05% of the frame
   const seen = new Uint8Array(n); const minArea = Math.max(3, Math.round(n * 0.0005)); let blobs = 0
@@ -76,7 +78,7 @@ const MEASURE_IN_PAGE = async (dataUrl) => {
   }
   lumas.sort((a, b) => a - b)
   const pct = (p) => (lumas.length ? lumas[Math.min(lumas.length - 1, Math.floor(p * lumas.length))] : 0)
-  return { coverage: cloud / n, blobs, shadow: pct(0.9) - pct(0.1), bright: sum / n }
+  return { coverage: cloud / n, sky: half ? cloudTop / half : 0, blobs, shadow: pct(0.9) - pct(0.1), bright: sum / n }
 }
 
 async function measureFile(page, file) {
@@ -189,7 +191,7 @@ async function compare() {
 }
 
 const pc = (x) => (x * 100).toFixed(1) + "%"
-const line = (s) => `coverage ${pc(s.coverage)} · blobs ${s.blobs} · shadow ${pc(s.shadow)} · bright ${pc(s.bright)}`
+const line = (s) => `coverage ${pc(s.coverage)} · sky half ${pc(s.sky ?? 0)} · blobs ${s.blobs} · shadow ${pc(s.shadow)} · bright ${pc(s.bright)}`
 function table(r) {
   const rows = r.shots.map((s) => `${s.viewport.padEnd(9)} ${s.pose.padEnd(3)}  ${line(s)}`)
   const t = r.timing.map((x) => `${x.viewport.padEnd(9)} ${x.fps} fps · p50 ${x.p50ms} ms · p95 ${x.p95ms} ms (CPU ${r.throttle}× slower)`)

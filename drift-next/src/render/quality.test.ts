@@ -63,7 +63,7 @@ test("each tier does less than the one above: clouds, shading, speed", () => {
   assert.deepEqual(plans.map((p) => p.fps), [60, 60, 30, 30])
   assert.deepEqual(plans.map((p) => p.shade), [true, true, false, false])
   for (let i = 1; i < plans.length; i++) assert.ok(plans[i].puffs < plans[i - 1].puffs)
-  assert.equal(plans[2].puffs, 48)
+  assert.equal(plans[2].puffs, 64) // S5b: 48 left a phone sky at 9 to 14% cloud
   assert.equal(MAX_PUFFS, 140)
   assert.equal(planOf(startQuality(cros, "")).fps, 30)
 })

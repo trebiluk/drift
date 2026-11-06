@@ -1,8 +1,8 @@
 /**
  * HUD words (DRIFT-S7-HUD-PLAN step 4): every word on the flight screen in 8 languages + Simple, ready for S8.
  *
- * S8 picks the language (Hub setting, `lang` and `dir` on <html>) and the components read from here. Until then the
- * components keep their own English text, and a test checks that it matches `HUD.en` word for word.
+ * S8 (`lang.ts`) picks the language from the Hub's setting and puts these words into every HUD part before the HUD is
+ * built; `lang` and `dir` go on <html>. The parts keep English as their default, and a test checks it matches `HUD.en`.
  *
  * **Every table except English is a machine draft** (`MACHINE_DRAFT`). Dari (fa-AF), Kinyarwanda (rw) and Tigrinya (ti)
  * most need a native reader. Digits stay Western (1, 2, 3) in every language: Arabic-Indic digits are still an open
@@ -45,8 +45,20 @@ export type HudWords = {
   hint: string
   /** The hint line when "Steer with buttons" is on. */
   hintPad: string
+  watchOn: string
+  watchOff: string
+  /** The hint line while Watch is flying. */
+  hintWatch: string
+  /** The calm sound tracks (Pause panel and the Sound button). */
+  trackLabel: string
+  trackCalm: string
+  trackRain: string
+  trackOcean: string
+  trackBowls: string
   /** What a screen reader says for the picture. */
   glider: string
+  /** The line in the Pause panel under a machine-drafted language (IsoBert's words). Never shown in English. */
+  drafts: string
 }
 
 export const HUD: Record<HudLang, HudWords> = {
@@ -73,7 +85,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Nose down",
     hint: "Drag to steer, or use the arrow keys",
     hintPad: "Drag, use the arrow keys, or hold the buttons to steer",
+    watchOn: "Watch: On",
+    watchOff: "Watch: Off",
+    hintWatch: "Watch is flying. Steer any time to take over.",
+    trackLabel: "Sound track",
+    trackCalm: "Calm",
+    trackRain: "Rain",
+    trackOcean: "Ocean",
+    trackBowls: "Bowls",
     glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer.",
+    drafts: "Words in other languages are drafts. Tell your teacher if one is wrong.",
   },
   simple: {
     speed: "Speed",
@@ -98,7 +119,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Go down",
     hint: "Drag or use arrow keys to steer",
     hintPad: "Drag, arrow keys, or hold a button",
+    watchOn: "Watch: On",
+    watchOff: "Watch: Off",
+    hintWatch: "It flies by itself. Steer to take over.",
+    trackLabel: "Sound",
+    trackCalm: "Calm",
+    trackRain: "Rain",
+    trackOcean: "Sea",
+    trackBowls: "Bowls",
     glider: "A glider in the clouds. Drag or use arrow keys to steer.",
+    drafts: "Other languages may have mistakes. Tell your teacher.",
   },
   es: {
     speed: "Velocidad",
@@ -123,7 +153,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Morro abajo",
     hint: "Arrastra para dirigir o usa las flechas",
     hintPad: "Arrastra, usa las flechas o mantén pulsados los botones",
+    watchOn: "Mirar: Activado",
+    watchOff: "Mirar: Desactivado",
+    hintWatch: "Vuela solo. Dirige cuando quieras para tomar el control.",
+    trackLabel: "Pista de sonido",
+    trackCalm: "Calma",
+    trackRain: "Lluvia",
+    trackOcean: "Océano",
+    trackBowls: "Cuencos",
     glider: "Un planeador vuela entre las nubes. Arrastra o usa las flechas para dirigir.",
+    drafts: "Las palabras en otros idiomas son borradores. Avisa a tu maestro si algo está mal.",
   },
   uk: {
     speed: "Швидкість",
@@ -148,7 +187,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Ніс униз",
     hint: "Тягніть, щоб керувати, або натискайте стрілки",
     hintPad: "Тягніть, натискайте стрілки або тримайте кнопки",
+    watchOn: "Спостерігати: Увімкнено",
+    watchOff: "Спостерігати: Вимкнено",
+    hintWatch: "Летить сам. Керуйте будь-коли, щоб узяти керування.",
+    trackLabel: "Звукова доріжка",
+    trackCalm: "Спокій",
+    trackRain: "Дощ",
+    trackOcean: "Океан",
+    trackBowls: "Чаші",
     glider: "Планер летить серед хмар. Тягніть або натискайте стрілки, щоб керувати.",
+    drafts: "Переклади — чернетки. Скажи вчителю, якщо щось неправильно.",
   },
   ru: {
     speed: "Скорость",
@@ -173,7 +221,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Нос вниз",
     hint: "Тяните, чтобы управлять, или нажимайте стрелки",
     hintPad: "Тяните, нажимайте стрелки или удерживайте кнопки",
+    watchOn: "Наблюдать: Включено",
+    watchOff: "Наблюдать: Выключено",
+    hintWatch: "Летит сам. Управляйте в любой момент, чтобы взять управление.",
+    trackLabel: "Звуковая дорожка",
+    trackCalm: "Спокойствие",
+    trackRain: "Дождь",
+    trackOcean: "Океан",
+    trackBowls: "Чаши",
     glider: "Планер летит среди облаков. Тяните или нажимайте стрелки, чтобы управлять.",
+    drafts: "Переводы — черновики. Скажи учителю, если что-то не так.",
   },
   ar: {
     speed: "السرعة",
@@ -198,7 +255,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "المقدمة للأسفل",
     hint: "اسحب للتوجيه، أو استخدم مفاتيح الأسهم",
     hintPad: "اسحب، أو استخدم مفاتيح الأسهم، أو اضغط مطولًا على الأزرار",
+    watchOn: "مشاهدة: مُشغَّل",
+    watchOff: "مشاهدة: مُطفأ",
+    hintWatch: "تطير وحدها. وجّه في أي وقت لتتولى القيادة.",
+    trackLabel: "المقطع الصوتي",
+    trackCalm: "هدوء",
+    trackRain: "مطر",
+    trackOcean: "محيط",
+    trackBowls: "أوعية",
     glider: "طائرة شراعية تحلّق بين الغيوم. اسحب أو استخدم مفاتيح الأسهم للتوجيه.",
+    drafts: "الكلمات في اللغات الأخرى مسودات. أخبر معلمك إذا كان فيها خطأ.",
   },
   "fa-AF": {
     speed: "سرعت",
@@ -223,7 +289,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "دماغه پایین",
     hint: "برای رهنمایی بکشید، یا از کلیدهای تیر استفاده کنید",
     hintPad: "بکشید، از کلیدهای تیر استفاده کنید، یا دکمه‌ها را نگه دارید",
+    watchOn: "تماشا: روشن",
+    watchOff: "تماشا: خاموش",
+    hintWatch: "خودش پرواز می‌کند. هر وقت خواستید رهنمایی کنید.",
+    trackLabel: "آهنگ صدا",
+    trackCalm: "آرام",
+    trackRain: "باران",
+    trackOcean: "بحر",
+    trackBowls: "کاسه‌ها",
     glider: "یک گلایدر میان ابرها پرواز می‌کند. برای رهنمایی بکشید یا از کلیدهای تیر استفاده کنید.",
+    drafts: "کلمه‌ها در زبان‌های دیگر پیش‌نویس هستند. اگر غلط بود به معلمت بگو.",
   },
   rw: {
     speed: "Umuvuduko",
@@ -248,7 +323,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "Manuka",
     hint: "Kurura kugira ngo uyobore, cyangwa ukoreshe utubuto tw'imyambi",
     hintPad: "Kurura, koresha imyambi, cyangwa ufate utubuto",
+    watchOn: "Kureba: Birafunguye",
+    watchOff: "Kureba: Birafunze",
+    hintWatch: "Iraguruka yonyine. Yobora igihe cyose ushaka.",
+    trackLabel: "Ijwi ryumvikana",
+    trackCalm: "Ituze",
+    trackRain: "Imvura",
+    trackOcean: "Inyanja",
+    trackBowls: "Ibikombe",
     glider: "Indege itagira moteri iguruka mu bicu. Kurura cyangwa ukoreshe imyambi kugira ngo uyobore.",
+    drafts: "Amagambo mu zindi ndimi ni agateganyo. Bwira mwarimu niba hari ikosa.",
   },
   ti: {
     speed: "ፍጥነት",
@@ -273,7 +357,16 @@ export const HUD: Record<HudLang, HudWords> = {
     down: "ናብ ታሕቲ",
     hint: "ንምምራሕ ጎትት፣ ወይ ናይ ምልክት መፍትሕታት ተጠቐም",
     hintPad: "ጎትት፣ ናይ ምልክት መፍትሕታት ተጠቐም፣ ወይ መልጎማት ሓዝ",
+    watchOn: "ምርኣይ፡ ክፉት",
+    watchOff: "ምርኣይ፡ ዕጹው",
+    hintWatch: "ባዕሉ ይነፍር። ኣብ ዝኾነ ግዜ ምራሕ።",
+    trackLabel: "ድምጺ ትራክ",
+    trackCalm: "ህድኣት",
+    trackRain: "ዝናብ",
+    trackOcean: "ውቅያኖስ",
+    trackBowls: "ጽዋታት",
     glider: "ኣብ መንጎ ደበና ዝነፍር ግላይደር። ንምምራሕ ጎትት ወይ ናይ ምልክት መፍትሕታት ተጠቐም።",
+    drafts: "ቃላት ብኻልእ ቋንቋታት ረቂቕ እዮም። ጌጋ እንተሎ ንመምህርካ ንገሮ።",
   },
 }
 

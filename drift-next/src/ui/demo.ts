@@ -1,7 +1,9 @@
+import { GLIDER_HALF, gliderY, type Rect } from "./layout.ts"
 import { buildClouds } from "../sim/clouds.ts"
 import { BRIGHT_CAP, VEIL_LEVEL, createGuard, createPass, proximity, stepGuard, stepPass, SKY_DAY, type GuardOut, type PassOpts, type PassOut, type Puff } from "../sim/cloudpass.ts"
 import { advance, clamp, createSimState, layerId, WORLD_HOME, type SimState } from "../sim/craft.ts"
 import { steerFromPull } from "../input/pull.ts"
+import { createWatch, stepWatch } from "./watch.ts"
 import { browserLoopEnv, createPacer, setCeiling, startLoop } from "../loop/loop.ts"
 import { contextLost, glUnavailable, setCap } from "../render/governor.ts"
 import { createGlWorld, type GlWorld } from "../render/gl/renderer.ts"
@@ -40,6 +42,9 @@ function smooth(a: number, b: number, v: number) {
   const t = clamp((v - a) / (b - a), 0, 1)
   return t * t * (3 - 2 * t)
 }
+
+/** What a screen reader says for the picture (S8 swaps in the player's language). */
+export const DEMO_TEXT = { glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer." }
 
 /** The most the glider ever banks against the horizon, in degrees. Full steering reaches it; nothing goes past it. */
 export const BANK_MAX_DEG = 25
@@ -105,7 +110,7 @@ const HAZE_CSS = css(CLOUD_BODY) // the soft off-white the bridge lifts with: th
 const BODY_LEVEL = (0.2126 * CLOUD_BODY[0] + 0.7152 * CLOUD_BODY[1] + 0.0722 * CLOUD_BODY[2]) / 255
 
 /** What main.tsx holds on to: take the demo down, or pause and resume it. */
-export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void }
+export type DemoHandle = { stop: () => void; setPaused: (paused: boolean) => void; setCruise: (cruise: number) => void; setPad: (yaw: number, pitch: number) => void; setWatch: (on: boolean) => void; setDocks: (rects: Rect[]) => void }
 
 export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const doc = host.ownerDocument
@@ -122,7 +127,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const canvas = doc.createElement("canvas")
   Object.assign(canvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%", touchAction: "none", display: "block" })
   canvas.setAttribute("role", "img")
-  canvas.setAttribute("aria-label", "A glider flying among clouds. Drag, or use the arrow keys, to steer.")
+  canvas.setAttribute("aria-label", DEMO_TEXT.glider)
   host.appendChild(glCanvas)
   host.appendChild(canvas)
   const ctx = canvas.getContext("2d")
@@ -132,7 +137,7 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     const note = doc.createElement("p")
     note.textContent = "This device cannot draw the picture."
     host.appendChild(note)
-    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {} }
+    return { stop: () => note.remove(), setPaused: () => {}, setCruise: () => {}, setPad: () => {}, setWatch: () => {}, setDocks: () => {} }
   }
 
   const state: SimState = createSimState({ yaw: 0, pitch: 0, throttle: 0, cruise: 0.32 })
@@ -152,12 +157,16 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
   const stick: Stick = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0, mouse: true }
   const steer = { yaw: 0, pitch: 0 }
   const pad = { yaw: 0, pitch: 0 } // the steer pad (ui/steerpad.ts), when it is switched on
+  const watch = createWatch() // Watch (ui/watch.ts): the glider flies itself; any steering takes over
+  let watchOn = false
   const reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches
   // Reduced motion keeps the fade but slows it to the calm ramp, and drops the roll tilt below.
   const passOpts: PassOpts = { night: 0, calm: reduced, mist: "soft" }
   let w = 0
   let h = 0
   let dpr = 1
+  let docks: Rect[] = [] // screen boxes of the bottom docks (ui/layout.ts); the glider sits above any that cross the middle
+  let glider = { x: 0, y: 0, s: 0 } // where the glider was last drawn
   let bank: Bank = { world: 0, glider: 0, rad: 0 } // the tilt actually drawn: always 0 under reduced motion
   // The brightness guard: the meter reads the picture, the guard dims it if it is over the cap.
   const guard = createGuard()
@@ -247,7 +256,9 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     if (hold) return
     const k = keyActions(keys)
     const pull = steerFromPull(stick.active, stick.x, stick.y, stick.mouse)
-    const yawIn = clamp(k.yaw + pull.yaw + pad.yaw, -1, 1)
+    const steering = k.yaw !== 0 || k.pitch !== 0 || pull.yaw !== 0 || pull.pitch !== 0 || pad.yaw !== 0 || pad.pitch !== 0
+    const auto = watchOn ? stepWatch(watch, dt, steering, reduced) : 0
+    const yawIn = clamp(k.yaw + pull.yaw + pad.yaw + auto, -1, 1)
     const pitchIn = clamp(k.pitch + pull.pitch + pad.pitch, -1, 1)
     const pitchWant = pitchIn !== 0 ? pitchIn : levelAssist(state.craft.pitch, WORLD_HOME.sky.pitch)
     steer.yaw = approach(steer.yaw, yawIn, dt, 5.5)
@@ -305,8 +316,10 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     }
 
     const s = Math.max(24, Math.min(w, h) * 0.06)
+    // Low in the middle, but always above the docks that reach over the middle (the steer pad on an upright phone).
+    glider = { x: frame.cx, y: gliderY(h, frame.cy, s, frame.cx, docks), s }
     ctx.save()
-    ctx.translate(frame.cx, h * 0.78)
+    ctx.translate(glider.x, glider.y)
     ctx.rotate(bank.glider)
     ctx.beginPath()
     ctx.moveTo(0, -s * 1.2)
@@ -543,6 +556,8 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
       getVisible: () => order.length,
       getRoll: () => state.craft.roll,
       /** The tilt on screen: `deg` is the glider against the horizon, `world` and `glider` are what each is turned by (radians). */
+      /** Where the glider was last drawn (centre, CSS px) and its size; it never sits under a dock. */
+      getGlider: () => ({ ...glider, half: glider.s * GLIDER_HALF }),
       getBank: () => ({ deg: (bank.rad * 180) / Math.PI, world: bank.world, glider: bank.glider, max: BANK_MAX_DEG }),
       getGuard: () => ({ cap: guardCap, measured: metered, out: guardOut.out, veil: guardOut.veil, metered: metered !== null }),
       /** Which drawer made the last picture, and what it drew. */
@@ -591,5 +606,13 @@ export function mountDemo(host: HTMLElement, opts: DemoOpts): DemoHandle {
     pad.yaw = clamp(yaw, -1, 1)
     pad.pitch = clamp(pitch, -1, 1)
   }
-  return { stop, setPaused, setCruise, setPad }
+  const setWatch = (on: boolean) => {
+    if (on && !watchOn) Object.assign(watch, createWatch())
+    watchOn = on
+  }
+  // The page reports where its bottom docks are (on resize, and when the pad comes or goes); the next frame uses them.
+  const setDocks = (rects: Rect[]) => {
+    docks = rects.slice()
+  }
+  return { stop, setPaused, setCruise, setPad, setWatch, setDocks }
 }

@@ -1,3 +1,27 @@
+## 2.0.0-x
+
+The flight screen in the player's language (S8). Drift reads the language the kid already picked in the Hub (`kulibert-prefs-v1` in this browser; `?lang=` in a link wins, for teachers and tests), so every button, the hint line, the Pause panel, the sound tracks and the screen-reader text come up in English, Simple, Spanish, Ukrainian, Russian, Arabic, Dari, Kinyarwanda or Tigrinya. Arabic and Dari read right to left; the steer pad and the speed bars stay left to right, so ◀ is always on the left. Every language but English is a machine draft, and the Pause panel says so in that language. Long words wrap instead of running into each other: Watch and Pause are never wider than half the screen, and Speed is a fixed narrow dock. The Pause panel now sits above the steer pad and Speed, which used to show through it. Checked in all 9 languages at 360×640, 412×915, 915×412 and 1366×768: nothing overlaps, no button clips its words, 0 errors.
+
+## 2.0.0-w
+
+Layouts for phones and Chromebooks (S7 step 3). On an upright phone with "Steer with buttons" on, the steer pad covered the glider; now the glider sits just above whatever docks reach across the middle of the screen (the pad on a phone), and goes back to its usual low spot when the pad is off or the phone is turned sideways. It never goes above the horizon line. Tab now follows the screen: Watch, Pause, Sound, then the steer pad and Speed. The version tag is a dark plate like the rest of the HUD instead of a white patch on the sky. Checked at 412×915, 360×640, 915×412, 1024×768 and 1366×768: nothing overlaps, nothing is off screen, 0 errors.
+
+## 2.0.0-v
+
+Calm sound tracks, for relaxing or studying, as in 1.12.4: **Calm** (the soft pad), **Rain**, **Ocean** and **Bowls**. All four are made in the browser (no recordings to license or download). Rain is soft filtered noise; Ocean is deep noise that swells like slow waves; Bowls are rubbed singing bowls that swell in over 2.5 s, never struck, every 14 to 22 s. Pick one in the Pause panel ("Sound track: Rain"); switching cross-fades over 2.5 s. While sound is on, the Sound button names the track in words ("Sound: On · Rain"), so nothing is only heard. Choosing a track never turns sound on: Sound is still Off on a first visit, and pausing or hiding the tab fades every track out. Words in all 9 tables (drafts).
+
+## 2.0.0-u
+
+Watch: a hands-free glide for relaxing or studying, as in 1.12.4. A "Watch: Off" button at the top left (48 px, an eye icon and words; On also shows a border). Turned on, the glider flies itself in slow, lazy turns left and right through the clouds, with the nose held level. Steering in any way (keys, drag or the steer pad) takes over at once; 2.5 s after you let go, Watch eases back in over 3 s, so the picture never jerks. Speed works as normal. The hint line says "Watch is flying. Steer any time to take over." Gentler turns with reduced motion. Off on a first visit, remembered in this browser. Its words are in all 9 tables (machine drafts).
+
+## 2.0.0-t
+
+More clouds to steer through. Clouds are bigger and fuller (radius 32 to 192, from 18 to 120), and a little more of the field sits near you, so there is always cloud beside you with blue gaps between. The two cheapest tiers draw more of them (Lite 48 → 64, the 2D floor 24 → 36), so a Chromebook sky isn't empty. Measured cloud in the top half of the frame: about 50 to 55% on the best tiers at 1366, 35% on Lite, 27% on the 2D floor; on a phone 29 to 31%, 20% and 13%. Frame rate with the CPU 4× slower is unchanged (2D floor 60 fps; Lite 22 → 24 fps on a software GPU). Brightness stays at 45 to 52%, under the 58% cap. Tooling: the look-lock harness now counts shaded and soft-edged cloud as cloud (it only counted white tops, so it under-read every build), and reports the sky half too.
+
+## 2.0.0-s
+
+A deep blue sky with fluffy white clouds (Diego: "the main core is the fluffy clouds with the deep blue sky"). The sky is a richer, deeper blue overhead and a clear blue at the horizon. Every cloud has a sunlit top and a soft blue-grey base, on every tier: the two cheapest tiers, which drew flat discs, now draw small cumulus shapes (a dome and two side bumps on a flatter base). No cloud pixel got brighter. The deeper sky makes the clouds look whiter, and the picture's average brightness went down (about 52% to 48% on the best tier, 51% to 46% on the 2D floor; Diego's cap is 58%).
+
 ## 2.0.0-r
 
 Every word on the flight screen is ready in 8 languages and Simple (English, Simple, Spanish, Ukrainian, Russian, Arabic, Dari, Kinyarwanda, Tigrinya), in one table (`src/i18n/hud.ts`) for the language stage (S8) to switch on. All but English are machine drafts waiting for a native reader; Arabic and Dari are marked right to left; digits stay 1, 2, 3 until Diego picks. Kids see one change today: with "Steer with buttons" on, the hint line says "Drag, use the arrow keys, or hold the buttons to steer".

@@ -12,7 +12,7 @@ export type DrawPlan = {
 }
 
 // `still` has no GL puffs in the tier table; here it draws a few flat discs so the game is still a game.
-const STILL_PUFFS = 24
+const STILL_PUFFS = 36
 
 export function drawPlan(tier: Tier, scale: number): DrawPlan {
   const spec = TIER_TABLE[tier]

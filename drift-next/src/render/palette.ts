@@ -8,16 +8,18 @@ export type RGB = readonly [number, number, number]
 export const luma = (c: RGB) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255
 export const css = (c: RGB) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`
 
-// Deep blue overhead, a little paler at the horizon, no pale band under it.
-export const SKY_TOP: RGB = [36, 88, 152]
-export const SKY_HORIZON: RGB = [104, 160, 210]
-export const SEA_HORIZON: RGB = [92, 146, 198]
-export const SEA_FAR: RGB = [56, 100, 152]
+// Deep blue overhead (Diego, Nov 5: "the main core is the fluffy clouds with the deep blue sky"), a clear mid-blue at the
+// horizon, no pale band under it. A deeper sky also lowers the picture's average brightness, so the clouds read whiter
+// against it without any cloud pixel getting brighter.
+export const SKY_TOP: RGB = [18, 58, 150]
+export const SKY_HORIZON: RGB = [92, 150, 218]
+export const SEA_HORIZON: RGB = [84, 138, 206]
+export const SEA_FAR: RGB = [30, 72, 146]
 
 /** Off-white, never pure white: no channel passes 236 and the brightness stays under 0.86. */
 export const CLOUD_BODY: RGB = [208, 220, 236]
 /** The soft blue-grey underside that gives a puff its volume. */
-export const CLOUD_SHADE: RGB = [100, 126, 166]
+export const CLOUD_SHADE: RGB = [92, 112, 156]
 export const BODY_ALPHA = 0.9
 export const SHADE_ALPHA = 0.5
 

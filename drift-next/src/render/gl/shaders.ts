@@ -182,8 +182,13 @@ void main() {
   float seed = vInfo.y;
   vec2 p = vLocal;
 #if CLOUD == 1
-  float cover = 1.0 - smoothstep(0.74, 1.02, length(p));
-  o = vec4(BODY, a * BODY_ALPHA * cover);
+  // the cheapest cloud is still a cumulus: a dome and two side bumps on a flatter base, a sunny top, a blue-grey underside
+  float d = min(length(p - vec2(0.0, -0.1)) / 0.7, min(length(p - vec2(-0.46, 0.14)) / 0.52, length(p - vec2(0.46, 0.14)) / 0.52));
+  d = max(d, (p.y - 0.6) * 3.0 + 1.0);
+  float cover = 1.0 - smoothstep(0.82, 1.04, d);
+  vec3 col = mix(BODY, SHADE, 0.5 * smoothstep(-0.25, 0.6, p.y));
+  col = min(col, BODY);
+  o = vec4(col, a * BODY_ALPHA * cover);
 #else
   // the cloud's edge is its nearest lobe; its surface tilt blends the lobes, so no hard seams show where they meet
   float best = 1.0e9;
@@ -207,8 +212,9 @@ void main() {
   float cover = 1.0 - smoothstep(-0.04, 0.07, best);
   vec3 n = vec3(bq, sqrt(max(0.0, 1.0 - dot(bq, bq))));
   float lit = clamp(dot(n, normalize(vec3(-0.35, -0.65, 0.68))) * 0.5 + 0.5, 0.0, 1.0);
-  vec3 col = mix(SHADE, BODY, 0.32 + 0.68 * lit);
-  col = mix(col, SHADE, 0.3 * smoothstep(0.05, 0.75, p.y));
+  // bright, sunlit tops and a soft blue-grey base: the "fluffy" read comes from this contrast, not from brighter white
+  vec3 col = mix(SHADE, BODY, 0.18 + 0.82 * smoothstep(0.12, 0.78, lit));
+  col = mix(col, SHADE, 0.42 * smoothstep(0.0, 0.7, p.y));
 #if CLOUD == 3
   float rim = (1.0 - n.z) * max(dot(normalize(bq + vec2(1.0e-4)), vec2(-0.5, -0.85)), 0.0);
   col += (BODY - col) * (rim * 0.7);

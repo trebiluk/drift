@@ -9,7 +9,7 @@
 import type { Ambient } from "../audio/ambient.ts"
 
 export const SOUND_KEY = "drift.sound"
-export const SOUND_TEXT = { off: "Sound: Off", on: "Sound: On" } as const
+export const SOUND_TEXT = { off: "Sound: Off", on: "Sound: On", tap: "Tap to start sound" }
 export const TARGET_PX = 48
 
 export type SoundKey = { code: string; key: string; repeat: boolean; ctrl: boolean; meta: boolean; alt: boolean; typing: boolean }
@@ -49,7 +49,7 @@ export const SOUND_CSS = `
 .ds-sound{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + ${TARGET_PX}px + 8px);right:max(12px,env(safe-area-inset-right));z-index:20;
   display:inline-flex;align-items:center;gap:8px;min-height:${TARGET_PX}px;min-width:${TARGET_PX}px;padding:0 16px;margin:0;
   border:0;border-radius:12px;background:rgba(8,16,30,.82);color:#f2f6fb;font:600 16px/1.2 system-ui,sans-serif;
-  cursor:pointer;touch-action:manipulation;white-space:nowrap;box-sizing:border-box}
+  cursor:pointer;touch-action:manipulation;box-sizing:border-box;max-width:calc(100vw - 24px)}
 .ds-sound:focus{outline:none}
 .ds-sound:focus-visible{outline:3px solid #f2f6fb;outline-offset:2px;box-shadow:0 0 0 6px rgba(8,16,30,.9)}
 .ds-sound-hint{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + ${TARGET_PX * 2}px + 16px);right:max(12px,env(safe-area-inset-right));z-index:19;
@@ -62,7 +62,7 @@ export const SOUND_CSS = `
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select") !== null)
 
-export type SoundUi = { toggle: () => void; isOn: () => boolean; unmount: () => void }
+export type SoundUi = { toggle: () => void; isOn: () => boolean; unmount: () => void; /** Names the calm track on the button while sound is on ("Sound: On · Rain"), so it is never only heard. */ setTrackWord: (word: string) => void }
 
 export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient, store: Store): SoundUi {
   const win = doc.defaultView ?? window
@@ -79,14 +79,16 @@ export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient,
   const hint = doc.createElement("div")
   hint.className = "ds-sound-hint"
   hint.setAttribute("role", "status")
-  hint.innerHTML = `${ICON_ON}<span>Tap to start sound</span>`
+  hint.innerHTML = `${ICON_ON}<span>${SOUND_TEXT.tap}</span>`
   hint.hidden = true
   parent.appendChild(hint)
 
+  let trackWord = ""
   const show = () => {
-    button.innerHTML = `${on ? ICON_ON : ICON_OFF}<span>${labelFor(on)}</span>`
+    const label = on && trackWord ? `${labelFor(on)} · ${trackWord}` : labelFor(on)
+    button.innerHTML = `${on ? ICON_ON : ICON_OFF}<span>${label}</span>`
     button.setAttribute("aria-pressed", on ? "true" : "false")
-    button.setAttribute("aria-label", labelFor(on))
+    button.setAttribute("aria-label", label)
     hint.hidden = !waiting
   }
   let waiting = on
@@ -133,6 +135,10 @@ export function mountSound(doc: Document, parent: HTMLElement, ambient: Ambient,
   return {
     toggle,
     isOn: () => on,
+    setTrackWord: (word: string) => {
+      trackWord = word
+      show()
+    },
     unmount: () => {
       removeGesture()
       button.removeEventListener("click", onClick)

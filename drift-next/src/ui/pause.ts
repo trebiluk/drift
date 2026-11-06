@@ -25,7 +25,8 @@ export const PAUSE_COLORS = {
 } as const
 
 /** Every word the player sees, in one place for the translation pass (S8). */
-export const PAUSE_TEXT = { pause: "Pause", paused: "Paused", resume: "Resume", home: "Home" } as const
+/** Every word the player sees. English here; S8 (i18n/lang.ts) swaps in the player's language before the HUD is built. */
+export const PAUSE_TEXT = { pause: "Pause", paused: "Paused", resume: "Resume", home: "Home" }
 
 export type KeyInput = {
   code: string
@@ -87,6 +88,8 @@ export type PauseOpts = {
   homeHref?: string
   /** More buttons for the panel, shown between Resume and Home (the steer pad switch). */
   extra?: HTMLElement[]
+  /** A short line at the foot of the panel (S8: "these words are machine drafts"). Not shown when empty. */
+  note?: string
 }
 
 export type PauseUi = {
@@ -104,10 +107,11 @@ const CSS = `
 .dp-pause{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:20;
   display:inline-flex;align-items:center;gap:8px;min-height:${TARGET_PX}px;min-width:${TARGET_PX}px;padding:0 16px;margin:0;
   border:0;border-radius:12px;background:${PAUSE_COLORS.plate};color:${PAUSE_COLORS.plateInk};font:600 16px/1.2 system-ui,sans-serif;
-  cursor:pointer;touch-action:manipulation}
+  cursor:pointer;touch-action:manipulation;box-sizing:border-box;max-width:calc(50vw - 20px)}
 .dp-pause:focus-visible{outline:3px solid ${PAUSE_COLORS.plateInk};outline-offset:2px;box-shadow:0 0 0 6px rgba(8,16,30,.9)}
 .dp-pause[hidden]{display:none}
-.dp-back{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:16px;
+.dp-pause svg,.ds-watch svg,.ds-sound svg,.ds-speed svg,.dp-btn svg{flex:none}
+.dp-back{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:16px;
   background:transparent;opacity:0;transition:opacity ${FADE_MS}ms ease}
 .dp-back[hidden]{display:none}
 .dp-back.dp-quiet{transition:none}
@@ -118,6 +122,7 @@ const CSS = `
   margin:0;padding:0 16px;border:2px solid ${PAUSE_COLORS.ink};border-radius:12px;background:${PAUSE_COLORS.panel};
   color:${PAUSE_COLORS.ink};font:700 18px/1.2 system-ui,sans-serif;text-decoration:none;cursor:pointer;touch-action:manipulation}
 .dp-btn.dp-primary{background:${PAUSE_COLORS.primary}}
+.dp-note{margin:4px 0 0;font:500 14px/1.35 system-ui,sans-serif;color:${PAUSE_COLORS.ink}}
 .dp-btn:focus-visible{outline:3px solid ${PAUSE_COLORS.ink};outline-offset:3px}
 @media (prefers-reduced-motion: reduce){.dp-back{transition:none}}
 `
@@ -160,6 +165,12 @@ export function mountPause(doc: Document, parent: HTMLElement, opts: PauseOpts):
   home.href = opts.homeHref ?? HUB_HREF
   home.innerHTML = `${ICON_HOME}<span>${PAUSE_TEXT.home}</span>`
   panel.append(title, resumeBtn, ...(opts.extra ?? []), home)
+  if (opts.note) {
+    const note = doc.createElement("p")
+    note.className = "dp-note"
+    note.textContent = opts.note
+    panel.appendChild(note)
+  }
   back.appendChild(panel)
   parent.append(button, back)
 
