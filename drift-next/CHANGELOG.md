@@ -1,3 +1,7 @@
+## 2.0.0-y
+
+Ready to be the Hub's Drift door (Diego, Nov 6: "Put Drift 2 live"). Drift 1.12.5 moves to `/drift/classic/` on the Hub, so nothing a kid had is lost: the Pause panel now has a **Classic Drift: space and reef** link (same 48 px plate as Home; words in all 9 tables, drafts) that opens it. Drift 2 still has only the cloud sky; night, space and reef come later by DRIFT-2-DIRECTION.
+
 ## 2.0.0-x
 
 The flight screen in the player's language (S8). Drift reads the language the kid already picked in the Hub (`kulibert-prefs-v1` in this browser; `?lang=` in a link wins, for teachers and tests), so every button, the hint line, the Pause panel, the sound tracks and the screen-reader text come up in English, Simple, Spanish, Ukrainian, Russian, Arabic, Dari, Kinyarwanda or Tigrinya. Arabic and Dari read right to left; the steer pad and the speed bars stay left to right, so ◀ is always on the left. Every language but English is a machine draft, and the Pause panel says so in that language. Long words wrap instead of running into each other: Watch and Pause are never wider than half the screen, and Speed is a fixed narrow dock. The Pause panel now sits above the steer pad and Speed, which used to show through it. Checked in all 9 languages at 360×640, 412×915, 915×412 and 1366×768: nothing overlaps, no button clips its words, 0 errors.

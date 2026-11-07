@@ -59,6 +59,8 @@ export type HudWords = {
   glider: string
   /** The line in the Pause panel under a machine-drafted language (IsoBert's words). Never shown in English. */
   drafts: string
+  /** Pause-panel link to Drift 1.12.5 at ./classic/ (space, reef and the rest Drift 2 doesn't have yet). */
+  classic: string
 }
 
 export const HUD: Record<HudLang, HudWords> = {
@@ -95,6 +97,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "Bowls",
     glider: "A glider flying among clouds. Drag, or use the arrow keys, to steer.",
     drafts: "Words in other languages are drafts. Tell your teacher if one is wrong.",
+    classic: "Classic Drift: space and reef",
   },
   simple: {
     speed: "Speed",
@@ -129,6 +132,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "Bowls",
     glider: "A glider in the clouds. Drag or use arrow keys to steer.",
     drafts: "Other languages may have mistakes. Tell your teacher.",
+    classic: "Old Drift: space and sea",
   },
   es: {
     speed: "Velocidad",
@@ -163,6 +167,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "Cuencos",
     glider: "Un planeador vuela entre las nubes. Arrastra o usa las flechas para dirigir.",
     drafts: "Las palabras en otros idiomas son borradores. Avisa a tu maestro si algo está mal.",
+    classic: "Drift clásico: espacio y arrecife",
   },
   uk: {
     speed: "Швидкість",
@@ -197,6 +202,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "Чаші",
     glider: "Планер летить серед хмар. Тягніть або натискайте стрілки, щоб керувати.",
     drafts: "Переклади — чернетки. Скажи вчителю, якщо щось неправильно.",
+    classic: "Класичний Drift: космос і риф",
   },
   ru: {
     speed: "Скорость",
@@ -231,6 +237,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "Чаши",
     glider: "Планер летит среди облаков. Тяните или нажимайте стрелки, чтобы управлять.",
     drafts: "Переводы — черновики. Скажи учителю, если что-то не так.",
+    classic: "Классический Drift: космос и риф",
   },
   ar: {
     speed: "السرعة",
@@ -265,6 +272,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "أوعية",
     glider: "طائرة شراعية تحلّق بين الغيوم. اسحب أو استخدم مفاتيح الأسهم للتوجيه.",
     drafts: "الكلمات في اللغات الأخرى مسودات. أخبر معلمك إذا كان فيها خطأ.",
+    classic: "Drift الكلاسيكي: الفضاء والشعاب",
   },
   "fa-AF": {
     speed: "سرعت",
@@ -299,6 +307,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "کاسه‌ها",
     glider: "یک گلایدر میان ابرها پرواز می‌کند. برای رهنمایی بکشید یا از کلیدهای تیر استفاده کنید.",
     drafts: "کلمه‌ها در زبان‌های دیگر پیش‌نویس هستند. اگر غلط بود به معلمت بگو.",
+    classic: "Drift قدیمی: فضا و صخره مرجانی",
   },
   rw: {
     speed: "Umuvuduko",
@@ -333,6 +342,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "Ibikombe",
     glider: "Indege itagira moteri iguruka mu bicu. Kurura cyangwa ukoreshe imyambi kugira ngo uyobore.",
     drafts: "Amagambo mu zindi ndimi ni agateganyo. Bwira mwarimu niba hari ikosa.",
+    classic: "Drift ya kera: isanzure n'inyanja",
   },
   ti: {
     speed: "ፍጥነት",
@@ -367,6 +377,7 @@ export const HUD: Record<HudLang, HudWords> = {
     trackBowls: "ጽዋታት",
     glider: "ኣብ መንጎ ደበና ዝነፍር ግላይደር። ንምምራሕ ጎትት ወይ ናይ ምልክት መፍትሕታት ተጠቐም።",
     drafts: "ቃላት ብኻልእ ቋንቋታት ረቂቕ እዮም። ጌጋ እንተሎ ንመምህርካ ንገሮ።",
+    classic: "ቀዳማይ Drift: ጠፈርን ባሕርን",
   },
 }
 
