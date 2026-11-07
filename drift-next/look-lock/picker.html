@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
+<title>Drift look lock: picker</title>
+<!--
+  S0a, the picker (docs/crew/DRIFT-LOOK-LOCK-REFS.md §3). Diego keeps 3 or 4 cloud reference images.
+  Images are chosen from the device and never leave it: no network, nothing uploaded.
+  Export downloads refs.json ({file, decision, note} per image, no names), which look-lock.mjs --compare reads.
+-->
+<style>
+  :root { --bg: #15181d; --panel: #1f242b; --line: #3a424d; --ink: #e7e3da; --quiet: #a9b0ba; --accent: #e8a35c; --keep: #8cc79a; --skip: #d99a8c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, "Segoe UI", sans-serif; }
+  body { min-height: 100vh; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; }
+  h1 { margin: 0; font-size: 20px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button, label.file { min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+  button[aria-pressed="true"] { border: 3px solid var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  label.file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .stage { flex: 1; min-height: 240px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+  .stage.compare { grid-template-columns: 1fr 1fr; }
+  figure { margin: 0; background: #0f1114; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; }
+  figure img { flex: 1; min-height: 0; width: 100%; height: 100%; max-height: calc(100vh - 330px); object-fit: contain; display: block; }
+  figcaption { padding: 6px 10px; font-size: 14px; color: var(--quiet); }
+  .ph { flex: 1; display: grid; place-items: center; color: var(--quiet); padding: 20px; text-align: center; }
+  .strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .thumb { flex: 0 0 auto; width: 112px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); padding: 4px; text-align: center; font-size: 13px; }
+  .thumb[aria-current="true"] { border: 4px solid var(--accent); }
+  .thumb img { width: 100%; height: 56px; object-fit: cover; display: block; border-radius: 4px; }
+  .tag { display: block; margin-top: 2px; font-weight: 700; }
+  .status { min-height: 24px; color: var(--quiet); }
+  .status.warn { color: var(--skip); }
+  input[type="text"] { min-height: 44px; flex: 1 1 220px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 0 10px; font: inherit; }
+  .count { font-weight: 700; }
+  @media (max-width: 700px) { .stage.compare { grid-template-columns: 1fr; } figure img { max-height: 45vh; } }
+</style>
+</head>
+<body>
+  <h1>Drift look lock: pick 3 or 4 cloud references</h1>
+  <p class="status" style="margin:0">The images stay on this device. Nothing is uploaded.</p>
+
+  <div class="bar">
+    <label class="file">📂 Choose images<input id="files" type="file" accept="image/*" multiple /></label>
+    <label class="file">🎮 Game frames (optional)<input id="frames" type="file" accept="image/png,image/*" multiple /></label>
+    <button id="compare" type="button" aria-pressed="false">⇆ Compare with the game</button>
+    <button id="export" type="button">⬇ Export refs.json</button>
+    <button id="clear" type="button">✕ Clear picks</button>
+  </div>
+
+  <div class="bar">
+    <button id="prev" type="button" aria-keyshortcuts="ArrowLeft">◀ Previous</button>
+    <span id="pos" class="count" aria-live="polite">No images yet</span>
+    <button id="next" type="button" aria-keyshortcuts="ArrowRight">Next ▶</button>
+    <span id="kept" class="count"></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <figure><div class="ph" id="ph">Choose the 12 images from the sheet to start.</div><img id="img" alt="" hidden /><figcaption id="cap"></figcaption></figure>
+    <figure id="gamefig" hidden><div class="ph" id="gph">Choose game frames (from look-lock.mjs) to compare. Until then, this side stays empty.</div><img id="gimg" alt="" hidden /><figcaption id="gcap"></figcaption></figure>
+  </div>
+
+  <div class="bar">
+    <button id="keep" type="button" aria-keyshortcuts="K">✓ Keep <small>(K)</small></button>
+    <button id="maybe" type="button" aria-keyshortcuts="M">? Maybe <small>(M)</small></button>
+    <button id="skip" type="button" aria-keyshortcuts="S">✕ Skip <small>(S)</small></button>
+    <label for="note" class="status" style="margin:0">Note</label>
+    <input id="note" type="text" maxlength="80" placeholder="For example: good gaps (80 characters, no names)" />
+  </div>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <div class="strip" id="strip" role="list" aria-label="All images"></div>
+
+<script>
+(() => {
+  'use strict'
+  const $ = (id) => document.getElementById(id)
+  const KEY = 'drift-look-lock-picks'
+  const MARK = { keep: '✓ Keep', maybe: '? Maybe', skip: '✕ Skip', '': '○ Not yet' }
+  let items = [] // { file, url, decision, note, bright }
+  let frames = [] // { file, url }
+  let i = 0
+  let saved = {}
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {} } catch (e) { saved = {} }
+  const persist = () => { try { const o = {}; for (const it of items) o[it.file] = { decision: it.decision, note: it.note }; localStorage.setItem(KEY, JSON.stringify(o)) } catch (e) {} }
+  const say = (m, warn) => { $('status').textContent = m; $('status').className = 'status' + (warn ? ' warn' : '') }
+  const keeps = () => items.filter((x) => x.decision === 'keep').length
+
+  // Mean brightness, the same measure as Drift's guard and look-lock.mjs (sRGB-coded, 0.2126 / 0.7152 / 0.0722).
+  function brightness(url) {
+    return new Promise((done) => {
+      const im = new Image()
+      im.onload = () => { const W = 240, H = Math.max(1, Math.round(im.height / im.width * W)); const c = document.createElement('canvas'); c.width = W; c.height = H
+        const g = c.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data; let s = 0
+        for (let k = 0; k < d.length; k += 4) s += 0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2]
+        done(s / (255 * W * H)) }
+      im.onerror = () => done(null); im.src = url
+    })
+  }
+  const pct = (x) => (x == null ? '—' : Math.round(x * 100) + '%')
+
+  function show() {
+    const n = items.length
+    $('prev').disabled = $('next').disabled = n < 2
+    for (const id of ['keep', 'maybe', 'skip', 'note']) $(id).disabled = !n
+    $('kept').textContent = n ? (keeps() >= 4 ? 'Kept 4 of 4, full' : 'Kept ' + keeps() + ' of 3 to 4') : ''
+    if (!n) { $('pos').textContent = 'No images yet'; return }
+    const it = items[i]
+    $('pos').textContent = 'Image ' + (i + 1) + ' of ' + n
+    $('img').src = it.url; $('img').alt = 'Reference image ' + (i + 1) + ': ' + it.file; $('img').hidden = false; $('ph').hidden = true
+    $('cap').textContent = it.file + ' · ' + MARK[it.decision || ''] + ' · average brightness ' + pct(it.bright)
+    for (const id of ['keep', 'maybe', 'skip']) $(id).setAttribute('aria-pressed', String(it.decision === id))
+    $('note').value = it.note || ''
+    // game side: the frame with the same index, or the first one
+    if (!$('gamefig').hidden && frames.length) { const f = frames[Math.min(i, frames.length - 1)]; $('gimg').src = f.url; $('gimg').alt = 'Game frame: ' + f.file; $('gimg').hidden = false; $('gph').hidden = true; $('gcap').textContent = f.file + ' · average brightness ' + pct(f.bright) }
+    const strip = $('strip'); strip.innerHTML = ''
+    items.forEach((x, k) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'thumb'; b.setAttribute('role', 'listitem')
+      if (k === i) b.setAttribute('aria-current', 'true')
+      b.innerHTML = '<img alt="" src="' + x.url + '"><span class="tag">' + (k === i ? 'Current · ' : '') + (k + 1) + '</span><span>' + MARK[x.decision || ''] + '</span>'
+      b.setAttribute('aria-label', 'Image ' + (k + 1) + ', ' + MARK[x.decision || ''].slice(2) + (k === i ? ', current' : ''))
+      b.onclick = () => { i = k; show() }
+      strip.appendChild(b)
+    })
+    const cur = strip.children[i]; if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }
+
+  function decide(d) {
+    if (!items.length) return
+    const it = items[i]
+    if (d === 'keep' && it.decision !== 'keep' && keeps() >= 4) { say('4 of 4 already kept. Change one to Maybe or Skip first.', true); return }
+    it.decision = it.decision === d ? '' : d
+    persist(); say('Image ' + (i + 1) + ': ' + MARK[it.decision || ''].slice(2)); show()
+  }
+  const go = (k) => { if (!items.length) return; i = (k + items.length) % items.length; show() }
+
+  $('files').onchange = async (e) => {
+    const list = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    for (const it of items) URL.revokeObjectURL(it.url)
+    items = list.map((f) => ({ file: f.name, url: URL.createObjectURL(f), decision: (saved[f.name] || {}).decision || '', note: (saved[f.name] || {}).note || '', bright: null }))
+    i = 0; show(); say(items.length + ' images loaded. Keep 3 or 4.')
+    for (const it of items) { it.bright = await brightness(it.url) } show()
+  }
+  $('frames').onchange = async (e) => {
+    frames = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name)).map((f) => ({ file: f.name, url: URL.createObjectURL(f), bright: null }))
+    for (const f of frames) f.bright = await brightness(f.url)
+    $('gamefig').hidden = false; $('stage').classList.add('compare'); $('compare').setAttribute('aria-pressed', 'true'); show(); say(frames.length + ' game frames loaded.')
+  }
+  $('compare').onclick = () => { const on = $('gamefig').hidden; $('gamefig').hidden = !on; $('stage').classList.toggle('compare', on); $('compare').setAttribute('aria-pressed', String(on)); show() }
+  $('prev').onclick = () => go(i - 1); $('next').onclick = () => go(i + 1)
+  $('keep').onclick = () => decide('keep'); $('maybe').onclick = () => decide('maybe'); $('skip').onclick = () => decide('skip')
+  $('note').oninput = () => { if (!items.length) return; items[i].note = $('note').value.slice(0, 80); persist() }
+  $('clear').onclick = () => { for (const it of items) { it.decision = ''; it.note = '' } persist(); show(); say('Picks cleared.') }
+  $('export').onclick = () => {
+    const k = keeps()
+    if (k < 3 || k > 4) { say('Pick 3 or 4 to keep before exporting (now ' + k + ').', true); return }
+    const out = items.map((x) => ({ file: x.file, decision: x.decision || 'none', note: (x.note || '').slice(0, 80) }))
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type: 'application/json' })); a.download = 'refs.json'
+    document.body.appendChild(a); a.click(); a.remove(); say('refs.json downloaded with ' + k + ' kept. Put it beside the images in shared/drift/visual-eval/refs/.')
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' && e.target.type === 'text') return
+    const k = e.key
+    if (k === 'ArrowLeft') { e.preventDefault(); go(i - 1) } else if (k === 'ArrowRight') { e.preventDefault(); go(i + 1) }
+    else if (k === 'Home') { e.preventDefault(); go(0) } else if (k === 'End') { e.preventDefault(); go(items.length - 1) }
+    else if (k === 'k' || k === 'K') decide('keep'); else if (k === 'm' || k === 'M') decide('maybe'); else if (k === 's' || k === 'S') decide('skip')
+  })
+  show()
+})()
+</script>
+</body>
+</html>

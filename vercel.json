@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd drift-next && npm install && npm run build",
+  "outputDirectory": "drift-next/dist",
+  "installCommand": "echo skip"
+}
